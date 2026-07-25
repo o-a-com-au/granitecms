@@ -63,6 +63,7 @@ export default tseslint.config(
       'src/renderer/render-page.ts',
       'src/services/redirects.ts',
       'src/services/move.ts',
+      'src/services/resolve-url.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },
