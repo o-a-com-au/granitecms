@@ -1,0 +1,5 @@
+{
+  "id": "sec-1",
+  "type": "hero",
+  "settings": { "heading": "Welcome", "columns": 2 }
+}
