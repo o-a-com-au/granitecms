@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
-import { runMigrations } from '../../src/services/migration-runner.ts';
+import { MigrationError, runMigrations } from '../../src/services/migration-runner.ts';
 import type { MigrationMap } from '../../src/services/migration-runner.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 import { createTmpSiteRoot, writeAndCommit, writeJson } from '../helpers/tmp-site.ts';
@@ -113,6 +113,91 @@ test('F3: a file already at current version is untouched (byte-identical)', asyn
 
     const after = readFileSync(join(config.pagesRoot, 'about.json'), 'utf-8');
     assert.equal(after, raw);
+  } finally {
+    cleanup();
+  }
+});
+
+test('F2: migrations apply in order for a multi-step chain', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    // Each step's transform depends on the previous step having already
+    // run (appending to title), so the final result only makes sense if
+    // both steps ran in the correct sequence, not just that "some
+    // migration" happened. Uses already-schema-allowed fields
+    // (title/schemaVersion) rather than a synthetic marker field, since
+    // page.schema.json has additionalProperties: false and the runner
+    // validates migrated content before writing it.
+    const orderedMigrations: MigrationMap = {
+      1: (content) => ({ ...content, schemaVersion: 2, title: `${content.title as string}-step2` }),
+      2: (content) => ({ ...content, schemaVersion: 3, title: `${content.title as string}-step3` }),
+    };
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page(1, 'Original')));
+    const config = loadSiteConfig(siteRoot);
+
+    await runMigrations(config, themeSchemas, orderedMigrations, 3, author);
+
+    const migrated = JSON.parse(readFileSync(join(config.pagesRoot, 'about.json'), 'utf-8')) as {
+      schemaVersion: number;
+      title: string;
+    };
+    assert.equal(migrated.schemaVersion, 3);
+    assert.equal(migrated.title, 'Original-step2-step3');
+  } finally {
+    cleanup();
+  }
+});
+
+test('F2: a migration function does not mutate its input and produces the same output when run twice', () => {
+  const migrate = (content: Record<string, unknown>): Record<string, unknown> => ({
+    ...content,
+    schemaVersion: 2,
+  });
+  const input = Object.freeze({ schemaVersion: 1, title: 'X', published: true, sections: [] });
+
+  const first = migrate(input);
+  const second = migrate(input);
+
+  assert.deepEqual(first, second);
+  // The frozen input itself must be untouched: a migration wrongly
+  // written as in-place mutation (content.schemaVersion = 2; return
+  // content) would throw a TypeError against a frozen object in strict
+  // mode before this assertion is even reached.
+  assert.deepEqual(input, { schemaVersion: 1, title: 'X', published: true, sections: [] });
+});
+
+test('F2 (error path): the runner throws migration-failed when no migration is registered for an intermediate version', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page(1, 'About')));
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+
+    await assert.rejects(
+      runMigrations(config, themeSchemas, {}, 2, author),
+      (error: unknown) => error instanceof MigrationError && error.reason === 'migration-failed',
+    );
+
+    assert.equal(commitCount(siteRoot), before);
+  } finally {
+    cleanup();
+  }
+});
+
+test('F2 (error path): the runner throws migration-failed when a migration fails to advance the schemaVersion', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page(1, 'About')));
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+    const stuckMigration: MigrationMap = { 1: (content) => ({ ...content, schemaVersion: 1 }) };
+
+    await assert.rejects(
+      runMigrations(config, themeSchemas, stuckMigration, 2, author),
+      (error: unknown) => error instanceof MigrationError && error.reason === 'migration-failed',
+    );
+
+    assert.equal(commitCount(siteRoot), before);
   } finally {
     cleanup();
   }
