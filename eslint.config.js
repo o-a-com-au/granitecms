@@ -58,6 +58,7 @@ export default tseslint.config(
       'src/services/startup-checks.ts',
       'src/services/validation.ts',
       'src/services/drafts.ts',
+      'src/services/publish.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },
