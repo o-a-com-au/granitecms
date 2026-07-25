@@ -60,6 +60,7 @@ export default tseslint.config(
       'src/services/drafts.ts',
       'src/services/publish.ts',
       'src/renderer/theme-templates.ts',
+      'src/renderer/render-page.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },

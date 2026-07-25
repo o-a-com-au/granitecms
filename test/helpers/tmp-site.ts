@@ -64,3 +64,11 @@ export function writeAndCommit(
     stdio: 'ignore',
   });
 }
+
+// Plain write, no git: for tests that never need a commit (e.g. the
+// renderer, which only reads content/drafts and never mutates git).
+export function writeJson(siteRoot: string, relativePath: string, content: unknown): void {
+  const fullPath = join(siteRoot, relativePath);
+  mkdirSync(dirname(fullPath), { recursive: true });
+  writeFileSync(fullPath, JSON.stringify(content, null, 2));
+}

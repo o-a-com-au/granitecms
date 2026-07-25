@@ -1,16 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { PageRenderError, renderSections } from '../../src/renderer/render-page.ts';
+import { loadSiteConfig } from '../../src/config.ts';
+import { PageRenderError, renderPage, renderSections } from '../../src/renderer/render-page.ts';
 import { loadThemeTemplates } from '../../src/renderer/theme-templates.ts';
 import type { PageContent } from '../../src/renderer/render-page.ts';
 import type { ThemeTemplates } from '../../src/renderer/theme-templates.ts';
+import { createTmpSiteRoot, writeJson } from '../helpers/tmp-site.ts';
 
 const fixturesDir = join(import.meta.dirname, '..', 'fixtures');
 const themeTemplates = loadThemeTemplates(join(fixturesDir, 'theme'));
 
-function page(sections: PageContent['sections']): PageContent {
-  return { schemaVersion: 1, title: 'Test page', published: true, sections };
+function page(sections: PageContent['sections'], published = true): PageContent {
+  return { schemaVersion: 1, title: 'Test page', published, sections };
 }
 
 test('D1: a page JSON plus theme renders to HTML with sections in declared order', async () => {
@@ -152,4 +154,99 @@ test('D7: rendering a section whose block type is missing from the theme produce
       return true;
     },
   );
+});
+
+test('D5: public mode renders /content/ only; a page existing only as a draft is not publicly reachable', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    writeJson(
+      siteRoot,
+      'drafts/about.json',
+      page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Draft only' } }]),
+    );
+
+    await assert.rejects(
+      renderPage(config, themeTemplates, 'about.json', 'public'),
+      (error: unknown) => error instanceof PageRenderError && error.reason === 'page-not-found',
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('D5/C8: public mode treats an unpublished live page (published: false) as not found, closing out the renderer half of unpublish', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    writeJson(
+      siteRoot,
+      'content/about.json',
+      page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Unpublished' } }], false),
+    );
+
+    await assert.rejects(
+      renderPage(config, themeTemplates, 'about.json', 'public'),
+      (error: unknown) => error instanceof PageRenderError && error.reason === 'page-not-found',
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('public mode renders a real published live page', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    writeJson(
+      siteRoot,
+      'content/about.json',
+      page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Live and published' } }]),
+    );
+
+    const html = await renderPage(config, themeTemplates, 'about.json', 'public');
+    assert.ok(html.includes('Live and published'));
+  } finally {
+    cleanup();
+  }
+});
+
+test('D6: preview mode renders the draft version when a draft exists', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    writeJson(
+      siteRoot,
+      'content/about.json',
+      page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Live version' } }]),
+    );
+    writeJson(
+      siteRoot,
+      'drafts/about.json',
+      page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Draft version' } }]),
+    );
+
+    const html = await renderPage(config, themeTemplates, 'about.json', 'preview');
+    assert.ok(html.includes('Draft version'));
+    assert.ok(!html.includes('Live version'));
+  } finally {
+    cleanup();
+  }
+});
+
+test('D6: preview mode falls back to live when no draft exists', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    writeJson(
+      siteRoot,
+      'content/about.json',
+      page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Live version' } }]),
+    );
+
+    const html = await renderPage(config, themeTemplates, 'about.json', 'preview');
+    assert.ok(html.includes('Live version'));
+  } finally {
+    cleanup();
+  }
 });

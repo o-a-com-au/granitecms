@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import type { SiteConfig } from '../config.ts';
+import { sanitisePath } from '../services/path-safety.ts';
 import { engine } from './engine.ts';
 import type { ThemeTemplates } from './theme-templates.ts';
 
@@ -90,4 +93,52 @@ export async function renderSections(
     html.push(await renderInstance(section, 'section', themeTemplates));
   }
   return html.join('');
+}
+
+export type RenderMode = 'public' | 'preview';
+
+function tryReadPage(root: string, relativePath: string): PageContent | null {
+  const fullPath = sanitisePath(root, relativePath);
+  try {
+    return JSON.parse(readFileSync(fullPath, 'utf-8')) as PageContent;
+  } catch {
+    return null;
+  }
+}
+
+// Public mode reads /content/ only, and treats published: false the same
+// as "doesn't exist" - this is what makes unpublish actually take a
+// page offline (checklist C8: the renderer skips unpublished pages).
+// Preview mode overlays /drafts/ over /content/, falling back to live
+// when no draft exists, and deliberately does NOT filter on published:
+// an editor needs to see a currently-unpublished page to review it
+// before republishing.
+function loadPageForRender(config: SiteConfig, relativePath: string, mode: RenderMode): PageContent {
+  if (mode === 'preview') {
+    const draft = tryReadPage(config.draftsRoot, relativePath);
+    if (draft) {
+      return draft;
+    }
+    const live = tryReadPage(config.contentRoot, relativePath);
+    if (live) {
+      return live;
+    }
+    throw new PageRenderError('page-not-found', `No page found at "${relativePath}"`);
+  }
+
+  const live = tryReadPage(config.contentRoot, relativePath);
+  if (!live || live.published === false) {
+    throw new PageRenderError('page-not-found', `No publicly reachable page found at "${relativePath}"`);
+  }
+  return live;
+}
+
+export async function renderPage(
+  config: SiteConfig,
+  themeTemplates: ThemeTemplates,
+  relativePath: string,
+  mode: RenderMode,
+): Promise<string> {
+  const page = loadPageForRender(config, relativePath, mode);
+  return renderSections(page, themeTemplates);
 }
