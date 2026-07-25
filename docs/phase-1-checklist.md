@@ -22,13 +22,13 @@ Rules for using this file:
 
 | # | Criterion | Proof |
 |---|---|---|
-| B1 | The agent boots against a site root passed in config; no path in the codebase resolves relative to the agent package location | |
-| B2 | Startup fails with a clear, specific error when: site root missing, not a git repo, git binary absent, Node version too old | |
-| B3 | A content path containing `..` is rejected before any fs call | |
-| B4 | A percent-encoded traversal (`%2e%2e%2f`) is rejected before any fs call | |
-| B5 | An absolute path passed as a content path is rejected | |
-| B6 | A symlink inside the content tree pointing outside the site root is not followed | |
-| B7 | The sanitisation function is a single shared helper and every fs-touching code path imports it (verified by a grep-based test or lint rule, not by convention) | |
+| B1 | The agent boots against a site root passed in config; no path in the codebase resolves relative to the agent package location | `test/config.test.ts :: B1: the agent boots against a site root passed in config, not the agent package location` and `test/static/static-analysis.test.ts :: B1: no path in the codebase resolves relative to the agent package location, outside a reasoned allowlist` |
+| B2 | Startup fails with a clear, specific error when: site root missing, not a git repo, git binary absent, Node version too old | `test/services/startup-checks.test.ts` :: the four `B2: startup fails with a clear, specific error when...` tests |
+| B3 | A content path containing `..` is rejected before any fs call | `test/services/path-safety.test.ts :: B3: a content path containing ".." is rejected before any fs call` |
+| B4 | A percent-encoded traversal (`%2e%2e%2f`) is rejected before any fs call | `test/services/path-safety.test.ts :: B4: a percent-encoded traversal (%2e%2e%2f) is rejected before any fs call` (and the encoded-slash-segment-boundary variant in the same file) |
+| B5 | An absolute path passed as a content path is rejected | `test/services/path-safety.test.ts :: B5: an absolute path passed as a content path is rejected` (and the encoded-absolute variant in the same file) |
+| B6 | A symlink inside the content tree pointing outside the site root is not followed | `test/services/path-safety.test.ts :: B6: a symlink inside the content tree pointing outside the site root is not followed` (and the symlinked-directory variant in the same file) |
+| B7 | The sanitisation function is a single shared helper and every fs-touching code path imports it (verified by a grep-based test or lint rule, not by convention) | `test/static/static-analysis.test.ts :: B7: the sanitisation function is a single shared helper and every fs-touching code path imports it` (also enforced live by `no-restricted-imports`/`no-restricted-syntax` in `eslint.config.js`) |
 
 ## Group C: write queue, drafts, and publish
 
