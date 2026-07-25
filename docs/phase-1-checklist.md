@@ -61,12 +61,12 @@ Rules for using this file:
 
 | # | Criterion | Proof |
 |---|---|---|
-| E1 | A page at `content/pages/about/team.json` resolves at URL `/about/team` | |
-| E2 | Moving a page moves the file, and requesting the old URL returns a 301 to the new URL | |
-| E3 | Moving a subtree writes one redirect entry per affected page, and the move plus redirect append is one commit | |
-| E4 | Redirect chains are collapsed at write time: after `/a` to `/b` then `/b` to `/c`, the stored entry maps `/a` directly to `/c` | |
-| E5 | Creating a page at a path that has a redirect entry removes that entry in the same commit | |
-| E6 | A redirect whose `from` matches a live page is never served; the page wins | |
+| E1 | A page at `content/pages/about/team.json` resolves at URL `/about/team` | `test/services/urls.test.ts :: E1: a page at content/pages/about/team.json resolves at URL /about/team` |
+| E2 | Moving a page moves the file, and requesting the old URL returns a 301 to the new URL | `test/services/move.test.ts :: E2: moving a page moves the file (old path gone, new path present), recorded as one commit` and `:: E2/critical fix: the move commit stages both the old path (deleted) and the new path (added), not just the new one`. No HTTP layer exists yet (Phase 2); "301" here means a redirect entry recorded old-URL-to-new-URL, the mechanism a future route handler maps to an actual 301. |
+| E3 | Moving a subtree writes one redirect entry per affected page, and the move plus redirect append is one commit | `test/services/move.test.ts :: E3: moving a subtree moves every descendant, writes one redirect entry per affected page, and is one commit` |
+| E4 | Redirect chains are collapsed at write time: after `/a` to `/b` then `/b` to `/c`, the stored entry maps `/a` directly to `/c` | `test/services/redirects.test.ts :: E4: redirect chains are collapsed at write time: after /a to /b then /b to /c, the stored entry maps /a directly to /c` |
+| E5 | Creating a page at a path that has a redirect entry removes that entry in the same commit | Move half: `test/services/move.test.ts :: E5 (move half): moving a page onto a destination that already had a stale redirect removes that redirect in the same commit`. Publish half (the literal "creating a page" case): `test/services/publish.test.ts :: E5 (publish half, move half closed out in move.test.ts): creating a page at a path that has a redirect entry removes that entry in the same commit` |
+| E6 | A redirect whose `from` matches a live page is never served; the page wins | `test/services/resolve-url.test.ts :: E6: a redirect whose from matches a live page is never served; the page wins` |
 
 ## Group F: migrations
 
