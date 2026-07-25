@@ -62,6 +62,7 @@ export default tseslint.config(
       'src/renderer/theme-templates.ts',
       'src/renderer/render-page.ts',
       'src/services/redirects.ts',
+      'src/services/move.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },
