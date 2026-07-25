@@ -34,15 +34,15 @@ Rules for using this file:
 
 | # | Criterion | Proof |
 |---|---|---|
-| C1 | Two writes submitted concurrently to the queue are applied strictly one at a time (test with deliberate delay injection) | |
-| C2 | Saving a draft writes to `/drafts/<path>` and creates no git commit | |
-| C3 | Saving a draft that fails schema validation writes nothing to disk | |
-| C4 | Publishing promotes the draft over the live file, deletes the draft, and creates exactly one commit | |
-| C5 | The publish commit's author is the identity supplied with the request, not a fixed agent identity | |
-| C6 | Publishing multiple drafts in one call is atomic: if one fails validation, no files change and no commit is created | |
-| C7 | Discarding a draft deletes only the draft; the live file is byte-identical before and after | |
-| C8 | Unpublish sets `published: false`, commits, and the renderer then 404s the page | |
-| C9 | A queue job that throws leaves the working tree clean (no partial writes, no staged-but-uncommitted state) | |
+| C1 | Two writes submitted concurrently to the queue are applied strictly one at a time (test with deliberate delay injection) | `test/services/write-queue.test.ts :: C1: two writes submitted concurrently to the queue are applied strictly one at a time` |
+| C2 | Saving a draft writes to `/drafts/<path>` and creates no git commit | `test/services/drafts.test.ts :: C2: saving a draft writes to /drafts/<path> and creates no git commit` |
+| C3 | Saving a draft that fails schema validation writes nothing to disk | `test/services/drafts.test.ts :: C3: saving a draft that fails schema validation writes nothing to disk` |
+| C4 | Publishing promotes the draft over the live file, deletes the draft, and creates exactly one commit | `test/services/publish.test.ts :: C4: publishing promotes the draft over the live file, deletes the draft, and creates exactly one commit` |
+| C5 | The publish commit's author is the identity supplied with the request, not a fixed agent identity | `test/services/publish.test.ts :: C5: the publish commit author is the identity supplied with the request, not a fixed agent identity` (also `test/services/git.test.ts`'s no-host-identity-required case) |
+| C6 | Publishing multiple drafts in one call is atomic: if one fails validation, no files change and no commit is created | `test/services/publish.test.ts :: C6: publishing multiple drafts in one call is atomic: if one fails validation, no files change and no commit is created` |
+| C7 | Discarding a draft deletes only the draft; the live file is byte-identical before and after | `test/services/drafts.test.ts :: C7: discarding a draft deletes only the draft; the live file is byte-identical before and after` |
+| C8 | Unpublish sets `published: false`, commits, and the renderer then 404s the page | Mechanics proven: `test/services/publish.test.ts :: C8 (mechanics only, renderer 404 half proven in Group D): unpublish sets published:false and commits with the supplied author`. The renderer doesn't exist yet (Group D); the "renderer then 404s" half is deliberately left unproven here rather than faked, to be closed out by a Group D test once the renderer lands. |
+| C9 | A queue job that throws leaves the working tree clean (no partial writes, no staged-but-uncommitted state) | `test/services/write-queue.test.ts`'s queue-survives-a-throw case (ordering level) and `test/services/publish.test.ts :: C9: a write failure partway through a multi-file publish rolls back cleanly, no partial writes, no staged-but-uncommitted state` (fs/git level). The harder "rollback itself also fails" scenario is a documented residual risk (see `rollback()` in `src/services/publish.ts`), not test-proven — reaching for it would need Node's experimental module-mocking API for one edge case. |
 
 ## Group D: renderer
 
