@@ -10,13 +10,13 @@ Rules for using this file:
 
 | # | Criterion (must be testable as an assertion) | Proof (test file :: test name) |
 |---|---|---|
-| A1 | A page JSON with all required fields (including `schemaVersion` and `published`) validates successfully | |
-| A2 | A page JSON missing any required field fails validation with an error naming the field and path | |
-| A3 | A section instance validates against its section type's schema.json from the theme | |
-| A4 | A section instance with a setting of the wrong type fails validation with a specific error | |
-| A5 | A section instance referencing a section type that does not exist in the theme fails validation | |
-| A6 | Validation errors are structured data (path, message, keyword), not just strings | |
-| A7 | An unknown/extra property on a page or section is rejected (additionalProperties false) | |
+| A1 | A page JSON with all required fields (including `schemaVersion` and `published`) validates successfully | `test/services/validation.page.test.ts :: A1: a page with all required fields (including schemaVersion and published) validates successfully` |
+| A2 | A page JSON missing any required field fails validation with an error naming the field and path | `test/services/validation.page.test.ts :: A2: a page missing a required field fails validation with an error naming the field and path` |
+| A3 | A section instance validates against its section type's schema.json from the theme | `test/services/validation.instance.test.ts :: A3: a section instance validates against its section type's schema.json from the theme` (and the block-type counterpart in the same file) |
+| A4 | A section instance with a setting of the wrong type fails validation with a specific error | `test/services/validation.instance.test.ts :: A4: a section instance with a setting of the wrong type fails validation with a specific error` |
+| A5 | A section instance referencing a section type that does not exist in the theme fails validation | `test/services/validation.instance.test.ts :: A5: a section instance referencing a section type that does not exist in the theme fails validation` |
+| A6 | Validation errors are structured data (path, message, keyword), not just strings | `test/services/validation.page.test.ts :: A6: page validation errors are structured data (path, message, keyword), not just strings` and `test/services/validation.instance.test.ts :: A6: instance validation errors are structured data (path, message, keyword), not just strings` |
+| A7 | An unknown/extra property on a page or section is rejected (additionalProperties false) | `test/services/validation.page.test.ts :: A7: an unknown/extra property on a page is rejected (additionalProperties false)` and `test/services/validation.instance.test.ts :: A7: an unknown/extra property on a section instance is rejected (additionalProperties false)` |
 
 ## Group B: site root and path safety
 
