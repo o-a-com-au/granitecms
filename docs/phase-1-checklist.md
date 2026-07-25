@@ -81,11 +81,11 @@ Rules for using this file:
 
 | # | Criterion | Proof |
 |---|---|---|
-| G1 | Rebuild from a clean checkout produces an index; a basic FTS query returns the expected page for a known term | |
-| G2 | Deleting the index file and rebuilding produces equivalent query results (disposability proven) | |
-| G3 | Unpublished pages and drafts are absent from the index | |
-| G4 | The index file is gitignored and a rebuild creates no git changes | |
-| G5 | The SQLite driver is accessed only through the driver interface (grep test: no `node:sqlite` or `better-sqlite3` import outside `src/search/drivers/`) | |
+| G1 | Rebuild from a clean checkout produces an index; a basic FTS query returns the expected page for a known term | `test/search/rebuild-index.test.ts :: G1: rebuild from a clean checkout produces an index; a basic FTS query returns the expected page for a known term`. Verified against Node v26.5.0 (this environment's only available version); the build plan's own open `[REVIEW]` item asking to confirm `node:sqlite`/FTS5 behaviour on the documented `engines.node` floor (>=22.6.0) / target LTS is not resolved by this session and should not be read as closed. |
+| G2 | Deleting the index file and rebuilding produces equivalent query results (disposability proven) | `test/search/rebuild-index.test.ts :: G2: deleting the index file and rebuilding produces equivalent query results (disposability proven)` |
+| G3 | Unpublished pages and drafts are absent from the index | `test/search/rebuild-index.test.ts :: G3: unpublished pages and drafts are absent from the index` |
+| G4 | The index file is gitignored and a rebuild creates no git changes | `test/search/rebuild-index.test.ts :: G4: the index file is gitignored and a rebuild creates no git changes` (seeds its own representative `.gitignore`, since no site-scaffold-template exists yet — that's Phase 2 scope) |
+| G5 | The SQLite driver is accessed only through the driver interface (grep test: no `node:sqlite` or `better-sqlite3` import outside `src/search/drivers/`) | `test/static/static-analysis.test.ts :: G5: the SQLite driver is accessed only through the driver interface (no node:sqlite or better-sqlite3 import outside src/search/drivers/)` |
 
 ## Group H: phase exit criteria
 
