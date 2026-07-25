@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
 import { MigrationError, runMigrations } from '../../src/services/migration-runner.ts';
@@ -198,6 +198,87 @@ test('F2 (error path): the runner throws migration-failed when a migration fails
     );
 
     assert.equal(commitCount(siteRoot), before);
+  } finally {
+    cleanup();
+  }
+});
+
+test('F4: a failed migration aborts the whole run with a clean working tree', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/pages/a.json', JSON.stringify(page(1, 'A')));
+    writeAndCommit(siteRoot, 'content/pages/b.json', JSON.stringify(page(1, 'B')));
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+    const aBefore = readFileSync(join(config.pagesRoot, 'a.json'));
+    const bBefore = readFileSync(join(config.pagesRoot, 'b.json'));
+
+    // A migration registered for version 1, but the function itself
+    // throws for one specific file - a "broken migration" scenario, not
+    // just a missing registration (already covered by F2's error-path
+    // tests). Whichever file the walk happens to compute first, the
+    // whole compute phase happens before any writes, so this proves no
+    // partial writes regardless of processing order.
+    const failingMigration: MigrationMap = {
+      1: (content) => {
+        if (content.title === 'B') {
+          throw new Error('deliberate migration failure');
+        }
+        return { ...content, schemaVersion: 2 };
+      },
+    };
+
+    await assert.rejects(runMigrations(config, themeSchemas, failingMigration, 2, author));
+
+    assert.equal(commitCount(siteRoot), before);
+    assert.ok(aBefore.equals(readFileSync(join(config.pagesRoot, 'a.json'))));
+    assert.ok(bBefore.equals(readFileSync(join(config.pagesRoot, 'b.json'))));
+  } finally {
+    cleanup();
+  }
+});
+
+test('F4 (write-phase): a real failure after files are written rolls back cleanly, no partial writes, no staged-but-uncommitted state', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/pages/a.json', JSON.stringify(page(1, 'A')));
+    writeAndCommit(siteRoot, 'content/pages/b.json', JSON.stringify(page(1, 'B')));
+    const config = loadSiteConfig(siteRoot);
+    const aBefore = readFileSync(join(config.pagesRoot, 'a.json'));
+    const bBefore = readFileSync(join(config.pagesRoot, 'b.json'));
+    const before = commitCount(siteRoot);
+
+    // A real, deterministic git failure, not a mock: a stray
+    // .git/index.lock makes `git add` fail exactly as it would during a
+    // genuine concurrent git operation. This is deliberately a
+    // commit-phase failure rather than a write-phase one: an earlier
+    // attempt used chmod to force a write failure on one file, but that
+    // technique is self-defeating for proving *rollback* specifically -
+    // a read-only file blocks both the bad write AND rollback's own
+    // attempt to restore that same file's original bytes back onto the
+    // same read-only path. This way, both files are written
+    // successfully first (proving the write phase itself works), then
+    // the commit fails, so rollback's plain writeFileSync calls are
+    // genuinely unobstructed and prove the restore path cleanly.
+    const lockPath = join(siteRoot, '.git', 'index.lock');
+    writeFileSync(lockPath, '');
+    try {
+      await assert.rejects(
+        runMigrations(config, themeSchemas, identityMigration, 2, author),
+        (error: unknown) => error instanceof MigrationError && error.reason === 'commit-failed',
+      );
+    } finally {
+      rmSync(lockPath, { force: true });
+    }
+
+    assert.equal(commitCount(siteRoot), before, 'no commit should be created');
+    assert.ok(aBefore.equals(readFileSync(join(config.pagesRoot, 'a.json'))), 'a.json must be rolled back');
+    assert.ok(bBefore.equals(readFileSync(join(config.pagesRoot, 'b.json'))), 'b.json must be rolled back');
+
+    const staged = execFileSync('git', ['diff', '--cached', '--name-only'], { cwd: siteRoot })
+      .toString('utf-8')
+      .trim();
+    assert.equal(staged, '', 'nothing should be left staged after rollback');
   } finally {
     cleanup();
   }
