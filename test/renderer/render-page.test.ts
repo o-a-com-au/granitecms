@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { renderSections } from '../../src/renderer/render-page.ts';
+import { PageRenderError, renderSections } from '../../src/renderer/render-page.ts';
 import { loadThemeTemplates } from '../../src/renderer/theme-templates.ts';
 import type { PageContent } from '../../src/renderer/render-page.ts';
+import type { ThemeTemplates } from '../../src/renderer/theme-templates.ts';
 
 const fixturesDir = join(import.meta.dirname, '..', 'fixtures');
 const themeTemplates = loadThemeTemplates(join(fixturesDir, 'theme'));
@@ -87,4 +88,68 @@ test('D3: text settings containing HTML are escaped in output by default', async
 
   assert.ok(!html.includes('<script>alert(1)</script>'), 'raw HTML must not appear unescaped');
   assert.ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
+});
+
+test('D4: a template that loops forever is killed by the render timeout and returns an error, not a hung process', async () => {
+  // engine.ts sets renderLimit: 50 (ms). A huge finite for-loop, run
+  // through the real renderSections/renderInstance path (no {% render %}
+  // self-include, no templates-map trickery), proves the mechanism:
+  // stock Liquid has no {% while %}, so this is the faithful stand-in
+  // for "loops forever" without needing the include machinery this
+  // renderer deliberately avoids.
+  //
+  // 5,000,000 iterations specifically, not 999,999,999: empirically, a
+  // range that large hits an unrelated LiquidJS "Invalid array length"
+  // internal error rather than the render limit, which would make this
+  // test pass for the wrong reason. 5,000,000 reliably trips
+  // renderLimit itself (confirmed: LiquidJS throws RenderError
+  // "template render limit exceeded" around 50-70ms for this range).
+  const runawayThemeTemplates: ThemeTemplates = {
+    sections: { runaway: '{% for i in (1..5000000) %}{% endfor %}' },
+    blocks: {},
+  };
+
+  const start = Date.now();
+  await assert.rejects(
+    renderSections(page([{ id: 'sec-1', type: 'runaway', settings: {} }]), runawayThemeTemplates),
+    PageRenderError,
+  );
+  const elapsed = Date.now() - start;
+  assert.ok(elapsed < 50 * 10, `render must be killed near the configured limit, took ${elapsed}ms`);
+});
+
+test('D7: rendering a page whose section type is missing from the theme produces a clear error identifying the section, not a crash', async () => {
+  await assert.rejects(
+    renderSections(page([{ id: 'sec-missing', type: 'does-not-exist', settings: {} }]), themeTemplates),
+    (error: unknown) => {
+      assert.ok(error instanceof PageRenderError);
+      assert.equal(error.reason, 'missing-section-type');
+      assert.match(error.message, /does-not-exist/);
+      assert.match(error.message, /sec-missing/);
+      return true;
+    },
+  );
+});
+
+test('D7: rendering a section whose block type is missing from the theme produces a clear error identifying the block, not a crash', async () => {
+  await assert.rejects(
+    renderSections(
+      page([
+        {
+          id: 'sec-1',
+          type: 'hero',
+          settings: { heading: 'Welcome' },
+          blocks: [{ id: 'blk-missing', type: 'does-not-exist', settings: {} }],
+        },
+      ]),
+      themeTemplates,
+    ),
+    (error: unknown) => {
+      assert.ok(error instanceof PageRenderError);
+      assert.equal(error.reason, 'missing-block-type');
+      assert.match(error.message, /does-not-exist/);
+      assert.match(error.message, /blk-missing/);
+      return true;
+    },
+  );
 });
