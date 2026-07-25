@@ -72,10 +72,10 @@ Rules for using this file:
 
 | # | Criterion | Proof |
 |---|---|---|
-| F1 | The runner walks content and drafts, migrating any file below current schemaVersion, as a single commit | |
-| F2 | Migrations apply in order and each is a pure function (same input, same output, verified by running twice) | |
-| F3 | A file already at current version is untouched (byte-identical) | |
-| F4 | A failed migration aborts the whole run with a clean working tree | |
+| F1 | The runner walks content and drafts, migrating any file below current schemaVersion, as a single commit | `test/services/migration-runner.test.ts :: F1: the runner walks content and drafts, migrating any file below current schemaVersion, as a single commit` (also `:: F1: when nothing is below current version...` and `:: F1: a migrated draft file, never before committed...`) |
+| F2 | Migrations apply in order and each is a pure function (same input, same output, verified by running twice) | `test/services/migration-runner.test.ts :: F2: migrations apply in order for a multi-step chain` and `:: F2: a migration function does not mutate its input and produces the same output when run twice` (also the two `F2 (error path)` tests in the same file, and `test/migrations/index.test.ts`'s purity check on the real `migrateV1ToV2`) |
+| F3 | A file already at current version is untouched (byte-identical) | `test/services/migration-runner.test.ts :: F3: a file already at current version is untouched (byte-identical)` |
+| F4 | A failed migration aborts the whole run with a clean working tree | `test/services/migration-runner.test.ts :: F4: a failed migration aborts the whole run with a clean working tree` (compute-phase) and `:: F4 (write-phase): a real failure after files are written rolls back cleanly...` |
 
 ## Group G: search index
 
