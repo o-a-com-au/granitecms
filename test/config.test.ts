@@ -32,3 +32,14 @@ test('config derives pagesRoot under contentRoot/pages and redirectsPath at the 
 test('B1: a relative siteRoot is rejected rather than silently resolved against process.cwd()', () => {
   assert.throws(() => loadSiteConfig('relative/site/root'));
 });
+
+test('config derives dataRoot at the site root and searchIndexPath under it', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    const config = loadSiteConfig(siteRoot);
+    assert.equal(config.dataRoot, join(siteRoot, 'data'));
+    assert.equal(config.searchIndexPath, join(config.dataRoot, 'search-index.sqlite'));
+  } finally {
+    cleanup();
+  }
+});
