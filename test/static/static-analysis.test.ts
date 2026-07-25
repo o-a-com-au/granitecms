@@ -75,3 +75,26 @@ test('B7: the sanitisation function is a single shared helper and every fs-touch
   }
   assert.deepEqual(offenders, [], `fs-touching file without sanitisePath and not on the allowlist: ${offenders.join(', ')}`);
 });
+
+const NODE_SQLITE_IMPORT_PATTERN = /from\s+['"]node:sqlite['"]|require\(\s*['"]node:sqlite['"]\s*\)/;
+const BETTER_SQLITE3_IMPORT_PATTERN = /from\s+['"]better-sqlite3['"]|require\(\s*['"]better-sqlite3['"]\s*\)/;
+const SEARCH_DRIVERS_PREFIX = 'search/drivers/';
+
+test('G5: the SQLite driver is accessed only through the driver interface (no node:sqlite or better-sqlite3 import outside src/search/drivers/)', () => {
+  const offenders: string[] = [];
+  for (const file of listTsFiles(srcDir)) {
+    const relPath = relative(srcDir, file);
+    if (relPath.startsWith(SEARCH_DRIVERS_PREFIX)) {
+      continue;
+    }
+    const contents = readFileSync(file, 'utf-8');
+    if (NODE_SQLITE_IMPORT_PATTERN.test(contents) || BETTER_SQLITE3_IMPORT_PATTERN.test(contents)) {
+      offenders.push(relPath);
+    }
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `SQLite driver imported outside src/search/drivers/: ${offenders.join(', ')}`,
+  );
+});
