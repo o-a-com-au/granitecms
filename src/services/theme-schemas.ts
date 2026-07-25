@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ThemeSchemas } from './validation.js';
+import type { ThemeSchemas } from './validation.ts';
 
 // themeRoot is agent configuration (the configured site's theme
 // directory), not a request-supplied :path parameter. This walk is

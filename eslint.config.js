@@ -47,12 +47,17 @@ export default tseslint.config(
       ],
     },
   },
+  // no-restricted-imports has no way to express the grep test's "OR
+  // imports sanitisePath" escape hatch, so this list is broader than
+  // just the reasoned site-root/agent-asset exemptions: it also covers
+  // files verified to correctly gate fs access behind sanitisePath.
   {
     files: [
       'src/services/path-safety.ts',
       'src/services/theme-schemas.ts',
       'src/services/startup-checks.ts',
       'src/services/validation.ts',
+      'src/services/drafts.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },

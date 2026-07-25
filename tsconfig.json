@@ -6,6 +6,7 @@
     "moduleResolution": "NodeNext",
     "esModuleInterop": true,
     "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
