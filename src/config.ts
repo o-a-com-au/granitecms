@@ -5,6 +5,8 @@ export interface SiteConfig {
   contentRoot: string;
   draftsRoot: string;
   themesRoot: string;
+  pagesRoot: string;
+  redirectsPath: string;
 }
 
 // Pure path derivation, no fs calls. siteRoot must be supplied by the
@@ -18,10 +20,14 @@ export function loadSiteConfig(siteRoot: string): SiteConfig {
 
   const normalisedRoot = resolve(siteRoot);
 
+  const contentRoot = join(normalisedRoot, 'content');
+
   return {
     siteRoot: normalisedRoot,
-    contentRoot: join(normalisedRoot, 'content'),
+    contentRoot,
     draftsRoot: join(normalisedRoot, 'drafts'),
     themesRoot: join(normalisedRoot, 'themes'),
+    pagesRoot: join(contentRoot, 'pages'),
+    redirectsPath: join(normalisedRoot, 'redirects.json'),
   };
 }
