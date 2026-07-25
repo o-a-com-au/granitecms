@@ -12,4 +12,52 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-imports': 'error',
     },
   },
+  // Fast dev-time feedback for the same invariants Group B's grep tests
+  // enforce authoritatively (test/static/static-analysis.test.ts). This
+  // is redundant with those tests on purpose, not a replacement for
+  // them: the checklist's Proof column stays a test.
+  {
+    files: ['src/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: 'fs', message: 'fs-touching code must go through sanitisePath in src/services/path-safety.ts. See docs/phase-1-checklist.md Group B.' },
+            { name: 'node:fs', message: 'fs-touching code must go through sanitisePath in src/services/path-safety.ts. See docs/phase-1-checklist.md Group B.' },
+            { name: 'fs/promises', message: 'fs-touching code must go through sanitisePath in src/services/path-safety.ts. See docs/phase-1-checklist.md Group B.' },
+            { name: 'node:fs/promises', message: 'fs-touching code must go through sanitisePath in src/services/path-safety.ts. See docs/phase-1-checklist.md Group B.' },
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "MemberExpression[object.type='MetaProperty'][property.name='dirname']",
+          message: 'Resolving relative to the agent module location is reserved for the agent\'s own bundled assets (constraint 2). See docs/phase-1-checklist.md Group B (B1).',
+        },
+        {
+          selector: "MemberExpression[object.type='MetaProperty'][property.name='url']",
+          message: 'Resolving relative to the agent module location is reserved for the agent\'s own bundled assets (constraint 2). See docs/phase-1-checklist.md Group B (B1).',
+        },
+        {
+          selector: "Identifier[name='__dirname']",
+          message: 'Resolving relative to the agent module location is reserved for the agent\'s own bundled assets (constraint 2). See docs/phase-1-checklist.md Group B (B1).',
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      'src/services/path-safety.ts',
+      'src/services/theme-schemas.ts',
+      'src/services/startup-checks.ts',
+      'src/services/validation.ts',
+    ],
+    rules: { 'no-restricted-imports': 'off' },
+  },
+  {
+    files: ['src/services/validation.ts', 'src/services/startup-checks.ts'],
+    rules: { 'no-restricted-syntax': 'off' },
+  },
 );
