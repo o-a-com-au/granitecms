@@ -64,6 +64,7 @@ export default tseslint.config(
       'src/services/redirects.ts',
       'src/services/move.ts',
       'src/services/resolve-url.ts',
+      'src/services/fs-walk.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },

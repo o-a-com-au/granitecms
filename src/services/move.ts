@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import type { SiteConfig } from '../config.ts';
+import { listFilesRecursively } from './fs-walk.ts';
 import type { CommitAuthor } from './git.ts';
 import { GitOperationError, commitPaths } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
@@ -31,27 +32,6 @@ interface AffectedPage {
   newRelativePath: string;
   oldUrl: string;
   newUrl: string;
-}
-
-// Recursively lists .json files under dir, returned as paths relative
-// to base.
-function listDescendantFiles(dir: string, base: string): string[] {
-  let out: string[] = [];
-  let entries;
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return out;
-  }
-  for (const entry of entries) {
-    const full = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      out = out.concat(listDescendantFiles(full, base));
-    } else if (entry.isFile() && entry.name.endsWith('.json')) {
-      out.push(relative(base, full));
-    }
-  }
-  return out;
 }
 
 async function movePageJob(
@@ -96,7 +76,7 @@ async function movePageJob(
   ];
 
   if (fromDirExists) {
-    for (const rel of listDescendantFiles(fromDir, fromDir)) {
+    for (const rel of listFilesRecursively(fromDir, fromDir, '.json')) {
       const oldRelativePath = join(fromDirRelative, rel);
       const newRelativePath = join(toDirRelative, rel);
       affected.push({

@@ -53,6 +53,7 @@ const FS_USAGE_ALLOWLIST = new Set<string>([
   'services/validation.ts', // reads the agent's own bundled page/instance schema.json
   'renderer/theme-templates.ts', // walks agent-configured theme directories, not request paths
   'services/redirects.ts', // reads the agent-configured redirectsPath, not a request path
+  'services/fs-walk.ts', // walks agent-configured roots (content/drafts/themes), not request paths
 ]);
 
 test('B7: the sanitisation function is a single shared helper and every fs-touching code path imports it', () => {
