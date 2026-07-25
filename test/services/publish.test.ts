@@ -5,7 +5,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
 import { saveDraft } from '../../src/services/drafts.ts';
+import { movePage } from '../../src/services/move.ts';
 import { PublishError, publishDrafts, unpublishPage } from '../../src/services/publish.ts';
+import { loadRedirects } from '../../src/services/redirects.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 import { createTmpSiteRoot, writeAndCommit } from '../helpers/tmp-site.ts';
 
@@ -149,6 +151,33 @@ test('C9: a write failure partway through a multi-file publish rolls back cleanl
       .toString('utf-8')
       .trim();
     assert.equal(staged, '', 'nothing should be left staged after rollback');
+  } finally {
+    cleanup();
+  }
+});
+
+test('E5 (publish half, move half closed out in move.test.ts): creating a page at a path that has a redirect entry removes that entry in the same commit', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About')));
+    // Moving the original "about" page away leaves a redirect recorded
+    // at /about, pointing elsewhere.
+    await movePage(config, '/about', '/about-old', 'move about away', author);
+    assert.equal(loadRedirects(config)['/about'], '/about-old');
+
+    // A brand-new, unrelated page is now authored and published at the
+    // same URL via the normal draft workflow.
+    await saveDraft(config, themeSchemas, 'pages/about.json', page('New About'));
+    const before = commitCount(siteRoot);
+    await publishDrafts(config, themeSchemas, ['pages/about.json'], 'publish new about', author);
+
+    assert.equal(commitCount(siteRoot), before + 1);
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(config.pagesRoot, 'about.json'), 'utf-8')),
+      page('New About'),
+    );
+    assert.equal(loadRedirects(config)['/about'], undefined);
   } finally {
     cleanup();
   }

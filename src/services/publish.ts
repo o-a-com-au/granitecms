@@ -4,9 +4,13 @@ import type { SiteConfig } from '../config.ts';
 import type { CommitAuthor } from './git.ts';
 import { GitOperationError, commitPaths } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
+import { loadRedirects, removeRedirectForPath } from './redirects.ts';
+import { pagePathToUrl } from './urls.ts';
 import type { ThemeSchemas } from './validation.ts';
 import { validatePage } from './validation.ts';
 import { enqueue } from './write-queue.ts';
+
+const PAGES_PREFIX = 'pages/';
 
 export type PublishReason =
   | 'validation-failed'
@@ -42,6 +46,12 @@ interface FileSnapshot {
   draftOriginal: Buffer;
 }
 
+interface RedirectsSnapshot {
+  path: string;
+  existed: boolean;
+  original: string;
+}
+
 // Hand-rolled fs snapshot/restore, not a database transaction
 // (deliberate, given the minimal-dependency policy). Attempts every
 // restore even if one fails, rather than aborting on the first error,
@@ -50,7 +60,7 @@ interface FileSnapshot {
 // are real residual risks), so the honest contract is "restores
 // everything it can, and is loud if it can't" rather than a silent
 // best-effort.
-function rollback(snapshots: FileSnapshot[]): unknown[] {
+function rollback(snapshots: FileSnapshot[], redirects?: RedirectsSnapshot): unknown[] {
   const failures: unknown[] = [];
 
   for (const snapshot of snapshots) {
@@ -72,11 +82,23 @@ function rollback(snapshots: FileSnapshot[]): unknown[] {
     }
   }
 
+  if (redirects) {
+    try {
+      if (redirects.existed) {
+        writeFileSync(redirects.path, redirects.original);
+      } else if (existsSync(redirects.path)) {
+        unlinkSync(redirects.path);
+      }
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+
   return failures;
 }
 
-function rollbackOrRethrow(snapshots: FileSnapshot[], cause: unknown): never {
-  const failures = rollback(snapshots);
+function rollbackOrRethrow(snapshots: FileSnapshot[], cause: unknown, redirects?: RedirectsSnapshot): never {
+  const failures = rollback(snapshots, redirects);
   if (failures.length > 0) {
     throw new PublishError(
       'rollback-failed',
@@ -137,6 +159,7 @@ async function publishDraftsJob(
   }
 
   const snapshots: FileSnapshot[] = [];
+  let redirectsSnapshot: RedirectsSnapshot | undefined;
   try {
     for (const entry of entries) {
       let liveExisted = false;
@@ -161,19 +184,47 @@ async function publishDraftsJob(
       unlinkSync(entry.draftPath);
     }
 
-    // Only the live paths are ever staged: drafts are never git-tracked
-    // in the first place (saves don't commit, per C2), so a draft's
-    // deletion has no git-visible effect at all. Including it in the
-    // commit would fail outright, since `git add` on a path that is
-    // both absent from disk and was never tracked is a hard error
-    // ("pathspec did not match any files"), not a silent no-op.
-    const livePaths = entries.map((entry) => entry.livePath);
+    // E5 (publish half): a brand-new live page under pages/ may
+    // supersede a stale redirect recorded at its own URL (checklist
+    // wording: "creating a page at a path that has a redirect entry").
+    // Only applies to pages/ content - redirect semantics aren't
+    // defined for other content in Phase 1, so anything else is
+    // skipped silently.
+    const qualifying = entries.filter((entry) => entry.relativePath.startsWith(PAGES_PREFIX));
+    if (qualifying.length > 0) {
+      const existed = existsSync(config.redirectsPath);
+      const original = existed ? readFileSync(config.redirectsPath, 'utf-8') : '';
+
+      let redirects = loadRedirects(config);
+      for (const entry of qualifying) {
+        const url = pagePathToUrl(entry.relativePath.slice(PAGES_PREFIX.length));
+        redirects = removeRedirectForPath(redirects, url);
+      }
+
+      const updated = JSON.stringify(redirects, null, 2);
+      if (updated !== (existed ? original : '')) {
+        writeFileSync(config.redirectsPath, updated);
+        redirectsSnapshot = { path: config.redirectsPath, existed, original };
+      }
+    }
+
+    // Only the live paths (and redirects.json, if it changed) are ever
+    // staged: drafts are never git-tracked in the first place (saves
+    // don't commit, per C2), so a draft's deletion has no git-visible
+    // effect at all. Including it in the commit would fail outright,
+    // since `git add` on a path that is both absent from disk and was
+    // never tracked is a hard error ("pathspec did not match any
+    // files"), not a silent no-op.
+    const paths = entries.map((entry) => entry.livePath);
+    if (redirectsSnapshot) {
+      paths.push(redirectsSnapshot.path);
+    }
     // commitPaths gives its own all-or-nothing contract for git staging,
     // so a failure here only ever leaves filesystem state for this
     // catch block to worry about, never git index state.
-    commitPaths(config.siteRoot, livePaths, message, author);
+    commitPaths(config.siteRoot, paths, message, author);
   } catch (error) {
-    rollbackOrRethrow(snapshots, error);
+    rollbackOrRethrow(snapshots, error, redirectsSnapshot);
   }
 }
 
