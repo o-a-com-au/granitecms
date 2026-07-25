@@ -59,6 +59,7 @@ export default tseslint.config(
       'src/services/validation.ts',
       'src/services/drafts.ts',
       'src/services/publish.ts',
+      'src/renderer/theme-templates.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },
