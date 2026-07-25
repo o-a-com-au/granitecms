@@ -41,21 +41,21 @@ Rules for using this file:
 | C5 | The publish commit's author is the identity supplied with the request, not a fixed agent identity | `test/services/publish.test.ts :: C5: the publish commit author is the identity supplied with the request, not a fixed agent identity` (also `test/services/git.test.ts`'s no-host-identity-required case) |
 | C6 | Publishing multiple drafts in one call is atomic: if one fails validation, no files change and no commit is created | `test/services/publish.test.ts :: C6: publishing multiple drafts in one call is atomic: if one fails validation, no files change and no commit is created` |
 | C7 | Discarding a draft deletes only the draft; the live file is byte-identical before and after | `test/services/drafts.test.ts :: C7: discarding a draft deletes only the draft; the live file is byte-identical before and after` |
-| C8 | Unpublish sets `published: false`, commits, and the renderer then 404s the page | Mechanics proven: `test/services/publish.test.ts :: C8 (mechanics only, renderer 404 half proven in Group D): unpublish sets published:false and commits with the supplied author`. The renderer doesn't exist yet (Group D); the "renderer then 404s" half is deliberately left unproven here rather than faked, to be closed out by a Group D test once the renderer lands. |
+| C8 | Unpublish sets `published: false`, commits, and the renderer then 404s the page | Mechanics: `test/services/publish.test.ts :: C8 (mechanics only, renderer 404 half proven in Group D): unpublish sets published:false and commits with the supplied author`. Renderer half (closed out in Group D): `test/renderer/render-page.test.ts :: D5/C8: public mode treats an unpublished live page (published: false) as not found, closing out the renderer half of unpublish`. No HTTP layer exists yet (Phase 2), so "404" specifically means `PageRenderError` with `reason: 'page-not-found'` in public mode; the literal HTTP status mapping is a Phase 2 route-handler concern. |
 | C9 | A queue job that throws leaves the working tree clean (no partial writes, no staged-but-uncommitted state) | `test/services/write-queue.test.ts`'s queue-survives-a-throw case (ordering level) and `test/services/publish.test.ts :: C9: a write failure partway through a multi-file publish rolls back cleanly, no partial writes, no staged-but-uncommitted state` (fs/git level). The harder "rollback itself also fails" scenario is a documented residual risk (see `rollback()` in `src/services/publish.ts`), not test-proven — reaching for it would need Node's experimental module-mocking API for one edge case. |
 
 ## Group D: renderer
 
 | # | Criterion | Proof |
 |---|---|---|
-| D1 | A page JSON plus theme renders to HTML with sections in declared order | |
-| D2 | Block settings render inside their parent section | |
-| D3 | Text settings containing HTML are escaped in output by default | |
-| D4 | A template that loops forever is killed by the render timeout and returns an error, not a hung process | |
-| D5 | Public mode renders `/content/` only; a page existing only as a draft is not publicly reachable | |
-| D6 | Preview mode renders the draft version when a draft exists, and falls back to live when it does not | |
-| D7 | Rendering a page whose section type is missing from the theme produces a clear error identifying the section, not a crash | |
-| D8 | No Liquid tags or filters beyond the LiquidJS defaults are registered (asserted by inspecting the engine instance) | |
+| D1 | A page JSON plus theme renders to HTML with sections in declared order | `test/renderer/render-page.test.ts :: D1: a page JSON plus theme renders to HTML with sections in declared order` |
+| D2 | Block settings render inside their parent section | `test/renderer/render-page.test.ts :: D2: block settings render inside their parent section` (and the blocks-within-blocks variant in the same file) |
+| D3 | Text settings containing HTML are escaped in output by default | `test/renderer/render-page.test.ts :: D3: text settings containing HTML are escaped in output by default` |
+| D4 | A template that loops forever is killed by the render timeout and returns an error, not a hung process | `test/renderer/render-page.test.ts :: D4: a template that loops forever is killed by the render timeout and returns an error, not a hung process` |
+| D5 | Public mode renders `/content/` only; a page existing only as a draft is not publicly reachable | `test/renderer/render-page.test.ts :: D5: public mode renders /content/ only; a page existing only as a draft is not publicly reachable` and `:: D5/C8: public mode treats an unpublished live page (published: false) as not found...` |
+| D6 | Preview mode renders the draft version when a draft exists, and falls back to live when it does not | `test/renderer/render-page.test.ts :: D6: preview mode renders the draft version when a draft exists` and `:: D6: preview mode falls back to live when no draft exists` |
+| D7 | Rendering a page whose section type is missing from the theme produces a clear error identifying the section, not a crash | `test/renderer/render-page.test.ts :: D7: rendering a page whose section type is missing from the theme produces a clear error identifying the section, not a crash` (and the missing-block-type variant in the same file) |
+| D8 | No Liquid tags or filters beyond the LiquidJS defaults are registered (asserted by inspecting the engine instance) | `test/renderer/engine.test.ts :: D8: no Liquid tags or filters beyond the LiquidJS defaults are registered (asserted by inspecting the engine instance)` |
 
 ## Group E: hierarchy, moves, and redirects
 
