@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "title": "About us",
+  "published": true,
+  "unexpectedField": true,
+  "sections": [
+    {
+      "id": "sec-1",
+      "type": "hero",
+      "settings": { "heading": "Welcome", "columns": 2 },
+      "blocks": [
+        { "id": "blk-1", "type": "button", "settings": { "label": "Learn more", "url": "/about" } }
+      ]
+    }
+  ]
+}
