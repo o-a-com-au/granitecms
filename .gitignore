@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.claude/.stop-gate-stamp
+
+# Fixture site search index (rebuilt on demand, never committed)
+test/fixtures/site/data/
+*.sqlite
+*.sqlite3
