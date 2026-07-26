@@ -44,6 +44,7 @@ export function buildServer(
   app.register(v1Routes, {
     prefix: '/v1',
     config: booted.config,
+    themeSchemas: booted.themeSchemas,
     themeTemplates: booted.themeTemplates,
     tokens: serverConfig.tokens,
   });
