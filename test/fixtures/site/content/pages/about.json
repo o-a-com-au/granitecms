@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "title": "About",
+  "published": true,
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": {
+        "heading": "About Us",
+        "subheading": "Welcome to our fixture site"
+      },
+      "blocks": [
+        {
+          "id": "blk-contact",
+          "type": "button",
+          "settings": { "label": "Meet the team", "url": "/about/team" }
+        }
+      ]
+    }
+  ]
+}

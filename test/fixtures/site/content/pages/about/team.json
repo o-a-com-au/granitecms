@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "title": "Team",
+  "published": true,
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": {
+        "heading": "Our Team",
+        "subheading": "The people behind this fixture site"
+      }
+    }
+  ]
+}

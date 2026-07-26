@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "title": "Hidden",
+  "published": false,
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": { "heading": "Should not be publicly reachable" }
+    }
+  ]
+}

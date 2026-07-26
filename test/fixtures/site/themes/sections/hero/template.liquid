@@ -1,0 +1,5 @@
+<section class="hero" data-section-id="{{ section.id }}">
+  <h1>{{ section.settings.heading }}</h1>
+  {% if section.settings.subheading %}<p>{{ section.settings.subheading }}</p>{% endif %}
+  <div class="hero__blocks">{% for html in blocksHtml %}{{ html | raw }}{% endfor %}</div>
+</section>
