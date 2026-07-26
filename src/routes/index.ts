@@ -3,6 +3,7 @@ import type { SiteConfig } from '../config.ts';
 import type { ThemeTemplates } from '../renderer/theme-templates.ts';
 import type { TokenEntry } from '../server-config.ts';
 import { capabilitiesRoutes } from './capabilities.ts';
+import { contentRoutes } from './content.ts';
 import { previewRoutes } from './preview.ts';
 
 export interface V1RouteOptions {
@@ -38,4 +39,10 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
     themeTemplates: opts.themeTemplates,
     tokens: opts.tokens,
   });
+
+  // contentRoutes needs no themeTemplates (it never renders anything),
+  // so it gets its own narrower options shape rather than the full
+  // bundle out of convenience - matching capabilities.ts's precedent
+  // of registering with only what it actually uses.
+  fastify.register(contentRoutes, { config: opts.config, tokens: opts.tokens });
 };
