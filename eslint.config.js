@@ -68,11 +68,12 @@ export default tseslint.config(
       'src/services/migration-runner.ts',
       'src/search/rebuild-index.ts',
       'src/server-config.ts',
+      'src/routes/capabilities.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },
   {
-    files: ['src/services/validation.ts', 'src/services/startup-checks.ts'],
+    files: ['src/services/validation.ts', 'src/services/startup-checks.ts', 'src/routes/capabilities.ts'],
     rules: { 'no-restricted-syntax': 'off' },
   },
 );

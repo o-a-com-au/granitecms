@@ -1,6 +1,12 @@
 import { DatabaseSync } from 'node:sqlite';
 import type { SearchDriver } from './driver.ts';
 
+// A plain string constant, not the raw node:sqlite import itself - safe
+// for the capabilities endpoint (Phase 2 Group A) to import without
+// tripping the G5 grep test, and avoids hardcoding this name a second
+// time as a literal that could drift from the actual active driver.
+export const DRIVER_NAME = 'node:sqlite';
+
 // The only file in the codebase allowed to import node:sqlite
 // (checklist G5, enforced by a grep test in
 // test/static/static-analysis.test.ts). DatabaseSync's own

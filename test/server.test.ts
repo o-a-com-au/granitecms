@@ -1,9 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { bootSite } from '../src/boot.ts';
 import { buildServer } from '../src/server.ts';
 import { loadServerConfig } from '../src/server-config.ts';
+import { CURRENT_SCHEMA_VERSION } from '../src/migrations/index.ts';
+import { DRIVER_NAME } from '../src/search/drivers/node-sqlite-driver.ts';
 import { createTmpSiteRoot } from './helpers/tmp-site.ts';
+
+const AGENT_PACKAGE_JSON = JSON.parse(
+  readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf-8'),
+) as { version: string };
 
 function buildTestServer() {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
@@ -12,6 +20,27 @@ function buildTestServer() {
   const app = buildServer(booted, serverConfig, { logger: false });
   return { app, cleanup };
 }
+
+test('A3: GET /v1/capabilities returns the agent package version, the content schema version, and the active SQLite driver', async () => {
+  const { app, cleanup } = buildTestServer();
+  try {
+    const response = await app.inject({ method: 'GET', url: '/v1/capabilities' });
+    assert.equal(response.statusCode, 200);
+    const body = response.json() as {
+      agentVersion: string;
+      contentSchemaVersion: number;
+      sqliteDriver: string;
+    };
+    // Asserted against the real sources of truth, not hardcoded
+    // expected strings that would silently drift.
+    assert.equal(body.agentVersion, AGENT_PACKAGE_JSON.version);
+    assert.equal(body.contentSchemaVersion, CURRENT_SCHEMA_VERSION);
+    assert.equal(body.sqliteDriver, DRIVER_NAME);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
 
 test('A2: every route is registered under a /v1 prefix', async () => {
   const { app, cleanup } = buildTestServer();
