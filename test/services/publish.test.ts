@@ -15,7 +15,7 @@ const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
 const author = { name: 'Jane Editor', email: 'jane@example.com' };
 
 function page(title: string): object {
-  return { schemaVersion: 1, title, published: true, sections: [] };
+  return { schemaVersion: 1, title, type: 'page', published: true, sections: [] };
 }
 
 function commitCount(siteRoot: string): number {

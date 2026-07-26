@@ -9,8 +9,11 @@ const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
 const migrateV1ToV2 = migrations[1];
 assert.ok(migrateV1ToV2, 'expected a migration registered for schemaVersion 1');
 
-test('CURRENT_SCHEMA_VERSION is 2', () => {
-  assert.equal(CURRENT_SCHEMA_VERSION, 2);
+const migrateV2ToV3 = migrations[2];
+assert.ok(migrateV2ToV3, 'expected a migration registered for schemaVersion 2');
+
+test('CURRENT_SCHEMA_VERSION is 3', () => {
+  assert.equal(CURRENT_SCHEMA_VERSION, 3);
 });
 
 test('migrateV1ToV2 is a trivial identity migration: only schemaVersion changes', () => {
@@ -34,9 +37,29 @@ test('migrateV1ToV2 is a trivial identity migration: only schemaVersion changes'
   assert.deepEqual(input, { schemaVersion: 1, title: 'About', published: true, sections: [] });
 });
 
-test('a migrated v1 page validates against page.schema.json', () => {
+test('migrateV2ToV3 adds a "page" type default: only schemaVersion and type change', () => {
+  const input = Object.freeze({
+    schemaVersion: 2,
+    title: 'About',
+    published: true,
+    sections: [],
+  });
+
+  const migrated = migrateV2ToV3(input);
+
+  assert.deepEqual(migrated, {
+    schemaVersion: 3,
+    title: 'About',
+    published: true,
+    sections: [],
+    type: 'page',
+  });
+  assert.deepEqual(input, { schemaVersion: 2, title: 'About', published: true, sections: [] });
+});
+
+test('a migrated v1 page validates against page.schema.json (chained through every step to current)', () => {
   const input = { schemaVersion: 1, title: 'About', published: true, sections: [] };
-  const migrated = migrateV1ToV2(input);
+  const migrated = migrateV2ToV3(migrateV1ToV2(input));
 
   const result = validatePage(migrated, themeSchemas);
   assert.equal(result.valid, true);

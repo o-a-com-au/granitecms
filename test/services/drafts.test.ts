@@ -10,7 +10,7 @@ import { createTmpSiteRoot, writeAndCommit } from '../helpers/tmp-site.ts';
 
 const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
 
-const validPage = { schemaVersion: 1, title: 'About', published: true, sections: [] };
+const validPage = { schemaVersion: 1, title: 'About', type: 'page', published: true, sections: [] };
 
 function commitCount(siteRoot: string): number {
   return execFileSync('git', ['log', '--oneline'], { cwd: siteRoot })

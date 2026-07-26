@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "title": "About us",
+  "type": "page",
   "published": true,
   "unexpectedField": true,
   "sections": [
