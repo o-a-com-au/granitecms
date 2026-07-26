@@ -125,5 +125,14 @@ export function sanitisePath(root: string, requestedPath: string): string {
     );
   }
 
+  // Accepted residual risk, not a structural gap: the symlink check
+  // above and the fs operation a caller performs with the returned
+  // path are not atomic, so a symlink swapped in between could in
+  // principle slip through (TOCTOU). Given the actual threat model -
+  // a single-operator site, all writes serialised through one queue,
+  // no concurrent untrusted filesystem access - this is low realistic
+  // risk. Flagged by plan-reviewer's Phase 1 audit; noted rather than
+  // solved, the same way other accepted trade-offs in this codebase
+  // are (see publish.ts's rollback() comment).
   return resolved;
 }
