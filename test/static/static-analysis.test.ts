@@ -56,6 +56,7 @@ const FS_USAGE_ALLOWLIST = new Set<string>([
   'services/fs-walk.ts', // walks agent-configured roots (content/drafts/themes), not request paths
   'services/migration-runner.ts', // walks and rewrites files under agent-configured content/drafts roots, not request paths
   'search/rebuild-index.ts', // walks agent-configured pagesRoot and writes to agent-configured dataRoot, not request paths
+  'server-config.ts', // reads site.config.json from the agent-configured siteRoot, not a request path
 ]);
 
 test('B7: the sanitisation function is a single shared helper and every fs-touching code path imports it', () => {

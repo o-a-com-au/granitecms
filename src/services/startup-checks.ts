@@ -6,7 +6,8 @@ export type StartupCheckReason =
   | 'node-version-too-low'
   | 'site-root-missing'
   | 'git-binary-absent'
-  | 'not-a-git-repo';
+  | 'not-a-git-repo'
+  | 'invalid-site-config';
 
 export class StartupCheckError extends Error {
   readonly reason: StartupCheckReason;
