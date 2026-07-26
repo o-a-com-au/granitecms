@@ -92,12 +92,20 @@ Design notes:
 
 | # | Criterion | Proof |
 |---|---|---|
-| F1 | `POST /v1/publish` promotes one or more drafts atomically: all-or-nothing, one commit | |
-| F2 | `POST /v1/unpublish/:path` sets `published: false` and commits | |
-| F3 | `DELETE /v1/content/:path` deletes a live page, optionally recording a redirect to a supplied target, in one commit | |
-| F4 | `POST /v1/content/move` moves or renames a page or subtree (wraps `movePage`) | |
-| F5 | `POST /v1/batch` executes a heterogeneous set of operations (draft writes, deletes, moves, an optional publish) as a single queue job, all-or-nothing | |
-| F6 | A batch job that fails partway through leaves no partial writes and creates no commit | |
+| F1 | `POST /v1/publish` promotes one or more drafts atomically: all-or-nothing, one commit | `test/routes/publish.test.ts :: F1: POST /v1/publish promotes a draft to live and creates one commit`, plus body-validation and `PublishError` reason-mapping cases (atomicity itself already proven at the service layer since Phase 1 — this session only wired the HTTP route) |
+| F2 | `POST /v1/unpublish/:path` sets `published: false` and commits | `test/routes/publish.test.ts :: F2: POST /v1/unpublish/:path sets published:false and commits`, plus its 404/400/401/traversal cases |
+| F3 | `DELETE /v1/content/:path` deletes a live page, optionally recording a redirect to a supplied target, in one commit | `test/services/delete-content.test.ts` (service layer: happy path, redirectTo, `has-children`, the empty-leftover-directory regression case, `redirect-cycle`, rollback-on-commit-failure, draft-left-untouched) plus `test/routes/content.test.ts :: F3: ...` (route wiring: 204, redirect recorded, 409/404/400 mappings, traversal, 401) |
+| F4 | `POST /v1/content/move` moves or renames a page or subtree (wraps `movePage`) | `test/routes/content.test.ts :: F4: POST /v1/content/move moves a page`, plus 404/409/400/401 cases (subtree-move atomicity itself already proven at the service layer since Phase 1) |
+| F5 | `POST /v1/batch` executes a heterogeneous set of operations (draft writes, deletes, moves, an optional publish) as a single queue job, all-or-nothing | **Deferred to its own session** — requires refactoring `movePage`/`publishDrafts` to defer their git commits so a whole batch becomes one commit instead of several, which deserves dedicated design attention rather than being folded into this F1-F4 session |
+| F6 | A batch job that fails partway through leaves no partial writes and creates no commit | **Deferred alongside F5** — same reason |
+
+Design notes:
+
+- **The checklist's own open question (F3 subtree delete) was resolved before implementation, not invented**: raised directly, the user chose reject-outright (409) over cascade delete.
+- **A real bug caught by design review before any code was written**: the first draft of F3's subtree-rejection check used bare directory existence, which would have made a page with a leftover *empty* sibling directory permanently undeletable (no rmdir/cleanup endpoint exists anywhere in this API to ever clear it). Fixed to check for a real child page via `listFilesRecursively`, proven by its own regression test (`test/services/delete-content.test.ts :: a leftover empty sibling directory does not block deletion`).
+- **A new `redirect-cycle` reason for `DeleteContentError`, not swallowed into the generic 500**: unlike `publish.ts`/`move.ts`'s own automatic redirect bookkeeping, F3's `redirectTo` is client-supplied, so a client can trivially trigger a real cycle — that's a 400-shaped input error, not an unlikely internal failure.
+- **`isValidCommitAuthor` (`src/services/git.ts`)**: the first place a caller-supplied identity reaches `git commit --author` anywhere in this codebase (`saveDraft`/`discardDraft` never take an author at all) — rejects control characters (`\n`/`\r`) in addition to requiring non-empty `name`/`email`, since `execFileSync` alone only rules out shell injection, not a malformed multi-line author string in git history.
+- **A gap caught by the tests, not by inspection**: the first draft of `routes/publish.ts` only caught `PublishError`, leaving `PathSafetyError` (no `.statusCode`) to fall through to a sanitised 500 instead of the 404 every other `:path`-touching route already gives. Fixed to match that established pattern before this checkpoint's tests were trusted.
 
 ## Group G: git read endpoints
 
