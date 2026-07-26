@@ -74,12 +74,19 @@ Design notes:
 
 | # | Criterion | Proof |
 |---|---|---|
-| E1 | `PUT /v1/drafts/:path` without an `If-Match` header is rejected | |
-| E2 | `PUT /v1/drafts/:path` with a stale `If-Match` returns 409 and writes nothing to disk | |
-| E3 | `PUT /v1/drafts/:path` with a matching `If-Match` succeeds and writes the draft | |
-| E4 | Creating a draft from a live page for the first time checks `If-Match` against the live file's ETag, not a nonexistent draft's | |
-| E5 | `DELETE /v1/drafts/:path` discards the draft | |
-| E6 | Two requests racing to `PUT` the same path with the same now-stale `If-Match` value: exactly one succeeds, the other gets 409 — not two successes (delay-injection test, mirroring Phase 1's C1) | |
+| E1 | `PUT /v1/drafts/:path` without an `If-Match` header is rejected | `test/routes/drafts.test.ts :: E1: PUT /v1/drafts/:path without an If-Match header is rejected with 428` (428 Precondition Required, RFC 6585 — the checklist doesn't pin an exact code, this is the precise one) |
+| E2 | `PUT /v1/drafts/:path` with a stale `If-Match` returns 409 and writes nothing to disk | `test/services/drafts.test.ts :: E2: saving with a stale If-Match returns a conflict and writes nothing` (the real proof — confirms nothing written) plus `test/routes/drafts.test.ts :: E2 (route wiring): PUT /v1/drafts/:path with a stale If-Match returns 409` (HTTP wiring only) |
+| E3 | `PUT /v1/drafts/:path` with a matching `If-Match` succeeds and writes the draft | `test/services/drafts.test.ts :: E3: saving with a matching If-Match succeeds and returns the new ETag` plus `test/routes/drafts.test.ts :: E3 (route wiring): ...` |
+| E4 | Creating a draft from a live page for the first time checks `If-Match` against the live file's ETag, not a nonexistent draft's | `test/services/drafts.test.ts :: E4: creating a draft from a live page for the first time checks If-Match against the live ETag, not a nonexistent draft` |
+| E5 | `DELETE /v1/drafts/:path` discards the draft | `test/routes/drafts.test.ts :: E5: DELETE /v1/drafts/:path discards the draft`, plus its idempotent-when-already-absent case |
+| E6 | Two requests racing to `PUT` the same path with the same now-stale `If-Match` value: exactly one succeeds, the other gets 409 — not two successes (delay-injection test, mirroring Phase 1's C1) | `test/services/drafts.test.ts :: E6: two concurrent saves racing with the same now-stale If-Match value ...` — **the real regression proof, no artificial delay** (see design note below); `test/routes/drafts.test.ts :: E6 (HTTP wiring sanity, not the regression proof): ...` confirms the real endpoint resolves the same way end-to-end, but is explicitly not relied on as the proof itself |
+
+Design notes:
+
+- **A design-review conclusion overturned by empirical testing, not just reasoned about**: the review argued no artificial delay is needed for E6, reasoning that `write-queue.ts`'s true one-at-a-time job execution makes the outcome timing-independent for a *correct* implementation (verified: 2000 trials, 0 failures). But the *naive* design (`If-Match` checked before `enqueue`, only the write queued) also produced the bug 2000/2000 times when called directly — yet did **not** reproduce in a single `app.inject()`-based HTTP trial, because Fastify's own request-dispatch overhead was enough noise to accidentally close the naive design's race window. Conclusion: E6's real regression proof has to call `saveDraft` directly (service layer), mirroring exactly how Phase 1's own C1 tested the raw `enqueue()` primitive rather than through HTTP — an HTTP-only test would be an unreliable proof, able to pass against genuinely broken code by scheduling luck.
+- **Verified, not assumed, that the E6 test actually catches a regression**: before trusting it, the correct design was temporarily reverted to the naive (check-before-`enqueue`) shape and the service-layer E6 test was confirmed to fail against it (both requests succeeded, `2 !== 1`) — a positive control, matching this codebase's own `test/static/static-analysis.test.ts` B4-mechanism-check precedent — then reverted back.
+- **The `If-Match` check lives inside `saveDraftJob`, never at the route layer before `enqueue`** — the TOCTOU gap a prior scoping session's memory note already flagged for this exact group. E1 (header presence) is the one exception, correctly handled at the route layer instead, since it's a static per-request property with no shared mutable state to race against.
+- **The "brand new page, no live, no draft" case is deliberately unchecked against a specific `If-Match` value** — not one of E1-E6, and not a race loophole in practice: the first write to a wholly new path skips the comparison, but any *second* write to that same path lands after a real draft now exists, so it's checked for real against an arbitrary placeholder's near-zero odds of matching.
 
 ## Group F: publish, unpublish, delete, move, batch
 
