@@ -20,11 +20,11 @@ Rules for using this file (same as Phase 1):
 
 | # | Criterion | Proof |
 |---|---|---|
-| A1 | The server boots by calling `bootSite` and starts a Fastify instance listening on a configured port | |
-| A2 | Every route is registered under a `/v1/` prefix | |
-| A3 | `GET /v1/capabilities` returns the agent package version, the content schema version, and the active SQLite driver name | |
-| A4 | Requesting an unregistered route returns 404 with a structured JSON error body | |
-| A5 | An uncaught error thrown inside a route handler returns 500 with a structured JSON error body, never a raw stack trace to the client, and never crashes the process | |
+| A1 | The server boots by calling `bootSite` and starts a Fastify instance listening on a configured port | `test/server.test.ts :: A1: the server boots by calling bootSite and starts a Fastify instance listening on a configured port` — a real socket (ephemeral port, real `fetch()`), not just `.inject()`, which deliberately bypasses the network stack and can't prove a real listener |
+| A2 | Every route is registered under a `/v1/` prefix | `test/server.test.ts :: A2: every route is registered under a /v1 prefix` |
+| A3 | `GET /v1/capabilities` returns the agent package version, the content schema version, and the active SQLite driver name | `test/server.test.ts :: A3: GET /v1/capabilities returns the agent package version, the content schema version, and the active SQLite driver` — asserted against the real sources of truth (`package.json`, `CURRENT_SCHEMA_VERSION`, `DRIVER_NAME`), never hardcoded expected strings |
+| A4 | Requesting an unregistered route returns 404 with a structured JSON error body | `test/server.test.ts :: A4: requesting an unregistered route returns 404 with a structured JSON error body` |
+| A5 | An uncaught error thrown inside a route handler returns 500 with a structured JSON error body, never a raw stack trace to the client, and never crashes the process | `test/server.test.ts :: A5: an uncaught error thrown inside a route handler returns 500 with a structured JSON error body, never a raw stack trace` (also `:: a route error below 500 ... is passed through with its real message, not sanitised`, proving the error handler's status-code check doesn't mangle future validation errors). Scope note: this covers errors thrown inside a route handler only — an unhandled rejection from work outside Fastify's request cycle (e.g. Group H's background checkpoint job) is not covered by this proof and needs its own, when that group lands. CORS remains deferred to Group B (see open question 5 above) — no admin app or token/origin model exists yet to configure it against. |
 
 ## Group B: token auth with scopes
 
