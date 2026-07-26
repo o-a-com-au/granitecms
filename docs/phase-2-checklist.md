@@ -57,10 +57,18 @@ Design notes worth recording, not just the proof pointers above:
 
 | # | Criterion | Proof |
 |---|---|---|
-| D1 | `GET /v1/content/:path` returns the live file's content and an `ETag` header | |
-| D2 | `GET /v1/drafts/:path` returns the draft file's content and an `ETag` header | |
-| D3 | `GET /v1/content` lists content, filterable by type, path prefix, and draft status | |
-| D4 | The `ETag` for a given file is stable across repeated reads when the file hasn't changed, and changes when the file's content changes | |
+| D1 | `GET /v1/content/:path` returns the live file's content and an `ETag` header | `test/routes/content.test.ts :: D1: GET /v1/content/:path returns the live file content and an ETag header`, plus `:: D1: GET /v1/content/:path returns 404 for a missing file`, `:: a path traversal attempt against GET /v1/content/:path fails safely, never a 500`, `:: GET /v1/content/:path with no token is rejected with 401` |
+| D2 | `GET /v1/drafts/:path` returns the draft file's content and an `ETag` header | `test/routes/drafts.test.ts :: D2: GET /v1/drafts/:path returns the draft file content and an ETag header`, plus its own 404/traversal/401 tests, mirroring D1's shape |
+| D3 | `GET /v1/content` lists content, filterable by type, path prefix, and draft status | `test/routes/content.test.ts :: D3: GET /v1/content lists content, including a draft-only page` and `:: D3: GET /v1/content filters by type, prefix, and draftStatus`; underlying filter/union/conflict logic unit-tested directly in `test/services/content-read.test.ts` (including a real unmigrated, `type`-less fixture shape, proving the listing doesn't crash on content `boot.ts` never auto-migrates) |
+| D4 | The `ETag` for a given file is stable across repeated reads when the file hasn't changed, and changes when the file's content changes | `test/routes/content.test.ts :: D4: the ETag is stable across repeated reads when the file has not changed` and `:: D4: the ETag changes when the file content changes`; the underlying hash primitive itself unit-tested in `test/services/etag.test.ts` |
+
+Design notes:
+
+- **A schema decision raised to the user rather than invented**: the build plan names a `type` filter for `GET /v1/content` with no backing field anywhere in the page schema. Raised as an explicit question; the user chose to add a real `type` field now via a proper migration (`src/schemas/page.schema.json`, `CURRENT_SCHEMA_VERSION` 2 → 3, `migrateV2ToV3` defaulting existing content to `type: "page"`) rather than omitting the filter or reinterpreting it. The blast radius (every caller of `validatePage`) was scoped by reading each one before writing any code.
+- **A design-review claim that turned out to be wrong, caught by running the suite, not by inspection**: the plan review asserted `test/services/migration-runner.test.ts` was unaffected by the schema change because its tests use fully local, decoupled `MigrationMap`s. That's true for the migration *map*, but `runMigrationsJob` unconditionally validates migrated output against the real `page.schema.json` regardless of which map drives it — so its `page()` helper still needed the new required field. Recorded here as a reminder that "doesn't import the real chain" and "unaffected by a schema change" are not the same claim.
+- **ETag algorithm**: a plain `sha256` content hash (`src/services/etag.ts`), not a git blob hash — `git.ts` only shells out for actual commits, never a per-request read, and no later group needs the ETag to coincide with a real git blob hash. One shared `computeEtag` function for both these reads and Group E's future `If-Match` comparison, never inlined separately.
+- **`:path` convention**: `:path` for D1/D2 is relative to `config.contentRoot`/`config.draftsRoot` directly (e.g. `pages/about.json`), matching `renderPage`'s own convention — deliberately avoiding a second seam-translation point like the one Group C's `public.ts`/`preview.ts` needed against `resolveUrl`'s pagesRoot-relative convention.
+- **D3's scope**: the listing is the union of `contentRoot` and `draftsRoot` paths, not live content alone — Group D's own heading is "content **and draft** reads," and there is no separate "list drafts" endpoint anywhere in the build plan, so this is the only place a draft-only page is discoverable at all.
 
 ## Group E: draft writes and discard, with If-Match/409
 
