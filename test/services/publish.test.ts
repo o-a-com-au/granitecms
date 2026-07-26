@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
 import { saveDraft } from '../../src/services/drafts.ts';
+import { computeEtag } from '../../src/services/etag.ts';
 import { movePage } from '../../src/services/move.ts';
 import { PublishError, publishDrafts, unpublishPage } from '../../src/services/publish.ts';
 import { loadRedirects } from '../../src/services/redirects.ts';
@@ -14,8 +15,17 @@ import { createTmpSiteRoot, writeAndCommit } from '../helpers/tmp-site.ts';
 const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
 const author = { name: 'Jane Editor', email: 'jane@example.com' };
 
+// Neither a draft nor a live file exists yet at some tests' target
+// paths, so the If-Match comparison is skipped (saveDraftJob's
+// null-etag case) - any non-empty placeholder satisfies it.
+const NO_PRIOR_FILE_ETAG = 'no-prior-file';
+
 function page(title: string): object {
   return { schemaVersion: 1, title, type: 'page', published: true, sections: [] };
+}
+
+function liveEtag(content: object): string {
+  return computeEtag(Buffer.from(JSON.stringify(content)));
 }
 
 function commitCount(siteRoot: string): number {
@@ -37,7 +47,7 @@ test('C4: publishing promotes the draft over the live file, deletes the draft, a
   try {
     writeAndCommit(siteRoot, 'content/about.json', JSON.stringify(page('Old')));
     const config = loadSiteConfig(siteRoot);
-    await saveDraft(config, themeSchemas, 'about.json', page('New'));
+    await saveDraft(config, themeSchemas, 'about.json', page('New'), liveEtag(page('Old')));
     const before = commitCount(siteRoot);
 
     await publishDrafts(config, themeSchemas, ['about.json'], 'publish about', author);
@@ -55,7 +65,7 @@ test('C5: the publish commit author is the identity supplied with the request, n
   try {
     writeAndCommit(siteRoot, 'content/about.json', JSON.stringify(page('Old')));
     const config = loadSiteConfig(siteRoot);
-    await saveDraft(config, themeSchemas, 'about.json', page('New'));
+    await saveDraft(config, themeSchemas, 'about.json', page('New'), liveEtag(page('Old')));
 
     await publishDrafts(config, themeSchemas, ['about.json'], 'publish about', {
       name: 'Alex Author',
@@ -75,7 +85,7 @@ test('C6: publishing multiple drafts in one call is atomic: if one fails validat
     writeAndCommit(siteRoot, 'content/a.json', JSON.stringify(page('A-old')));
     writeAndCommit(siteRoot, 'content/b.json', JSON.stringify(page('B-old')));
     const config = loadSiteConfig(siteRoot);
-    await saveDraft(config, themeSchemas, 'a.json', page('A-new'));
+    await saveDraft(config, themeSchemas, 'a.json', page('A-new'), liveEtag(page('A-old')));
     // Written directly, bypassing saveDraft's own validation, so there
     // is an invalid draft on disk for publishDrafts to reject.
     mkdirSync(config.draftsRoot, { recursive: true });
@@ -123,8 +133,8 @@ test('C9: a write failure partway through a multi-file publish rolls back cleanl
   try {
     writeAndCommit(siteRoot, 'content/a.json', JSON.stringify(page('A-old')));
     const config = loadSiteConfig(siteRoot);
-    await saveDraft(config, themeSchemas, 'a.json', page('A-new'));
-    await saveDraft(config, themeSchemas, 'foo/bar.json', page('B-new'));
+    await saveDraft(config, themeSchemas, 'a.json', page('A-new'), liveEtag(page('A-old')));
+    await saveDraft(config, themeSchemas, 'foo/bar.json', page('B-new'), NO_PRIOR_FILE_ETAG);
 
     // Pre-create content/foo as a plain file, not a directory, so the
     // second entry's mkdirSync fails with a real, non-mocked fs error
@@ -168,7 +178,7 @@ test('E5 (publish half, move half closed out in move.test.ts): creating a page a
 
     // A brand-new, unrelated page is now authored and published at the
     // same URL via the normal draft workflow.
-    await saveDraft(config, themeSchemas, 'pages/about.json', page('New About'));
+    await saveDraft(config, themeSchemas, 'pages/about.json', page('New About'), NO_PRIOR_FILE_ETAG);
     const before = commitCount(siteRoot);
     await publishDrafts(config, themeSchemas, ['pages/about.json'], 'publish new about', author);
 

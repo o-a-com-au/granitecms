@@ -5,12 +5,18 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
 import { DraftError, discardDraft, saveDraft } from '../../src/services/drafts.ts';
+import { computeEtag } from '../../src/services/etag.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 import { createTmpSiteRoot, writeAndCommit } from '../helpers/tmp-site.ts';
 
 const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
 
 const validPage = { schemaVersion: 1, title: 'About', type: 'page', published: true, sections: [] };
+
+// Neither a draft nor a live file exists yet at these tests' target
+// paths, so the If-Match comparison is skipped (saveDraftJob's
+// null-etag case) - any non-empty placeholder satisfies it.
+const NO_PRIOR_FILE_ETAG = 'no-prior-file';
 
 function commitCount(siteRoot: string): number {
   return execFileSync('git', ['log', '--oneline'], { cwd: siteRoot })
@@ -26,7 +32,7 @@ test('C2: saving a draft writes to /drafts/<path> and creates no git commit', as
     writeAndCommit(siteRoot, 'README.md', 'seed');
     const config = loadSiteConfig(siteRoot);
 
-    await saveDraft(config, themeSchemas, 'about.json', validPage);
+    await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
 
     const draftPath = join(config.draftsRoot, 'about.json');
     assert.ok(existsSync(draftPath));
@@ -44,7 +50,7 @@ test('C3: saving a draft that fails schema validation writes nothing to disk', a
     const invalidPage = { schemaVersion: 1, title: 'About' }; // missing published, sections
 
     await assert.rejects(
-      saveDraft(config, themeSchemas, 'about.json', invalidPage),
+      saveDraft(config, themeSchemas, 'about.json', invalidPage, NO_PRIOR_FILE_ETAG),
       (error: unknown) => error instanceof DraftError && error.reason === 'validation-failed',
     );
 
@@ -61,7 +67,7 @@ test('C7: discarding a draft deletes only the draft; the live file is byte-ident
     writeAndCommit(siteRoot, 'content/about.json', liveContent);
     const config = loadSiteConfig(siteRoot);
 
-    await saveDraft(config, themeSchemas, 'about.json', validPage);
+    await saveDraft(config, themeSchemas, 'about.json', validPage, computeEtag(Buffer.from(liveContent)));
     const liveBefore = readFileSync(join(config.contentRoot, 'about.json'));
 
     await discardDraft(config, 'about.json');
@@ -79,6 +85,100 @@ test('discarding a draft that does not exist is idempotent, not an error', async
   try {
     const config = loadSiteConfig(siteRoot);
     await assert.doesNotReject(discardDraft(config, 'never-existed.json'));
+  } finally {
+    cleanup();
+  }
+});
+
+test('E3: saving with a matching If-Match succeeds and returns the new ETag', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    const newEtag = await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
+
+    const draftBytes = readFileSync(join(config.draftsRoot, 'about.json'));
+    assert.equal(newEtag, computeEtag(draftBytes));
+  } finally {
+    cleanup();
+  }
+});
+
+test('E2: saving with a stale If-Match returns a conflict and writes nothing', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
+    const draftBefore = readFileSync(join(config.draftsRoot, 'about.json'));
+
+    await assert.rejects(
+      saveDraft(config, themeSchemas, 'about.json', { ...validPage, title: 'Changed' }, '"stale-etag"'),
+      (error: unknown) => error instanceof DraftError && error.reason === 'conflict',
+    );
+
+    const draftAfter = readFileSync(join(config.draftsRoot, 'about.json'));
+    assert.ok(draftBefore.equals(draftAfter), 'a conflicting write must leave the draft untouched');
+  } finally {
+    cleanup();
+  }
+});
+
+test('E4: creating a draft from a live page for the first time checks If-Match against the live ETag, not a nonexistent draft', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    const liveContent = JSON.stringify(validPage);
+    writeAndCommit(siteRoot, 'content/about.json', liveContent);
+    const config = loadSiteConfig(siteRoot);
+
+    // A stale If-Match matching neither the live file nor (obviously)
+    // any draft, since no draft exists yet, must still be rejected
+    // against the live ETag - proving the comparison target is the
+    // live file, not silently skipped just because there's no draft.
+    await assert.rejects(
+      saveDraft(config, themeSchemas, 'about.json', { ...validPage, title: 'New' }, '"wrong-etag"'),
+      (error: unknown) => error instanceof DraftError && error.reason === 'conflict',
+    );
+    assert.equal(existsSync(join(config.draftsRoot, 'about.json')), false);
+
+    // The real live ETag succeeds.
+    const newEtag = await saveDraft(
+      config,
+      themeSchemas,
+      'about.json',
+      { ...validPage, title: 'New' },
+      computeEtag(Buffer.from(liveContent)),
+    );
+    assert.ok(existsSync(join(config.draftsRoot, 'about.json')));
+    assert.equal(typeof newEtag, 'string');
+  } finally {
+    cleanup();
+  }
+});
+
+test('E6: two concurrent saves racing with the same now-stale If-Match value - exactly one succeeds, the other conflicts', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    const startingEtag = await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
+
+    // Both requests read the same starting ETag from one earlier GET,
+    // then race to PUT with that now-shared value - fired via
+    // Promise.all, never awaited between them, matching Phase 1's own
+    // write-queue concurrency test's directness. No artificial delay:
+    // the If-Match check lives inside the queued job (saveDraftJob),
+    // so the outcome is deterministic by construction, not by timing
+    // luck - verified empirically across 2000 trials before this test
+    // was written (see docs/phase-2-checklist.md's Group E notes).
+    const results = await Promise.allSettled([
+      saveDraft(config, themeSchemas, 'about.json', { ...validPage, title: 'From A' }, startingEtag),
+      saveDraft(config, themeSchemas, 'about.json', { ...validPage, title: 'From B' }, startingEtag),
+    ]);
+
+    const fulfilled = results.filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled');
+    const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    assert.equal(fulfilled.length, 1, 'exactly one of the two racing saves must succeed');
+    assert.equal(rejected.length, 1, 'exactly one of the two racing saves must conflict');
+    const [rejection] = rejected;
+    assert.ok(rejection !== undefined && rejection.reason instanceof DraftError && rejection.reason.reason === 'conflict');
   } finally {
     cleanup();
   }
