@@ -11,7 +11,7 @@ Build a lightweight CMS with a Shopify-style sections and blocks content model, 
 ## Non-negotiable constraints
 
 1. Content is stored as JSON files on disk, git-tracked. No database is the source of truth for content.
-2. A whole site's content, themes, and configuration must be portable by `git clone` alone, onto any server running the stack. **Known exceptions:** media binaries live in S3-compatible object storage and are not in the repo (media references in content JSON are relative or config-driven so a cloned site can be repointed at a different bucket), and the agent itself is restored by `npm install` from the lockfile rather than being vendored in the repo. The repo plus a lockfile is portable; the bucket and the npm registry are documented external dependencies.
+2. A whole site's content, theme, and configuration must be portable by `git clone` alone, onto any server running the stack. **Known exceptions:** media binaries live in S3-compatible object storage and are not in the repo (media references in content JSON are relative or config-driven so a cloned site can be repointed at a different bucket), and the agent itself is restored by `npm install` from the lockfile rather than being vendored in the repo. The repo plus a lockfile is portable; the bucket and the npm registry are documented external dependencies.
 3. The admin application and the site are two separate codebases with two separate deploy cycles. The only connection between them is a versioned HTTP API.
 4. Search and any future AI enhancement live in a derived, disposable index that can be fully rebuilt by walking the content files. It is never a second source of truth.
 5. AI features are out of scope for the first build. The system must work fully with a human editor only. AI is added later as just another writer that goes through the same validation path a human does.
@@ -30,7 +30,7 @@ A site is therefore a thin scaffold:
 my-site/
   /content/           live JSON content
   /drafts/            work in progress
-  /themes/            section and block templates plus schemas
+  /theme/             section and block templates plus schemas
   redirects.json
   site.config.json    site root is implicit; config holds ports, tokens hash, media bucket, preview settings
   package.json        depends on @oa/cms-agent at a pinned version
@@ -136,7 +136,7 @@ Three repositories now, not two:
 
 ### Site scaffold (per client, thin, content only)
 
-As shown under Distribution model: content, drafts, themes, redirects, config, a lockfile, and a three-line entry point. The gitignored `/data/search-index.sqlite` lives here at runtime, rebuilt on demand, never committed.
+As shown under Distribution model: content, drafts, theme, redirects, config, a lockfile, and a three-line entry point. The gitignored `/data/search-index.sqlite` lives here at runtime, rebuilt on demand, never committed.
 
 ### Admin (control plane, one instance total)
 

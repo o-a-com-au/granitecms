@@ -30,10 +30,10 @@ export function createTmpSiteRoot(
 
   if (options.contentDirs) {
     // sanitisePath unconditionally realpaths its root argument, so
-    // content/drafts/themes must exist on disk before a test calls it
+    // content/drafts/theme must exist on disk before a test calls it
     // against config.contentRoot etc, or a raw ENOENT surfaces instead
     // of a clean PathSafetyError for reasons unrelated to the test.
-    for (const dir of ['content', 'content/pages', 'drafts', 'themes']) {
+    for (const dir of ['content', 'content/pages', 'drafts', 'theme']) {
       mkdirSync(join(siteRoot, dir), { recursive: true });
     }
   }

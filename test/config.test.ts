@@ -11,7 +11,7 @@ test('B1: the agent boots against a site root passed in config, not the agent pa
     assert.equal(config.siteRoot, siteRoot);
     assert.ok(config.contentRoot.startsWith(siteRoot));
     assert.ok(config.draftsRoot.startsWith(siteRoot));
-    assert.ok(config.themesRoot.startsWith(siteRoot));
+    assert.ok(config.themeRoot.startsWith(siteRoot));
     assert.ok(!config.contentRoot.includes(import.meta.dirname));
   } finally {
     cleanup();

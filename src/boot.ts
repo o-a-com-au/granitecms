@@ -29,7 +29,7 @@ export interface BootedSite {
 export function bootSite(siteRoot: string, options?: StartupCheckOptions): BootedSite {
   runStartupChecks(siteRoot, options);
   const config = loadSiteConfig(siteRoot);
-  const themeSchemas = loadThemeSchemas(config.themesRoot);
-  const themeTemplates = loadThemeTemplates(config.themesRoot);
+  const themeSchemas = loadThemeSchemas(config.themeRoot);
+  const themeTemplates = loadThemeTemplates(config.themeRoot);
   return { config, themeSchemas, themeTemplates };
 }

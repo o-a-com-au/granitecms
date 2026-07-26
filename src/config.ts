@@ -4,7 +4,7 @@ export interface SiteConfig {
   siteRoot: string;
   contentRoot: string;
   draftsRoot: string;
-  themesRoot: string;
+  themeRoot: string;
   pagesRoot: string;
   redirectsPath: string;
   dataRoot: string;
@@ -29,7 +29,7 @@ export function loadSiteConfig(siteRoot: string): SiteConfig {
     siteRoot: normalisedRoot,
     contentRoot,
     draftsRoot: join(normalisedRoot, 'drafts'),
-    themesRoot: join(normalisedRoot, 'themes'),
+    themeRoot: join(normalisedRoot, 'theme'),
     pagesRoot: join(contentRoot, 'pages'),
     redirectsPath: join(normalisedRoot, 'redirects.json'),
     dataRoot,

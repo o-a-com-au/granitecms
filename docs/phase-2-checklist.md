@@ -125,7 +125,7 @@ Design notes:
 |---|---|---|
 | J1 | `npm run build` produces compiled `dist/` output, including a copy step for `src/schemas/*.schema.json` (a gap flagged and deferred back in Phase 1's bootstrap commit) | |
 | J2 | The package's `files`/`exports` are structured for a `v0.x` publish to a private registry; TypeScript source is excluded from the published artifact | |
-| J3 | A `create-site` scaffold template produces a working site directory: `content/`, `drafts/`, `themes/`, `site.config.json`, `package.json`, `server.js` | |
+| J3 | A `create-site` scaffold template produces a working site directory: `content/`, `drafts/`, `theme/`, `site.config.json`, `package.json`, `server.js` | |
 | J4 | On a clean machine (or an equivalent automated proof), `git clone` + `npm install` + `node server.js` boots a scaffolded site with no steps beyond that | |
 | J5 | Phase 1's deferred H4 (page-reviewer subagent run against the fixture site) passes, now that a real HTTP layer exists | |
 
