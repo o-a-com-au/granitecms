@@ -7,6 +7,7 @@ import { capabilitiesRoutes } from './capabilities.ts';
 import { contentRoutes } from './content.ts';
 import { draftsRoutes } from './drafts.ts';
 import { previewRoutes } from './preview.ts';
+import { publishRoutes } from './publish.ts';
 
 export interface V1RouteOptions {
   config: SiteConfig;
@@ -49,6 +50,11 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   // of registering with only what it actually uses.
   fastify.register(contentRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(draftsRoutes, {
+    config: opts.config,
+    themeSchemas: opts.themeSchemas,
+    tokens: opts.tokens,
+  });
+  fastify.register(publishRoutes, {
     config: opts.config,
     themeSchemas: opts.themeSchemas,
     tokens: opts.tokens,

@@ -17,6 +17,31 @@ export interface CommitAuthor {
   email: string;
 }
 
+const CONTROL_CHAR_PATTERN = /[\r\n]/;
+
+// The route layer's shape check for a caller-supplied author before it
+// ever reaches `git commit --author` below. execFileSync (not a shell)
+// already rules out command injection, but a name/email containing a
+// literal newline could still smuggle a malformed or multi-line author
+// string into git history - this is the first place in the codebase a
+// caller-supplied identity reaches a real commit (saveDraft/discardDraft
+// never take an author at all), so this check is new, necessary
+// surface, not a repeat of an existing one.
+export function isValidCommitAuthor(value: unknown): value is CommitAuthor {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const { name, email } = value as Record<string, unknown>;
+  return (
+    typeof name === 'string' &&
+    name.length > 0 &&
+    !CONTROL_CHAR_PATTERN.test(name) &&
+    typeof email === 'string' &&
+    email.length > 0 &&
+    !CONTROL_CHAR_PATTERN.test(email)
+  );
+}
+
 // Author identity always comes from the caller, never host config
 // (constraint: commit authorship passthrough, checklist C5). Passing
 // GIT_AUTHOR_*/GIT_COMMITTER_* explicitly means this never depends on
