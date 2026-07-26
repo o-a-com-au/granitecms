@@ -119,6 +119,7 @@ const ROUTES_INDEX_FILE = 'routes/index.ts';
 // rather than needing an allowlist entry.
 const ROUTE_SCOPE_ALLOWLIST = new Set<string>([
   'routes/capabilities.ts', // intentionally exempt: a discovery endpoint (agent version, schema version, feature manifest) needed before a client necessarily has a working token configured - no token model to bootstrap against yet, and it leaks a version banner, not content
+  'routes/public.ts', // intentionally and permanently exempt: this is the site's own public website (outside /v1/, not part of the site agent API), not a discovery aid awaiting a token model - a different category of exemption from capabilities.ts
 ]);
 
 function registersRoutes(contents: string): boolean {
