@@ -4,9 +4,12 @@ import { createHash } from 'node:crypto';
 import { bootSite } from '../../src/boot.ts';
 import { buildServer } from '../../src/server.ts';
 import { loadServerConfig } from '../../src/server-config.ts';
-import { createTmpSiteRoot, writeJson } from '../helpers/tmp-site.ts';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { createTmpSiteRoot, writeAndCommit, writeJson } from '../helpers/tmp-site.ts';
 
 const CONTENT_TOKEN = 'content-test-token';
+const author = { name: 'Jane Editor', email: 'jane@example.com' };
 
 function hashOf(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -198,6 +201,226 @@ test('D3: GET /v1/content filters by type, prefix, and draftStatus', async () =>
       (byDraftStatus.json() as Array<{ path: string }>).map((e) => e.path),
       ['pages/draft-only.json'],
     );
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('F3: DELETE /v1/content/:path deletes a live page in one commit', async () => {
+  const { app, siteRoot, cleanup } = buildContentTestServer();
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About', 'page')));
+    const config = bootSite(siteRoot).config;
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/content/pages/about.json',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { message: 'delete about', author },
+    });
+
+    assert.equal(response.statusCode, 204);
+    assert.equal(existsSync(join(config.pagesRoot, 'about.json')), false);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('F3: DELETE /v1/content/:path with redirectTo records a redirect', async () => {
+  const { app, siteRoot, cleanup } = buildContentTestServer();
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About', 'page')));
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/content/pages/about.json',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { redirectTo: '/company', message: 'delete about', author },
+    });
+
+    assert.equal(response.statusCode, 204);
+    const redirects = JSON.parse(readFileSync(join(siteRoot, 'redirects.json'), 'utf-8')) as Record<
+      string,
+      string
+    >;
+    assert.equal(redirects['/about'], '/company');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('F3: DELETE /v1/content/:path returns 409 when the page has a real child page', async () => {
+  const { app, siteRoot, cleanup } = buildContentTestServer();
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About', 'page')));
+    writeAndCommit(siteRoot, 'content/pages/about/team.json', JSON.stringify(page('Team', 'page')));
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/content/pages/about.json',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { message: 'delete about', author },
+    });
+
+    assert.equal(response.statusCode, 409);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('F3: DELETE /v1/content/:path returns 404 for a nonexistent page', async () => {
+  const { app, cleanup } = buildContentTestServer();
+  try {
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/content/pages/never-existed.json',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { message: 'delete', author },
+    });
+    assert.equal(response.statusCode, 404);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('F3: DELETE /v1/content/:path rejects a malformed body with 400', async () => {
+  const { app, siteRoot, cleanup } = buildContentTestServer();
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About', 'page')));
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/content/pages/about.json',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { message: '' },
+    });
+    assert.equal(response.statusCode, 400);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('a path traversal attempt against DELETE /v1/content/:path fails safely, never a 500', async () => {
+  const { app, cleanup } = buildContentTestServer();
+  try {
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/content/..%2f..%2f..%2fetc%2fpasswd',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { message: 'x', author },
+    });
+    assert.ok(response.statusCode === 400 || response.statusCode === 404);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('DELETE /v1/content/:path with no token is rejected with 401', async () => {
+  const { app, siteRoot, cleanup } = buildContentTestServer();
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About', 'page')));
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/content/pages/about.json',
+      headers: { 'content-type': 'application/json' },
+      payload: { message: 'x', author },
+    });
+    assert.equal(response.statusCode, 401);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('F4: POST /v1/content/move moves a page', async () => {
+  const { app, siteRoot, cleanup } = buildContentTestServer();
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About', 'page')));
+    const config = bootSite(siteRoot).config;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/content/move',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { from: '/about', to: '/company', message: 'move about', author },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(existsSync(join(config.pagesRoot, 'about.json')), false);
+    assert.ok(existsSync(join(config.pagesRoot, 'company.json')));
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('F4: POST /v1/content/move returns 404 when the source page does not exist', async () => {
+  const { app, cleanup } = buildContentTestServer();
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/content/move',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { from: '/never-existed', to: '/somewhere', message: 'move', author },
+    });
+    assert.equal(response.statusCode, 404);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('F4: POST /v1/content/move returns 409 when the destination already exists', async () => {
+  const { app, siteRoot, cleanup } = buildContentTestServer();
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About', 'page')));
+    writeAndCommit(siteRoot, 'content/pages/company.json', JSON.stringify(page('Company', 'page')));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/content/move',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { from: '/about', to: '/company', message: 'move', author },
+    });
+    assert.equal(response.statusCode, 409);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('F4: POST /v1/content/move rejects a malformed body with 400', async () => {
+  const { app, cleanup } = buildContentTestServer();
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/content/move',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { from: '/about', message: 'move', author },
+    });
+    assert.equal(response.statusCode, 400);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('POST /v1/content/move with no token is rejected with 401', async () => {
+  const { app, cleanup } = buildContentTestServer();
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/content/move',
+      headers: { 'content-type': 'application/json' },
+      payload: { from: '/about', to: '/company', message: 'move', author },
+    });
+    assert.equal(response.statusCode, 401);
   } finally {
     await app.close();
     cleanup();
