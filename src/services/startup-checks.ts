@@ -7,7 +7,8 @@ export type StartupCheckReason =
   | 'site-root-missing'
   | 'git-binary-absent'
   | 'not-a-git-repo'
-  | 'invalid-site-config';
+  | 'invalid-site-config'
+  | 'invalid-token-config';
 
 export class StartupCheckError extends Error {
   readonly reason: StartupCheckReason;
