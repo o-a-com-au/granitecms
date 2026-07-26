@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Self-hosted, git-backed CMS agent, distributed as a compiled npm package.",
+  "main": "dist/index.js",
   "engines": {
     "node": ">=22.6.0"
   },

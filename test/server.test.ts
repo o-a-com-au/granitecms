@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { bootSite } from '../src/boot.ts';
-import { buildServer } from '../src/server.ts';
+import { buildServer, startServer } from '../src/server.ts';
 import { loadServerConfig } from '../src/server-config.ts';
 import { CURRENT_SCHEMA_VERSION } from '../src/migrations/index.ts';
 import { DRIVER_NAME } from '../src/search/drivers/node-sqlite-driver.ts';
-import { createTmpSiteRoot } from './helpers/tmp-site.ts';
+import { createTmpSiteRoot, writeJson } from './helpers/tmp-site.ts';
 
 const AGENT_PACKAGE_JSON = JSON.parse(
   readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf-8'),
@@ -105,6 +105,35 @@ test('a route error below 500 (e.g. a future schema-validation failure) is passe
     assert.equal(body.message, 'specific, safe-to-show validation detail');
   } finally {
     await app.close();
+    cleanup();
+  }
+});
+
+test('A1: the server boots by calling bootSite and starts a Fastify instance listening on a configured port', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    // .inject() deliberately bypasses the real network stack, so it
+    // can't prove a real listener exists - this test uses an actual
+    // socket. port: 0 (ephemeral), not a fixed port: node --test runs
+    // files in parallel by default, and a fixed port risks flaky
+    // collisions with other test files' real listeners.
+    writeJson(siteRoot, 'site.config.json', { port: 0 });
+
+    const app = await startServer(siteRoot, { logger: false });
+    try {
+      const address = app.server.address();
+      if (address === null || typeof address === 'string') {
+        throw new Error('expected a real bound network address');
+      }
+
+      const response = await fetch(`http://127.0.0.1:${address.port}/v1/capabilities`);
+      assert.equal(response.status, 200);
+      const body = (await response.json()) as { agentVersion: string };
+      assert.equal(typeof body.agentVersion, 'string');
+    } finally {
+      await app.close();
+    }
+  } finally {
     cleanup();
   }
 });
