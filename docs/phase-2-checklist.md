@@ -10,11 +10,11 @@ Rules for using this file (same as Phase 1):
 
 ## Open questions carried in from scoping (resolve at the named session, not before)
 
-1. Is `GET /v1/capabilities` exempt from auth, or does it need any valid token? (Group A/B)
+1. ~~Is `GET /v1/capabilities` exempt from auth, or does it need any valid token?~~ **Resolved in Group B: exempt, no token required.** It's the one route a client needs before it necessarily has a working token configured, and it leaks a version/feature banner, not content — comparable in kind to an HTTP `Server` header. Noted for later: once Group H's rate limiting lands, this is the natural first thing to rate-limit, being reachable with zero credentials.
 2. Does `DELETE /v1/content/:path` support deleting a page with children (subtree delete), or reject it outright? The build plan's phrasing is singular-page; it doesn't say. (Group F)
 3. Draft-checkpoint commit identity (Group H) — the same shape of question `src/boot.ts` already declined to answer for boot-time migrations (`src/services/migration-runner.ts`): what identity should an unattended, no-human-editor git commit use? Reintroducing a host-git-config fallback would walk back the Phase 1 H3 sign-off that commits never depend on host config. Decide whether boot-migration and checkpoint share one system identity or get separate ones.
 4. Media (Group I): route-stub-only is the recommended default, not a locked decision — confirm or revise at that session.
-5. CORS: implied by Phase 3's admin-iframe/postMessage description but never mentioned anywhere in the build plan. Needs a decision in Group A or B, flagged now so it isn't missed later.
+5. ~~CORS: implied by Phase 3's admin-iframe/postMessage description but never mentioned anywhere in the build plan.~~ **Resolved in Group B: not implemented, deferred to Phase 3.** Firmer reason than "no admin app yet": this API's auth is a bearer token in an `Authorization` header, never a cookie — the primary reason CORS matters for security (protecting cookie-authenticated endpoints from cross-site request forgery via ambient credentials) doesn't apply here. A cross-origin page cannot attach an `Authorization` header without triggering a CORS preflight the server would have to opt into, so there's no ambient-credential attack surface being left open by omission — this is a pure browser-JS-enablement question, not a security gap, and belongs to Phase 3 once the admin's registered-sites/origins model exists to define an allowlist against.
 
 ## Group A: Fastify bootstrap and capabilities
 
@@ -30,11 +30,11 @@ Rules for using this file (same as Phase 1):
 
 | # | Criterion | Proof |
 |---|---|---|
-| B1 | A request with no token is rejected with 401 on every route that requires one | |
-| B2 | A request with a token lacking the scope a route requires is rejected with 403 | |
-| B3 | A request with a valid, correctly-scoped token succeeds | |
-| B4 | Every route registered under `src/routes/` either declares a required scope or sits on a reasoned exemption allowlist (grep-based structural test, mirroring Phase 1's B7) | |
-| B5 | A content-scoped token cannot write theme files; the theme scope is required and distinct from the content scope | |
+| B1 | A request with no token is rejected with 401 on every route that requires one | `test/routes/auth.test.ts :: B1: a request with no token is rejected with 401 on every route that requires one` — synthetic route (`capabilities.ts` is the only real route at this point in the build, and it's exempt) |
+| B2 | A request with a token lacking the scope a route requires is rejected with 403 | `test/routes/auth.test.ts :: B2: a request with a token lacking the scope a route requires is rejected with 403` — synthetic route |
+| B3 | A request with a valid, correctly-scoped token succeeds | `test/routes/auth.test.ts :: B3: a request with a valid, correctly-scoped token succeeds` — synthetic route |
+| B4 | Every route registered under `src/routes/` either declares a required scope or sits on a reasoned exemption allowlist (grep-based structural test, mirroring Phase 1's B7) | `test/static/static-analysis.test.ts :: B4: every route registered under src/routes/ either declares a required scope or sits on a reasoned exemption allowlist`, plus its own positive-control test (`B4 mechanism check`) proving the grep can actually catch a violation, since no real violating file exists yet to prove it against organically. Verified live against a real scratch violation before committing. |
+| B5 | A content-scoped token cannot write theme files; the theme scope is required and distinct from the content scope | `test/routes/auth.test.ts :: B5 (synthetic proof - no theme-writing route exists anywhere in Phase 2 scope, see docs/phase-2-checklist.md): ...` — **scope note, not silently absorbed**: checked the full Phase 2 checklist (Groups C-J) and the build plan's API contract; no theme-writing route is defined anywhere in Phase 2, not merely "not yet built." This synthetic proof (a test-only theme-gated route) is very likely the only proof this criterion ever gets within Phase 2 — raised to the lead rather than assumed acceptable. |
 
 ## Group C: public page serving, redirects, and preview
 
