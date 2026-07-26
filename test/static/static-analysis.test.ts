@@ -102,3 +102,79 @@ test('G5: the SQLite driver is accessed only through the driver interface (no no
     `SQLite driver imported outside src/search/drivers/: ${offenders.join(', ')}`,
   );
 });
+
+// A route registration always has a string-literal path as its first
+// argument (fastify.get('/path', ...)) - this is what keeps the
+// pattern from false-positiving on an unrelated .get()/.post() call
+// elsewhere (e.g. a Map), matching this project's established "good
+// enough regex, not a full parser" grep-test style.
+const ROUTE_REGISTRATION_PATTERN = /\.(?:get|post|put|delete|patch|head|options)\s*\(\s*['"]/;
+const REQUIRE_SCOPE_PATTERN = /requireScope\s*\(/;
+const ROUTES_INDEX_FILE = 'routes/index.ts';
+
+// Every route file that registers at least one real route must either
+// call requireScope (checklist B4) or be a reasoned, commented
+// exemption. routes/index.ts is the /v1 aggregator itself - it
+// registers other plugins, not routes, so it's excluded structurally
+// rather than needing an allowlist entry.
+const ROUTE_SCOPE_ALLOWLIST = new Set<string>([
+  'routes/capabilities.ts', // intentionally exempt: a discovery endpoint (agent version, schema version, feature manifest) needed before a client necessarily has a working token configured - no token model to bootstrap against yet, and it leaks a version banner, not content
+]);
+
+function registersRoutes(contents: string): boolean {
+  return ROUTE_REGISTRATION_PATTERN.test(contents);
+}
+
+function declaresScope(contents: string): boolean {
+  return REQUIRE_SCOPE_PATTERN.test(contents);
+}
+
+test('B4 mechanism check (positive control): the route/scope pattern actually distinguishes a violating file from a compliant one', () => {
+  const violating = `
+    export const badRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get('/unsafe', async () => ({ ok: true }));
+    };
+  `;
+  const compliant = `
+    export const goodRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get('/safe', { preHandler: requireScope(tokens, 'content') }, async () => ({ ok: true }));
+    };
+  `;
+  const noRoutes = `
+    export const aggregator: FastifyPluginAsync = async (fastify) => {
+      fastify.register(someOtherPlugin);
+    };
+  `;
+
+  assert.equal(registersRoutes(violating) && !declaresScope(violating), true, 'must flag the violating fixture');
+  assert.equal(registersRoutes(compliant) && !declaresScope(compliant), false, 'must not flag the compliant fixture');
+  assert.equal(registersRoutes(noRoutes), false, 'a file with no route registrations is never flagged');
+});
+
+test('B4: every route registered under src/routes/ either declares a required scope or sits on a reasoned exemption allowlist', () => {
+  const routesDir = join(srcDir, 'routes');
+  const offenders: string[] = [];
+
+  for (const file of listTsFiles(routesDir)) {
+    const relPath = relative(srcDir, file);
+    if (relPath === ROUTES_INDEX_FILE) {
+      continue;
+    }
+    const contents = readFileSync(file, 'utf-8');
+    if (!registersRoutes(contents)) {
+      continue;
+    }
+    if (ROUTE_SCOPE_ALLOWLIST.has(relPath)) {
+      continue;
+    }
+    if (!declaresScope(contents)) {
+      offenders.push(relPath);
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `route file registers a route without requireScope and is not on the exemption allowlist: ${offenders.join(', ')}`,
+  );
+});
