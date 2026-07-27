@@ -15,6 +15,7 @@ test('a site with no site.config.json defaults to port 3000 and no tokens, witho
       tokens: [],
       rateLimit: { max: 60, windowMs: 60000 },
       trustProxy: false,
+      ipAllowlist: [],
     });
   } finally {
     cleanup();
@@ -31,6 +32,7 @@ test('a site.config.json with a valid port is read correctly', () => {
       tokens: [],
       rateLimit: { max: 60, windowMs: 60000 },
       trustProxy: false,
+      ipAllowlist: [],
     });
   } finally {
     cleanup();
@@ -47,6 +49,7 @@ test('a site.config.json missing "port" defaults to port 3000', () => {
       tokens: [],
       rateLimit: { max: 60, windowMs: 60000 },
       trustProxy: false,
+      ipAllowlist: [],
     });
   } finally {
     cleanup();
@@ -177,6 +180,53 @@ test('a site.config.json with trustProxy: true is read correctly', () => {
     writeJson(siteRoot, 'site.config.json', { trustProxy: true });
     const config = loadServerConfig(siteRoot);
     assert.equal(config.trustProxy, true);
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a valid ipAllowlist is read correctly', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'site.config.json', { ipAllowlist: ['127.0.0.1', '::1'] });
+    const config = loadServerConfig(siteRoot);
+    assert.deepEqual(config.ipAllowlist, ['127.0.0.1', '::1']);
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json missing ipAllowlist defaults to an empty array', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    const config = loadServerConfig(siteRoot);
+    assert.deepEqual(config.ipAllowlist, []);
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a malformed ipAllowlist entry is a hard startup failure', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'site.config.json', { ipAllowlist: ['not an ip!'] });
+    assert.throws(
+      () => loadServerConfig(siteRoot),
+      (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-site-config',
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a non-array ipAllowlist is a hard startup failure', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'site.config.json', { ipAllowlist: '127.0.0.1' });
+    assert.throws(
+      () => loadServerConfig(siteRoot),
+      (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-site-config',
+    );
   } finally {
     cleanup();
   }

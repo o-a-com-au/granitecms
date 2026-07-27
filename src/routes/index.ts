@@ -12,6 +12,7 @@ import { gitRoutes } from './git.ts';
 import { previewRoutes } from './preview.ts';
 import { publishRoutes } from './publish.ts';
 import { searchRoutes } from './search.ts';
+import { ipAllowlistGuard } from '../services/ip-allowlist.ts';
 
 export interface V1RouteOptions {
   config: SiteConfig;
@@ -20,6 +21,7 @@ export interface V1RouteOptions {
   layouts: Record<string, string>;
   engine: Liquid;
   tokens: TokenEntry[];
+  ipAllowlist: string[];
 }
 
 // The /v1 aggregator: buildServer registers this once with
@@ -35,6 +37,18 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   fastify: FastifyInstance,
   opts: V1RouteOptions,
 ) => {
+  // A coarse "is this client's network address allowed to talk to the
+  // API at all" gate, applied to the entire /v1 surface uniformly
+  // (including capabilities.ts and every GET route) - orthogonal to
+  // requireScope's per-route, per-scope exemptions. Added on this
+  // fastify instance (v1Routes's own parameter, never wrapped in fp())
+  // before any nested register() call, so it cascades to every plugin
+  // registered as a child below but never to publicRoutes/assetsRoutes
+  // (siblings registered directly on the root app, outside this
+  // encapsulation context) - verified with a real request, not just
+  // asserted.
+  fastify.addHook('onRequest', ipAllowlistGuard(opts.ipAllowlist));
+
   fastify.register(capabilitiesRoutes);
 
   // Fastify passes the *entire* options object a plugin was registered

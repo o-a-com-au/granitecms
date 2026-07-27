@@ -69,6 +69,7 @@ export function buildServer(
     layouts: booted.layouts,
     engine: booted.engine,
     tokens: serverConfig.tokens,
+    ipAllowlist: serverConfig.ipAllowlist,
   });
 
   // Registered without a /v1 prefix, alongside v1Routes: this is the

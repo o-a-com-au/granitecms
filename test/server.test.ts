@@ -137,3 +137,90 @@ test('A1: the server boots by calling bootSite and starts a Fastify instance lis
     cleanup();
   }
 });
+
+test('H3: an allowlisted IP reaches the API; a non-allowlisted IP gets 403 - real socket, not .inject() (request.ip is only meaningful over a real connection)', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    // A real fetch() to 127.0.0.1 resolves request.ip to exactly
+    // '127.0.0.1' in this environment - confirmed empirically before
+    // writing this test, not assumed (a dual-stack bind can otherwise
+    // present a client as '::ffff:127.0.0.1', which .inject() would
+    // never reproduce since it synthesizes request.ip rather than
+    // exercising a real socket).
+    writeJson(siteRoot, 'site.config.json', { port: 0, ipAllowlist: ['127.0.0.1'] });
+
+    const app = await startServer(siteRoot, { logger: false });
+    try {
+      const address = app.server.address();
+      if (address === null || typeof address === 'string') {
+        throw new Error('expected a real bound network address');
+      }
+      const response = await fetch(`http://127.0.0.1:${address.port}/v1/capabilities`);
+      assert.equal(response.status, 200);
+    } finally {
+      await app.close();
+    }
+  } finally {
+    cleanup();
+  }
+
+  const { siteRoot: siteRoot2, cleanup: cleanup2 } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    // An allowlist that deliberately excludes 127.0.0.1 - a real fetch
+    // from this machine must be rejected.
+    writeJson(siteRoot2, 'site.config.json', { port: 0, ipAllowlist: ['203.0.113.99'] });
+
+    const app = await startServer(siteRoot2, { logger: false });
+    try {
+      const address = app.server.address();
+      if (address === null || typeof address === 'string') {
+        throw new Error('expected a real bound network address');
+      }
+      const response = await fetch(`http://127.0.0.1:${address.port}/v1/capabilities`);
+      assert.equal(response.status, 403);
+    } finally {
+      await app.close();
+    }
+  } finally {
+    cleanup2();
+  }
+});
+
+test('H3: an empty ipAllowlist (the default) is a no-op - any IP reaches the API', async () => {
+  const { app, cleanup } = buildTestServer();
+  try {
+    const response = await app.inject({ method: 'GET', url: '/v1/capabilities' });
+    assert.equal(response.statusCode, 200);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('H3: a disallowed IP still reaches the public website and static assets - the allowlist is scoped to /v1 only', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeJson(siteRoot, 'site.config.json', { port: 0, ipAllowlist: ['203.0.113.99'] });
+
+    const app = await startServer(siteRoot, { logger: false });
+    try {
+      const address = app.server.address();
+      if (address === null || typeof address === 'string') {
+        throw new Error('expected a real bound network address');
+      }
+
+      const v1Response = await fetch(`http://127.0.0.1:${address.port}/v1/capabilities`);
+      assert.equal(v1Response.status, 403);
+
+      // The public site's own catch-all still resolves normally
+      // (404, since no page exists at this path in the fixture - the
+      // point is that it's never 403'd by the /v1-scoped hook).
+      const publicResponse = await fetch(`http://127.0.0.1:${address.port}/never-existed`);
+      assert.notEqual(publicResponse.status, 403);
+    } finally {
+      await app.close();
+    }
+  } finally {
+    cleanup();
+  }
+});

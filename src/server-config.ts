@@ -19,6 +19,7 @@ export interface ServerConfig {
   tokens: TokenEntry[];
   rateLimit: RateLimitConfig;
   trustProxy: boolean;
+  ipAllowlist: string[];
 }
 
 const DEFAULT_PORT = 3000;
@@ -26,6 +27,10 @@ const DEFAULT_RATE_LIMIT: RateLimitConfig = { max: 60, windowMs: 60000 };
 const VALID_SCOPES = new Set<Scope>(['content', 'theme', 'media']);
 // sha256 digest, hex-encoded: exactly 64 lowercase hex characters.
 const HEX64_PATTERN = /^[0-9a-f]{64}$/;
+// A loose IPv4/IPv6-shaped typo-catcher, not a real IP parser -
+// exact-IP-only is a deliberate scope reduction (see ip-allowlist.ts),
+// so this doesn't need to be exhaustive either.
+const IP_SHAPE_PATTERN = /^[0-9a-fA-F:.]+$/;
 
 function parseTokens(value: unknown): TokenEntry[] {
   if (value === undefined) {
@@ -127,6 +132,26 @@ function parseTrustProxy(value: unknown): boolean {
   return value;
 }
 
+function parseIpAllowlist(value: unknown): string[] {
+  if (value === undefined) {
+    // Absent -> [] -> a no-op (checklist H3), not "nothing is
+    // allowed" - see ip-allowlist.ts's isIpAllowed.
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    throw new StartupCheckError('invalid-site-config', 'site.config.json\'s "ipAllowlist" must be an array');
+  }
+  value.forEach((entry, index) => {
+    if (typeof entry !== 'string' || entry.length === 0 || !IP_SHAPE_PATTERN.test(entry)) {
+      throw new StartupCheckError(
+        'invalid-site-config',
+        `ipAllowlist[${index}] must be a non-empty IP-address-shaped string, got ${JSON.stringify(entry)}`,
+      );
+    }
+  });
+  return value as string[];
+}
+
 // Kept separate from SiteConfig (src/config.ts, pure filesystem paths)
 // and from BootedSite (src/boot.ts): this is site.config.json's
 // non-path settings. Later groups add fields here (a media bucket for
@@ -148,7 +173,7 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
   try {
     raw = readFileSync(configPath, 'utf-8');
   } catch {
-    return { port: DEFAULT_PORT, tokens: [], rateLimit: DEFAULT_RATE_LIMIT, trustProxy: false };
+    return { port: DEFAULT_PORT, tokens: [], rateLimit: DEFAULT_RATE_LIMIT, trustProxy: false, ipAllowlist: [] };
   }
 
   let parsed: unknown;
@@ -176,6 +201,7 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
   const tokens = parseTokens(record.tokens);
   const rateLimit = parseRateLimit(record.rateLimit);
   const trustProxy = parseTrustProxy(record.trustProxy);
+  const ipAllowlist = parseIpAllowlist(record.ipAllowlist);
 
-  return { port, tokens, rateLimit, trustProxy };
+  return { port, tokens, rateLimit, trustProxy, ipAllowlist };
 }
