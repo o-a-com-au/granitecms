@@ -109,3 +109,42 @@ test('a legitimate path inside the site root, including one that does not exist 
     cleanup();
   }
 });
+
+// Regression: found by a live page-reviewer pass against a running
+// server, not by inspection. realpathOfNearestExisting only expected
+// ENOENT/ENOTDIR from realpathSync while walking up to find an existing
+// ancestor; an over-length segment throws ENAMETOOLONG instead, which
+// used to be rethrown raw, escaping every route handler's
+// `instanceof PathSafetyError` check and surfacing as an unsanitised
+// 500 rather than a clean 404/400.
+test('a path segment longer than the filesystem limit is rejected as a PathSafetyError, not a raw ENAMETOOLONG', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    // The over-length segment must be the first non-existent component
+    // path resolution reaches (directly under the real, existing
+    // siteRoot) - buried under a nonexistent intermediate directory,
+    // realpathSync would report that missing parent (ENOENT) first and
+    // never reach the length check on the final segment.
+    assert.throws(
+      () => sanitisePath(siteRoot, `${'a'.repeat(300)}.json`),
+      (error: unknown) => error instanceof PathSafetyError && error.reason === 'invalid-path',
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+// Regression, same root cause as above: a null byte makes
+// realpathSync throw a TypeError (ERR_INVALID_ARG_VALUE) rather than
+// an ENOENT/ENOTDIR errno error, which also used to escape raw.
+test('a path containing a null byte is rejected as a PathSafetyError, not a raw TypeError', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    assert.throws(
+      () => sanitisePath(siteRoot, `pages/x${String.fromCharCode(0)}y.json`),
+      (error: unknown) => error instanceof PathSafetyError && error.reason === 'invalid-path',
+    );
+  } finally {
+    cleanup();
+  }
+});

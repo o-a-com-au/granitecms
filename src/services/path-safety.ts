@@ -10,7 +10,8 @@ export type PathSafetyReason =
   | 'malformed-encoding'
   | 'outside-root'
   | 'resolves-to-root'
-  | 'symlink-escape';
+  | 'symlink-escape'
+  | 'invalid-path';
 
 export class PathSafetyError extends Error {
   readonly reason: PathSafetyReason;
@@ -38,12 +39,23 @@ function realpathOfNearestExisting(candidate: string): string {
       return realpathSync(current);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
+      // ENOENT/ENOTDIR mean only "this segment doesn't exist yet" -
+      // walk up to the nearest ancestor that does, per this function's
+      // own doc comment. Any other failure (ENAMETOOLONG for an
+      // over-length segment, ERR_INVALID_ARG_VALUE for an embedded null
+      // byte, etc. - verified empirically, not an exhaustive enum by
+      // design) means the path itself is malformed, not merely absent.
+      // Rejecting it here as a PathSafetyError is required, not
+      // optional: left as a raw rethrow, it would escape every route
+      // handler's `instanceof PathSafetyError` check and surface as an
+      // unsanitised 500, the exact failure mode this file exists to
+      // prevent (CLAUDE.md's #1 security concern).
       if (code !== 'ENOENT' && code !== 'ENOTDIR') {
-        throw error;
+        throw new PathSafetyError('invalid-path', `Path could not be resolved: "${candidate}"`);
       }
       const parent = dirname(current);
       if (parent === current) {
-        throw error;
+        throw new PathSafetyError('invalid-path', `Path could not be resolved: "${candidate}"`);
       }
       current = parent;
     }
