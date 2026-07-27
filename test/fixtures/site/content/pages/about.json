@@ -12,9 +12,19 @@
       },
       "blocks": [
         {
-          "id": "blk-contact",
+          "id": "blk-team",
           "type": "button",
           "settings": { "label": "Meet the team", "url": "/about/team" }
+        },
+        {
+          "id": "blk-contact",
+          "type": "button",
+          "settings": { "label": "Contact us", "url": "/contact" }
+        },
+        {
+          "id": "blk-careers",
+          "type": "button",
+          "settings": { "label": "Careers", "url": "/careers" }
         }
       ]
     }

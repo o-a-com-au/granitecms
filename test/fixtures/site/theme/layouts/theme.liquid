@@ -2,8 +2,10 @@
 <html>
   <head>
     <title>{{ page.title }}</title>
+    <link rel="stylesheet" href="/assets/style.css">
   </head>
   <body>
+    <header class="site-header">{% render 'site-name', name: 'Fixture Co' %}</header>
     {{ content_for_layout | raw }}
   </body>
 </html>
