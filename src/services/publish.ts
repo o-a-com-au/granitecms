@@ -1,9 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { SiteConfig } from '../config.ts';
-import type { CommitAuthor } from './git.ts';
 import { GitOperationError, commitPaths } from './git.ts';
+import type { CommitAuthor } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
+import type { PreparedOperation } from './prepared-operation.ts';
 import { loadRedirects, removeRedirectForPath } from './redirects.ts';
 import { pagePathToUrl } from './urls.ts';
 import type { ThemeSchemas } from './validation.ts';
@@ -111,13 +112,19 @@ function rollbackOrRethrow(snapshots: FileSnapshot[], cause: unknown, redirects?
   throw new PublishError(reason, `Publish failed: ${message}`, { cause });
 }
 
-async function publishDraftsJob(
+// Validates and writes everything a publish needs, stopping short of
+// the commit itself - used both by the standalone publishDraftsJob
+// (which commits immediately after) and by batch.ts (which accumulates
+// this alongside other operations and commits once for the whole
+// batch). A write-phase failure is caught and rolled back here,
+// inside prepare itself - never left for the caller to discover -
+// so prepare either fully succeeds or fully undoes itself before
+// throwing.
+export function preparePublishDrafts(
   config: SiteConfig,
   themeSchemas: ThemeSchemas,
   relativePaths: string[],
-  message: string,
-  author: CommitAuthor,
-): Promise<void> {
+): PreparedOperation {
   // Reject duplicates up front: without this, a repeated path's live-
   // file snapshot would capture already-overwritten state instead of
   // the true original, corrupting any later rollback.
@@ -207,24 +214,56 @@ async function publishDraftsJob(
         redirectsSnapshot = { path: config.redirectsPath, existed, original };
       }
     }
+  } catch (error) {
+    // A write-phase failure: roll back immediately, inside prepare
+    // itself. cause here can never be a GitOperationError (commitPaths
+    // hasn't been called yet), so rollbackOrRethrow's own
+    // instanceof-based classification correctly resolves to
+    // 'write-failed', never 'commit-failed'.
+    rollbackOrRethrow(snapshots, error, redirectsSnapshot);
+  }
 
-    // Only the live paths (and redirects.json, if it changed) are ever
-    // staged: drafts are never git-tracked in the first place (saves
-    // don't commit, per C2), so a draft's deletion has no git-visible
-    // effect at all. Including it in the commit would fail outright,
-    // since `git add` on a path that is both absent from disk and was
-    // never tracked is a hard error ("pathspec did not match any
-    // files"), not a silent no-op.
-    const paths = entries.map((entry) => entry.livePath);
-    if (redirectsSnapshot) {
-      paths.push(redirectsSnapshot.path);
-    }
+  // Only the live paths (and redirects.json, if it changed) are ever
+  // staged: drafts are never git-tracked in the first place (saves
+  // don't commit, per C2), so a draft's deletion has no git-visible
+  // effect at all. Including it in the commit would fail outright,
+  // since `git add` on a path that is both absent from disk and was
+  // never tracked is a hard error ("pathspec did not match any
+  // files"), not a silent no-op.
+  const paths = entries.map((entry) => entry.livePath);
+  if (redirectsSnapshot) {
+    paths.push(redirectsSnapshot.path);
+  }
+  return { paths, undo: () => rollback(snapshots, redirectsSnapshot) };
+}
+
+async function publishDraftsJob(
+  config: SiteConfig,
+  themeSchemas: ThemeSchemas,
+  relativePaths: string[],
+  message: string,
+  author: CommitAuthor,
+): Promise<void> {
+  const { paths, undo } = preparePublishDrafts(config, themeSchemas, relativePaths);
+  try {
     // commitPaths gives its own all-or-nothing contract for git staging,
     // so a failure here only ever leaves filesystem state for this
     // catch block to worry about, never git index state.
     commitPaths(config.siteRoot, paths, message, author);
   } catch (error) {
-    rollbackOrRethrow(snapshots, error, redirectsSnapshot);
+    const failures = undo();
+    if (failures.length > 0) {
+      throw new PublishError(
+        'rollback-failed',
+        'Publish failed and rolling back afterwards also failed; the working tree may be inconsistent and needs manual inspection',
+        { cause: error },
+      );
+    }
+    // Always commit-failed here, structurally: prepare already
+    // succeeded (no write-phase error), so anything caught in this try
+    // can only have come from commitPaths itself.
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new PublishError('commit-failed', `Publish failed: ${errorMessage}`, { cause: error });
   }
 }
 

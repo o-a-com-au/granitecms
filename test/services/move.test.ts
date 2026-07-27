@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
 import { MoveError, movePage } from '../../src/services/move.ts';
@@ -171,6 +171,39 @@ test('moving a page onto an existing page is rejected, and nothing changes', asy
     assert.equal(commitCount(siteRoot), before);
     assert.ok(existsSync(join(config.pagesRoot, 'about.json')));
     assert.equal(readFileSync(join(config.pagesRoot, 'company.json'), 'utf-8'), pageJson('Company'));
+  } finally {
+    cleanup();
+  }
+});
+
+test('rollback-on-commit-failure: a real git failure after the rename rolls back the rename and redirect, no commit', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', pageJson('About'));
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+
+    // A real, deterministic git failure (stray index.lock), matching
+    // the established pattern in delete-content.test.ts/publish.test.ts
+    // for proving rollback without a mock. This is the commit-failure
+    // test move.ts never had before the batch-operations refactor split
+    // prepareMovePage (writes) from movePageJob (commit) - added now so
+    // that split has something real to verify against.
+    const lockPath = join(siteRoot, '.git', 'index.lock');
+    writeFileSync(lockPath, '');
+    try {
+      await assert.rejects(
+        movePage(config, '/about', '/company', 'move about to company', author),
+        (error: unknown) => error instanceof MoveError && error.reason === 'commit-failed',
+      );
+    } finally {
+      execFileSync('rm', ['-f', lockPath]);
+    }
+
+    assert.ok(existsSync(join(config.pagesRoot, 'about.json')), 'the source page must be restored');
+    assert.equal(existsSync(join(config.pagesRoot, 'company.json')), false, 'the destination must not exist');
+    assert.equal(loadRedirects(config)['/about'], undefined, 'no redirect should be left behind');
+    assert.equal(commitCount(siteRoot), before, 'no commit should be created');
   } finally {
     cleanup();
   }

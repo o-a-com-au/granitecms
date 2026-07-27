@@ -1,9 +1,10 @@
 import { existsSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import type { SiteConfig } from '../config.ts';
 import { listFilesRecursively } from './fs-walk.ts';
+import { commitPaths } from './git.ts';
 import type { CommitAuthor } from './git.ts';
-import { GitOperationError, commitPaths } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
+import type { PreparedOperation } from './prepared-operation.ts';
 import { RedirectError, addRedirect, loadRedirects } from './redirects.ts';
 import { pagePathToUrl } from './urls.ts';
 import { enqueue } from './write-queue.ts';
@@ -28,13 +29,19 @@ export class DeleteContentError extends Error {
   }
 }
 
-async function deleteContentJob(
+// Validates and writes everything a delete needs, stopping short of
+// the commit itself - used both by the standalone deleteContentJob
+// (which commits immediately after) and by batch.ts (which accumulates
+// this alongside other operations and commits once for the whole
+// batch). A write-phase failure (including a client-triggered
+// redirect-cycle) is caught and rolled back here, inside prepare
+// itself, so prepare either fully succeeds or fully undoes itself
+// before throwing.
+export function prepareDeleteContent(
   config: SiteConfig,
   relativePath: string,
   redirectTo: string | undefined,
-  message: string,
-  author: CommitAuthor,
-): Promise<void> {
+): PreparedOperation {
   const livePath = sanitisePath(config.contentRoot, relativePath);
   if (!existsSync(livePath)) {
     throw new DeleteContentError('page-not-found', `No live page found at "${relativePath}"`);
@@ -67,6 +74,33 @@ async function deleteContentJob(
   let redirectsBefore: string | null = null;
   let redirectsChanged = false;
 
+  // Reverses the unlink and restores/removes redirects.json. Matches
+  // publish.ts's/move.ts's rollback() philosophy: attempt everything,
+  // report every failure.
+  function undoDeleteWrites(): unknown[] {
+    const restoreFailures: unknown[] = [];
+
+    try {
+      writeFileSync(livePath, original);
+    } catch (restoreError) {
+      restoreFailures.push(restoreError);
+    }
+
+    if (redirectsChanged) {
+      try {
+        if (redirectsBefore === null) {
+          rmSync(config.redirectsPath, { force: true });
+        } else {
+          writeFileSync(config.redirectsPath, redirectsBefore);
+        }
+      } catch (restoreError) {
+        restoreFailures.push(restoreError);
+      }
+    }
+
+    return restoreFailures;
+  }
+
   try {
     unlinkSync(livePath);
 
@@ -98,34 +132,9 @@ async function deleteContentJob(
         redirectsChanged = true;
       }
     }
-
-    const paths = [livePath];
-    if (redirectsChanged) {
-      paths.push(config.redirectsPath);
-    }
-    commitPaths(config.siteRoot, paths, message, author);
   } catch (error) {
-    const restoreFailures: unknown[] = [];
-
-    try {
-      writeFileSync(livePath, original);
-    } catch (restoreError) {
-      restoreFailures.push(restoreError);
-    }
-
-    if (redirectsChanged) {
-      try {
-        if (redirectsBefore === null) {
-          rmSync(config.redirectsPath, { force: true });
-        } else {
-          writeFileSync(config.redirectsPath, redirectsBefore);
-        }
-      } catch (restoreError) {
-        restoreFailures.push(restoreError);
-      }
-    }
-
-    if (restoreFailures.length > 0) {
+    const failures = undoDeleteWrites();
+    if (failures.length > 0) {
       throw new DeleteContentError(
         'rollback-failed',
         'Delete failed and rolling back afterwards also failed; the working tree may be inconsistent and needs manual inspection',
@@ -139,9 +148,43 @@ async function deleteContentJob(
       throw error;
     }
 
-    const reason = error instanceof GitOperationError ? 'commit-failed' : 'write-failed';
+    // Always write-failed here, structurally: commitPaths hasn't been
+    // called yet, so this can never be a GitOperationError.
     const detail = error instanceof Error ? error.message : String(error);
-    throw new DeleteContentError(reason, `Delete failed: ${detail}`, { cause: error });
+    throw new DeleteContentError('write-failed', `Delete failed: ${detail}`, { cause: error });
+  }
+
+  const paths = [livePath];
+  if (redirectsChanged) {
+    paths.push(config.redirectsPath);
+  }
+  return { paths, undo: undoDeleteWrites };
+}
+
+async function deleteContentJob(
+  config: SiteConfig,
+  relativePath: string,
+  redirectTo: string | undefined,
+  message: string,
+  author: CommitAuthor,
+): Promise<void> {
+  const { paths, undo } = prepareDeleteContent(config, relativePath, redirectTo);
+  try {
+    commitPaths(config.siteRoot, paths, message, author);
+  } catch (error) {
+    const failures = undo();
+    if (failures.length > 0) {
+      throw new DeleteContentError(
+        'rollback-failed',
+        'Delete failed and rolling back afterwards also failed; the working tree may be inconsistent and needs manual inspection',
+        { cause: error },
+      );
+    }
+    // Always commit-failed here, structurally: prepare already
+    // succeeded, so anything caught in this try can only have come
+    // from commitPaths itself.
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new DeleteContentError('commit-failed', `Delete failed: ${detail}`, { cause: error });
   }
 }
 

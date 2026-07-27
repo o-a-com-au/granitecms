@@ -2,9 +2,10 @@ import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writ
 import { dirname, join } from 'node:path';
 import type { SiteConfig } from '../config.ts';
 import { listFilesRecursively } from './fs-walk.ts';
+import { commitPaths } from './git.ts';
 import type { CommitAuthor } from './git.ts';
-import { GitOperationError, commitPaths } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
+import type { PreparedOperation } from './prepared-operation.ts';
 import { addRedirect, loadRedirects, removeRedirectForPath } from './redirects.ts';
 import type { RedirectMap } from './redirects.ts';
 import { pagePathToUrl, urlToPagePath } from './urls.ts';
@@ -34,13 +35,14 @@ interface AffectedPage {
   newUrl: string;
 }
 
-async function movePageJob(
-  config: SiteConfig,
-  fromUrl: string,
-  toUrl: string,
-  message: string,
-  author: CommitAuthor,
-): Promise<void> {
+// Validates and writes everything a move needs, stopping short of the
+// commit itself - used both by the standalone movePageJob (which
+// commits immediately after) and by batch.ts (which accumulates this
+// alongside other operations and commits once for the whole batch). A
+// write-phase failure is caught and rolled back here, inside prepare
+// itself, so prepare either fully succeeds or fully undoes itself
+// before throwing.
+export function prepareMovePage(config: SiteConfig, fromUrl: string, toUrl: string): PreparedOperation {
   const fromRelative = urlToPagePath(fromUrl);
   const toRelative = urlToPagePath(toUrl);
 
@@ -92,6 +94,38 @@ async function movePageJob(
   let redirectsBefore: string | null = null;
   let redirectsChanged = false;
 
+  // Reverses every rename (in reverse order) and restores/removes
+  // redirects.json. Attempts everything even if one step fails,
+  // reporting every failure - matches publish.ts's rollback()
+  // philosophy exactly (a filesystem cannot give a true atomicity
+  // guarantee, so the honest contract is "restores everything it can,
+  // and is loud if it can't").
+  function undoMoveWrites(): unknown[] {
+    const restoreFailures: unknown[] = [];
+
+    for (const rename of [...performedRenames].reverse()) {
+      try {
+        renameSync(rename.to, rename.from);
+      } catch (restoreError) {
+        restoreFailures.push(restoreError);
+      }
+    }
+
+    if (redirectsChanged) {
+      try {
+        if (redirectsBefore === null) {
+          rmSync(config.redirectsPath, { force: true });
+        } else {
+          writeFileSync(config.redirectsPath, redirectsBefore);
+        }
+      } catch (restoreError) {
+        restoreFailures.push(restoreError);
+      }
+    }
+
+    return restoreFailures;
+  }
+
   try {
     mkdirSync(dirname(toPageFile), { recursive: true });
     renameSync(fromPageFile, toPageFile);
@@ -123,51 +157,58 @@ async function movePageJob(
       writeFileSync(config.redirectsPath, redirectsAfter);
       redirectsChanged = true;
     }
-
-    const paths: string[] = [];
-    for (const page of affected) {
-      paths.push(sanitisePath(config.pagesRoot, page.oldRelativePath));
-      paths.push(sanitisePath(config.pagesRoot, page.newRelativePath));
-    }
-    if (redirectsChanged) {
-      paths.push(config.redirectsPath);
-    }
-
-    commitPaths(config.siteRoot, paths, message, author);
   } catch (error) {
-    const restoreFailures: unknown[] = [];
-
-    for (const rename of performedRenames.reverse()) {
-      try {
-        renameSync(rename.to, rename.from);
-      } catch (restoreError) {
-        restoreFailures.push(restoreError);
-      }
-    }
-
-    if (redirectsChanged) {
-      try {
-        if (redirectsBefore === null) {
-          rmSync(config.redirectsPath, { force: true });
-        } else {
-          writeFileSync(config.redirectsPath, redirectsBefore);
-        }
-      } catch (restoreError) {
-        restoreFailures.push(restoreError);
-      }
-    }
-
-    if (restoreFailures.length > 0) {
+    // A write-phase failure: roll back immediately, inside prepare
+    // itself, and always classify as write-failed - commitPaths hasn't
+    // been called yet, so this can never be a GitOperationError.
+    const failures = undoMoveWrites();
+    if (failures.length > 0) {
       throw new MoveError(
         'rollback-failed',
         'Move failed and rolling back afterwards also failed; the working tree may be inconsistent and needs manual inspection',
         { cause: error },
       );
     }
-
-    const reason = error instanceof GitOperationError ? 'commit-failed' : 'write-failed';
     const detail = error instanceof Error ? error.message : String(error);
-    throw new MoveError(reason, `Move failed: ${detail}`, { cause: error });
+    throw new MoveError('write-failed', `Move failed: ${detail}`, { cause: error });
+  }
+
+  const paths: string[] = [];
+  for (const page of affected) {
+    paths.push(sanitisePath(config.pagesRoot, page.oldRelativePath));
+    paths.push(sanitisePath(config.pagesRoot, page.newRelativePath));
+  }
+  if (redirectsChanged) {
+    paths.push(config.redirectsPath);
+  }
+
+  return { paths, undo: undoMoveWrites };
+}
+
+async function movePageJob(
+  config: SiteConfig,
+  fromUrl: string,
+  toUrl: string,
+  message: string,
+  author: CommitAuthor,
+): Promise<void> {
+  const { paths, undo } = prepareMovePage(config, fromUrl, toUrl);
+  try {
+    commitPaths(config.siteRoot, paths, message, author);
+  } catch (error) {
+    const failures = undo();
+    if (failures.length > 0) {
+      throw new MoveError(
+        'rollback-failed',
+        'Move failed and rolling back afterwards also failed; the working tree may be inconsistent and needs manual inspection',
+        { cause: error },
+      );
+    }
+    // Always commit-failed here, structurally: prepare already
+    // succeeded, so anything caught in this try can only have come
+    // from commitPaths itself.
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new MoveError('commit-failed', `Move failed: ${detail}`, { cause: error });
   }
 }
 
