@@ -79,6 +79,75 @@ test('G3: unpublished pages and drafts are absent from the index', async () => {
   }
 });
 
+test('a published post is indexed under its /blog/<slug> URL, same as a page', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    writeJson(siteRoot, 'content/posts/hello-world.json', {
+      schemaVersion: 4,
+      title: 'Hello World',
+      type: 'post',
+      layout: 'theme',
+      published: true,
+      author: 'Jane Editor',
+      publishDate: '2026-07-27',
+      tags: [],
+      sections: [{ id: 'sec-1', type: 'hero', settings: { heading: 'postsearchterm' } }],
+    });
+    const config = loadSiteConfig(siteRoot);
+
+    await rebuildIndex(config);
+
+    assert.deepEqual(queryIndex(config.searchIndexPath, 'postsearchterm'), [
+      { url: '/blog/hello-world', title: 'Hello World' },
+    ]);
+  } finally {
+    cleanup();
+  }
+});
+
+test('an unpublished post is absent from the index, same as an unpublished page', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    writeJson(siteRoot, 'content/posts/draft-post.json', {
+      schemaVersion: 4,
+      title: 'Draft Post',
+      type: 'post',
+      layout: 'theme',
+      published: false,
+      author: 'Jane Editor',
+      publishDate: '2026-07-27',
+      tags: [],
+      sections: [{ id: 'sec-1', type: 'hero', settings: { heading: 'unpublishedpostterm' } }],
+    });
+    const config = loadSiteConfig(siteRoot);
+
+    await rebuildIndex(config);
+
+    assert.deepEqual(queryIndex(config.searchIndexPath, 'unpublishedpostterm'), []);
+  } finally {
+    cleanup();
+  }
+});
+
+test('a menu is never indexed - it has no public URL to point a search result at', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    writeJson(siteRoot, 'content/menus/main.json', {
+      schemaVersion: 1,
+      items: [{ label: 'menuindexterm', url: '/menuindexterm' }],
+    });
+    writeJson(siteRoot, 'content/pages/about.json', page({ title: 'About', heading: 'controlterm2' }));
+    const config = loadSiteConfig(siteRoot);
+
+    await rebuildIndex(config);
+
+    assert.deepEqual(queryIndex(config.searchIndexPath, 'menuindexterm'), []);
+    assert.deepEqual(queryIndex(config.searchIndexPath, 'controlterm2'), [{ url: '/about', title: 'About' }]);
+  } finally {
+    cleanup();
+  }
+});
+
 test('G4: the index file is gitignored and a rebuild creates no git changes', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {

@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import type { SiteConfig } from '../config.ts';
 import { listFilesRecursively } from '../services/fs-walk.ts';
+import { postPathToUrl } from '../services/post-urls.ts';
 import { pagePathToUrl } from '../services/urls.ts';
 import { enqueue } from '../services/write-queue.ts';
 import { openNodeSqliteDriver } from './drivers/node-sqlite-driver.ts';
@@ -72,31 +73,42 @@ async function rebuildIndexJob(config: SiteConfig): Promise<void> {
     driver.exec('CREATE VIRTUAL TABLE pages_fts USING fts5(url UNINDEXED, title, body)');
     const insert = driver.prepare('INSERT INTO pages_fts (url, title, body) VALUES (?, ?, ?)');
 
+    // Posts are genuinely public, URL-addressable content search
+    // should cover, same as pages - only the root and the URL mapping
+    // differ. Menus are deliberately never walked here at all: they
+    // have no public URL to point a search result at.
+    const collections = [
+      { root: config.pagesRoot, toUrl: pagePathToUrl },
+      { root: config.postsRoot, toUrl: postPathToUrl },
+    ];
+
     driver.exec('BEGIN');
-    for (const relativePath of listFilesRecursively(config.pagesRoot, config.pagesRoot, '.json')) {
-      let page: PageForIndex;
-      try {
-        page = JSON.parse(readFileSync(join(config.pagesRoot, relativePath), 'utf-8')) as PageForIndex;
-      } catch {
-        // A malformed individual file is skipped, not an all-or-nothing
-        // abort: the index is explicitly disposable/best-effort, and
-        // aborting the whole rebuild over one bad file would leave no
-        // working index at all - strictly worse than skipping one page.
-        continue;
-      }
+    for (const { root, toUrl } of collections) {
+      for (const relativePath of listFilesRecursively(root, root, '.json')) {
+        let page: PageForIndex;
+        try {
+          page = JSON.parse(readFileSync(join(root, relativePath), 'utf-8')) as PageForIndex;
+        } catch {
+          // A malformed individual file is skipped, not an all-or-nothing
+          // abort: the index is explicitly disposable/best-effort, and
+          // aborting the whole rebuild over one bad file would leave no
+          // working index at all - strictly worse than skipping one page.
+          continue;
+        }
 
-      // Never walks draftsRoot at all, and skips unpublished pages here
-      // - both halves of "drafts and unpublished pages are absent from
-      // the index" (G3) are true by construction, not by a filter that
-      // could be gotten wrong.
-      if (page.published === false) {
-        continue;
-      }
+        // Never walks draftsRoot at all, and skips unpublished content
+        // here - both halves of "drafts and unpublished content are
+        // absent from the index" (G3) are true by construction, not by
+        // a filter that could be gotten wrong.
+        if (page.published === false) {
+          continue;
+        }
 
-      const url = pagePathToUrl(relativePath);
-      const title = typeof page.title === 'string' ? page.title : '';
-      const body = extractBody(page.sections);
-      insert.run(url, title, body);
+        const url = toUrl(relativePath);
+        const title = typeof page.title === 'string' ? page.title : '';
+        const body = extractBody(page.sections);
+        insert.run(url, title, body);
+      }
     }
     driver.exec('COMMIT');
   } finally {
