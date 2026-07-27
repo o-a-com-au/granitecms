@@ -12,6 +12,7 @@ import type { TokenEntry } from '../server-config.ts';
 export interface PreviewRouteOptions {
   config: SiteConfig;
   themeTemplates: ThemeTemplates;
+  layouts: Record<string, string>;
   engine: Liquid;
   tokens: TokenEntry[];
 }
@@ -29,13 +30,14 @@ async function handlePreviewRequest(
   reply: FastifyReply,
   config: SiteConfig,
   themeTemplates: ThemeTemplates,
+  layouts: Record<string, string>,
   engine: Liquid,
 ): Promise<void> {
   const url = `/${request.params['*']}`;
   const relativePath = urlToPagePath(url);
 
   try {
-    const html = await renderPage(config, themeTemplates, engine, toRenderPath(relativePath), 'preview');
+    const html = await renderPage(config, themeTemplates, layouts, engine, toRenderPath(relativePath), 'preview');
     reply.type('text/html; charset=utf-8').send(html);
   } catch (error) {
     if (error instanceof PathSafetyError) {
@@ -63,6 +65,7 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOptions> = async (
         reply,
         opts.config,
         opts.themeTemplates,
+        opts.layouts,
         opts.engine,
       ),
   );

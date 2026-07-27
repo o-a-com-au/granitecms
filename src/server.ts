@@ -46,6 +46,7 @@ export function buildServer(
     config: booted.config,
     themeSchemas: booted.themeSchemas,
     themeTemplates: booted.themeTemplates,
+    layouts: booted.layouts,
     engine: booted.engine,
     tokens: serverConfig.tokens,
   });
@@ -60,6 +61,7 @@ export function buildServer(
   app.register(publicRoutes, {
     config: booted.config,
     themeTemplates: booted.themeTemplates,
+    layouts: booted.layouts,
     engine: booted.engine,
   });
 

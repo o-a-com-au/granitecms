@@ -8,6 +8,7 @@ export type PageRenderReason =
   | 'page-not-found'
   | 'missing-section-type'
   | 'missing-block-type'
+  | 'missing-layout'
   | 'template-error';
 
 export class PageRenderError extends Error {
@@ -31,6 +32,7 @@ export interface PageContent {
   schemaVersion: number;
   title: string;
   published: boolean;
+  layout: string;
   sections: SectionOrBlockInstance[];
 }
 
@@ -99,10 +101,21 @@ export async function renderSections(
 
 export type RenderMode = 'public' | 'preview';
 
+// The layout a page with no layout field (or an invalid one) gets
+// defaulted to. boot.ts never auto-migrates content, so a real site
+// can have pre-existing pages that predate this field entirely - this
+// default must match migrateV3ToV4's own default exactly, so render
+// behaviour is identical whether or not a site has ever run its
+// migrations (content-read.ts established this same defensive-read
+// pattern for the "type" field).
+const DEFAULT_LAYOUT = 'theme';
+
 function tryReadPage(root: string, relativePath: string): PageContent | null {
   const fullPath = sanitisePath(root, relativePath);
   try {
-    return JSON.parse(readFileSync(fullPath, 'utf-8')) as PageContent;
+    const parsed = JSON.parse(readFileSync(fullPath, 'utf-8')) as Record<string, unknown>;
+    const layout = typeof parsed.layout === 'string' && parsed.layout.length > 0 ? parsed.layout : DEFAULT_LAYOUT;
+    return { ...parsed, layout } as PageContent;
   } catch {
     return null;
   }
@@ -138,10 +151,30 @@ function loadPageForRender(config: SiteConfig, relativePath: string, mode: Rende
 export async function renderPage(
   config: SiteConfig,
   themeTemplates: ThemeTemplates,
+  layouts: Record<string, string>,
   engine: Liquid,
   relativePath: string,
   mode: RenderMode,
 ): Promise<string> {
   const page = loadPageForRender(config, relativePath, mode);
-  return renderSections(page, themeTemplates, engine);
+
+  // Checked before rendering any sections, matching the fail-fast
+  // ordering missing-section-type/missing-block-type already
+  // establish - no point rendering a page's whole body just to
+  // discover its layout doesn't exist.
+  const layoutTemplate = layouts[page.layout];
+  if (!layoutTemplate) {
+    throw new PageRenderError('missing-layout', `Layout "${page.layout}" is missing from the theme`);
+  }
+
+  const bodyHtml = await renderSections(page, themeTemplates, engine);
+
+  // content_for_layout is already-rendered, already-safe HTML (like
+  // blocksHtml handed to a section template) - the layout template
+  // itself must use `{{ content_for_layout | raw }}`, or engine.ts's
+  // outputEscape: 'escape' double-escapes it into literal text.
+  return (await engine.parseAndRender(layoutTemplate, {
+    content_for_layout: bodyHtml,
+    page: { title: page.title },
+  })) as string;
 }

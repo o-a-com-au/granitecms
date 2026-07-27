@@ -10,6 +10,7 @@ import { resolveUrl } from '../services/resolve-url.ts';
 export interface PublicRouteOptions {
   config: SiteConfig;
   themeTemplates: ThemeTemplates;
+  layouts: Record<string, string>;
   engine: Liquid;
 }
 
@@ -27,6 +28,7 @@ async function handlePublicRequest(
   reply: FastifyReply,
   config: SiteConfig,
   themeTemplates: ThemeTemplates,
+  layouts: Record<string, string>,
   engine: Liquid,
 ): Promise<void> {
   // The public catch-all is registered without a /v1 prefix alongside
@@ -56,7 +58,14 @@ async function handlePublicRequest(
       return;
     }
 
-    const html = await renderPage(config, themeTemplates, engine, toRenderPath(resolved.relativePath), 'public');
+    const html = await renderPage(
+      config,
+      themeTemplates,
+      layouts,
+      engine,
+      toRenderPath(resolved.relativePath),
+      'public',
+    );
     reply.type('text/html; charset=utf-8').send(html);
   } catch (error) {
     // A traversal attempt and an ordinary miss get the identical 404 -
@@ -88,6 +97,7 @@ export const publicRoutes: FastifyPluginAsync<PublicRouteOptions> = async (
       reply,
       opts.config,
       opts.themeTemplates,
+      opts.layouts,
       opts.engine,
     ),
   );

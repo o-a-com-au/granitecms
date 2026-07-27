@@ -12,9 +12,10 @@ import { createTmpSiteRoot, writeJson } from '../helpers/tmp-site.ts';
 const fixturesDir = join(import.meta.dirname, '..', 'fixtures');
 const themeTemplates = loadThemeTemplates(join(fixturesDir, 'theme'));
 const engine = createEngine({});
+const layouts = { theme: '{{ content_for_layout | raw }}' };
 
 function page(sections: PageContent['sections'], published = true): PageContent {
-  return { schemaVersion: 1, title: 'Test page', published, sections };
+  return { schemaVersion: 1, title: 'Test page', published, layout: 'theme', sections };
 }
 
 test('D1: a page JSON plus theme renders to HTML with sections in declared order', async () => {
@@ -174,7 +175,7 @@ test('D5: public mode renders /content/ only; a page existing only as a draft is
     );
 
     await assert.rejects(
-      renderPage(config, themeTemplates, engine, 'about.json', 'public'),
+      renderPage(config, themeTemplates, layouts, engine, 'about.json', 'public'),
       (error: unknown) => error instanceof PageRenderError && error.reason === 'page-not-found',
     );
   } finally {
@@ -193,7 +194,7 @@ test('D5/C8: public mode treats an unpublished live page (published: false) as n
     );
 
     await assert.rejects(
-      renderPage(config, themeTemplates, engine, 'about.json', 'public'),
+      renderPage(config, themeTemplates, layouts, engine, 'about.json', 'public'),
       (error: unknown) => error instanceof PageRenderError && error.reason === 'page-not-found',
     );
   } finally {
@@ -211,7 +212,7 @@ test('public mode renders a real published live page', async () => {
       page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Live and published' } }]),
     );
 
-    const html = await renderPage(config, themeTemplates, engine, 'about.json', 'public');
+    const html = await renderPage(config, themeTemplates, layouts, engine, 'about.json', 'public');
     assert.ok(html.includes('Live and published'));
   } finally {
     cleanup();
@@ -233,7 +234,7 @@ test('D6: preview mode renders the draft version when a draft exists', async () 
       page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Draft version' } }]),
     );
 
-    const html = await renderPage(config, themeTemplates, engine, 'about.json', 'preview');
+    const html = await renderPage(config, themeTemplates, layouts, engine, 'about.json', 'preview');
     assert.ok(html.includes('Draft version'));
     assert.ok(!html.includes('Live version'));
   } finally {
@@ -251,7 +252,7 @@ test('D6: preview mode falls back to live when no draft exists', async () => {
       page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Live version' } }]),
     );
 
-    const html = await renderPage(config, themeTemplates, engine, 'about.json', 'preview');
+    const html = await renderPage(config, themeTemplates, layouts, engine, 'about.json', 'preview');
     assert.ok(html.includes('Live version'));
   } finally {
     cleanup();

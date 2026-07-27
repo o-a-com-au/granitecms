@@ -3,7 +3,7 @@ import type { SiteConfig } from './config.ts';
 import { loadSiteConfig } from './config.ts';
 import { createEngine } from './renderer/engine.ts';
 import type { ThemeTemplates } from './renderer/theme-templates.ts';
-import { loadSnippets, loadThemeTemplates } from './renderer/theme-templates.ts';
+import { loadLayouts, loadSnippets, loadThemeTemplates } from './renderer/theme-templates.ts';
 import type { StartupCheckOptions } from './services/startup-checks.ts';
 import { runStartupChecks } from './services/startup-checks.ts';
 import type { ThemeSchemas } from './services/validation.ts';
@@ -13,6 +13,7 @@ export interface BootedSite {
   config: SiteConfig;
   themeSchemas: ThemeSchemas;
   themeTemplates: ThemeTemplates;
+  layouts: Record<string, string>;
   engine: Liquid;
 }
 
@@ -34,7 +35,8 @@ export function bootSite(siteRoot: string, options?: StartupCheckOptions): Boote
   const config = loadSiteConfig(siteRoot);
   const themeSchemas = loadThemeSchemas(config.themeRoot);
   const themeTemplates = loadThemeTemplates(config.themeRoot);
+  const layouts = loadLayouts(config.themeRoot);
   const snippets = loadSnippets(config.themeRoot);
   const engine = createEngine(snippets);
-  return { config, themeSchemas, themeTemplates, engine };
+  return { config, themeSchemas, themeTemplates, layouts, engine };
 }

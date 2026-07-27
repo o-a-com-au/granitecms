@@ -6,7 +6,7 @@ import type { PageContent } from '../../src/renderer/render-page.ts';
 import type { ThemeTemplates } from '../../src/renderer/theme-templates.ts';
 
 function page(sections: PageContent['sections']): PageContent {
-  return { schemaVersion: 1, title: 'Test page', published: true, sections };
+  return { schemaVersion: 1, title: 'Test page', published: true, layout: 'theme', sections };
 }
 
 // Proves the real renderInstance/renderSections pipeline (not just the

@@ -14,6 +14,7 @@ export interface V1RouteOptions {
   config: SiteConfig;
   themeSchemas: ThemeSchemas;
   themeTemplates: ThemeTemplates;
+  layouts: Record<string, string>;
   engine: Liquid;
   tokens: TokenEntry[];
 }
@@ -43,6 +44,7 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   fastify.register(previewRoutes, {
     config: opts.config,
     themeTemplates: opts.themeTemplates,
+    layouts: opts.layouts,
     engine: opts.engine,
     tokens: opts.tokens,
   });
