@@ -1,32 +1,12 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
-import { extname } from 'node:path';
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { SiteConfig } from '../config.ts';
+import { mimeTypeFor } from '../services/mime-types.ts';
 import { PathSafetyError, sanitisePath } from '../services/path-safety.ts';
 
 export interface AssetsRouteOptions {
   config: SiteConfig;
 }
-
-// A small hand-rolled lookup, not a dependency (@fastify/static would
-// be the obvious ecosystem package, but this is a handful of lines and
-// matches this codebase's existing minimal-dependency posture). Only
-// the common web asset types - nothing here needs to be exhaustive.
-const MIME_TYPES: Record<string, string> = {
-  '.css': 'text/css; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.svg': 'image/svg+xml',
-  '.webp': 'image/webp',
-  '.ico': 'image/x-icon',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-};
-const DEFAULT_MIME_TYPE = 'application/octet-stream';
 
 async function handleAssetRequest(
   request: FastifyRequest<{ Params: { '*': string } }>,
@@ -40,7 +20,7 @@ async function handleAssetRequest(
       reply.code(404).send({ statusCode: 404, error: 'Not Found', message: `No asset at "${relativePath}"` });
       return;
     }
-    const contentType = MIME_TYPES[extname(fullPath).toLowerCase()] ?? DEFAULT_MIME_TYPE;
+    const contentType = mimeTypeFor(fullPath);
     // A synchronous buffered read, not a stream: reply.send(stream)
     // was verified empirically to produce an empty body in this
     // Fastify version (confirmed both via .inject() and a real socket,
