@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 4,
+  "title": "Home",
+  "type": "page",
+  "layout": "theme",
+  "published": true,
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": {
+        "heading": "Welcome to your new site",
+        "subheading": "Edit content/pages/index.json to change this page"
+      },
+      "blocks": [
+        {
+          "id": "blk-docs",
+          "type": "button",
+          "settings": { "label": "Get started", "url": "/" }
+        }
+      ]
+    }
+  ]
+}

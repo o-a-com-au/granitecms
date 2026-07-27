@@ -1,0 +1,4 @@
+.hero { color: navy; }
+.site-header { font-weight: bold; padding: 0.5rem 1rem; background: #eee; }
+.hero__blocks { display: flex; gap: 0.5rem; }
+.button { display: inline-block; padding: 0.5rem 1rem; background: navy; color: white; text-decoration: none; }

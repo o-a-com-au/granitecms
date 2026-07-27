@@ -51,6 +51,11 @@ export default tseslint.config(
   // imports sanitisePath" escape hatch, so this list is broader than
   // just the reasoned site-root/agent-asset exemptions: it also covers
   // files verified to correctly gate fs access behind sanitisePath.
+  // src/create-site/generate-site.ts is a third, distinct category: a
+  // standalone CLI tool operating on an operator-supplied local
+  // filesystem path (the scaffold target directory), not a web
+  // request's :path - sanitisePath's traversal-safety concern doesn't
+  // apply to a path the operator typed at their own terminal.
   {
     files: [
       'src/services/path-safety.ts',
@@ -75,11 +80,17 @@ export default tseslint.config(
       'src/server-config.ts',
       'src/routes/capabilities.ts',
       'src/routes/assets.ts',
+      'src/create-site/generate-site.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },
   {
-    files: ['src/services/validation.ts', 'src/services/startup-checks.ts', 'src/routes/capabilities.ts'],
+    files: [
+      'src/services/validation.ts',
+      'src/services/startup-checks.ts',
+      'src/routes/capabilities.ts',
+      'src/create-site/generate-site.ts',
+    ],
     rules: { 'no-restricted-syntax': 'off' },
   },
 );

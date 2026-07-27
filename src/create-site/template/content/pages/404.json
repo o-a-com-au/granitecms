@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 4,
+  "title": "Page Not Found",
+  "type": "page",
+  "layout": "theme",
+  "published": true,
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": {
+        "heading": "Page not found",
+        "subheading": "Sorry, that page does not exist."
+      },
+      "blocks": [
+        {
+          "id": "blk-home",
+          "type": "button",
+          "settings": { "label": "Back to home", "url": "/" }
+        }
+      ]
+    }
+  ]
+}

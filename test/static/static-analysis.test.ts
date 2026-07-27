@@ -27,6 +27,7 @@ const AGENT_RELATIVE_PATH_ALLOWLIST = new Set<string>([
   'services/validation.ts', // loads the agent's own bundled page/instance schema.json
   'services/startup-checks.ts', // reads the agent's own package.json engines.node floor
   'routes/capabilities.ts', // reads the agent's own bundled package.json for the capabilities endpoint
+  'create-site/generate-site.ts', // reads the agent's own bundled template/ and package.json to scaffold a new site
 ]);
 
 test('B1: no path in the codebase resolves relative to the agent package location, outside a reasoned allowlist', () => {
@@ -60,6 +61,7 @@ const FS_USAGE_ALLOWLIST = new Set<string>([
   'search/rebuild-index.ts', // walks agent-configured pagesRoot and writes to agent-configured dataRoot, not request paths
   'server-config.ts', // reads site.config.json from the agent-configured siteRoot, not a request path
   'routes/capabilities.ts', // reads the agent's own bundled package.json for the capabilities endpoint
+  'create-site/generate-site.ts', // a standalone CLI operating on an operator-supplied local directory, not a web request's :path
 ]);
 
 test('B7: the sanitisation function is a single shared helper and every fs-touching code path imports it', () => {

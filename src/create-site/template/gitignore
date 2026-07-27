@@ -1,0 +1,6 @@
+node_modules/
+
+# Search index (rebuilt on demand via POST /v1/search/rebuild, never committed)
+data/
+*.sqlite
+*.sqlite3
