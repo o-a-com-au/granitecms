@@ -71,6 +71,7 @@ export default tseslint.config(
       'src/search/rebuild-index.ts',
       'src/server-config.ts',
       'src/routes/capabilities.ts',
+      'src/routes/assets.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },

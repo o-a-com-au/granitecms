@@ -5,6 +5,7 @@ export interface SiteConfig {
   contentRoot: string;
   draftsRoot: string;
   themeRoot: string;
+  assetsRoot: string;
   pagesRoot: string;
   redirectsPath: string;
   dataRoot: string;
@@ -24,12 +25,14 @@ export function loadSiteConfig(siteRoot: string): SiteConfig {
 
   const contentRoot = join(normalisedRoot, 'content');
   const dataRoot = join(normalisedRoot, 'data');
+  const themeRoot = join(normalisedRoot, 'theme');
 
   return {
     siteRoot: normalisedRoot,
     contentRoot,
     draftsRoot: join(normalisedRoot, 'drafts'),
-    themeRoot: join(normalisedRoot, 'theme'),
+    themeRoot,
+    assetsRoot: join(themeRoot, 'assets'),
     pagesRoot: join(contentRoot, 'pages'),
     redirectsPath: join(normalisedRoot, 'redirects.json'),
     dataRoot,

@@ -3,6 +3,7 @@ import type { BootedSite } from './boot.ts';
 import { bootSite } from './boot.ts';
 import type { ServerConfig } from './server-config.ts';
 import { loadServerConfig } from './server-config.ts';
+import { assetsRoutes } from './routes/assets.ts';
 import { v1Routes } from './routes/index.ts';
 import { publicRoutes } from './routes/public.ts';
 
@@ -64,6 +65,12 @@ export function buildServer(
     layouts: booted.layouts,
     engine: booted.engine,
   });
+
+  // A more specific static-prefixed route than the public catch-all's
+  // own /* wildcard - Fastify prefers it regardless of registration
+  // order (verified empirically), so no guard is needed here the way
+  // publicRoutes needs one against /v1/*.
+  app.register(assetsRoutes, { config: booted.config });
 
   return app;
 }
