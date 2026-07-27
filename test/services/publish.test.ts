@@ -21,7 +21,7 @@ const author = { name: 'Jane Editor', email: 'jane@example.com' };
 const NO_PRIOR_FILE_ETAG = 'no-prior-file';
 
 function page(title: string): object {
-  return { schemaVersion: 1, title, type: 'page', published: true, sections: [] };
+  return { schemaVersion: 1, title, type: 'page', layout: 'theme', published: true, sections: [] };
 }
 
 function liveEtag(content: object): string {

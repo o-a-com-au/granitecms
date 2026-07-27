@@ -13,7 +13,7 @@ function hashOf(token: string): string {
 }
 
 function page(title: string, type: string, published = true): object {
-  return { schemaVersion: 3, title, type, published, sections: [] };
+  return { schemaVersion: 4, title, type, layout: 'theme', published, sections: [] };
 }
 
 function buildDraftsTestServer() {

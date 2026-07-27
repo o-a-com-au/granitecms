@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "title": "About us",
   "type": "page",
+  "layout": "theme",
   "sections": [
     {
       "id": "sec-1",

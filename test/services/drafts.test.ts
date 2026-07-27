@@ -11,7 +11,14 @@ import { createTmpSiteRoot, writeAndCommit } from '../helpers/tmp-site.ts';
 
 const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
 
-const validPage = { schemaVersion: 1, title: 'About', type: 'page', published: true, sections: [] };
+const validPage = {
+  schemaVersion: 1,
+  title: 'About',
+  type: 'page',
+  layout: 'theme',
+  published: true,
+  sections: [],
+};
 
 // Neither a draft nor a live file exists yet at these tests' target
 // paths, so the If-Match comparison is skipped (saveDraftJob's

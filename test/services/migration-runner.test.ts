@@ -13,7 +13,7 @@ const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
 const author = { name: 'Jane Editor', email: 'jane@example.com' };
 
 function page(schemaVersion: number, title: string): object {
-  return { schemaVersion, title, type: 'page', published: true, sections: [] };
+  return { schemaVersion, title, type: 'page', layout: 'theme', published: true, sections: [] };
 }
 
 const identityMigration: MigrationMap = {
