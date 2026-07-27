@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json && cp -r src/schemas dist/schemas",
+    "prepack": "npm run build"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
