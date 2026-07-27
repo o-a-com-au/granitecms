@@ -4,7 +4,13 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
-import { DraftError, discardDraft, saveDraft } from '../../src/services/drafts.ts';
+import {
+  DraftError,
+  discardDraft,
+  prepareDiscardDraft,
+  prepareSaveDraft,
+  saveDraft,
+} from '../../src/services/drafts.ts';
 import { computeEtag } from '../../src/services/etag.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 import { createTmpSiteRoot, writeAndCommit } from '../helpers/tmp-site.ts';
@@ -156,6 +162,73 @@ test('E4: creating a draft from a live page for the first time checks If-Match a
     );
     assert.ok(existsSync(join(config.draftsRoot, 'about.json')));
     assert.equal(typeof newEtag, 'string');
+  } finally {
+    cleanup();
+  }
+});
+
+test('prepareSaveDraft writes the draft, returns no git paths (drafts are never git-tracked), and its undo restores the prior state', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    // Seed a prior draft version, so undo has real prior bytes to restore.
+    await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
+    const priorBytes = readFileSync(join(config.draftsRoot, 'about.json'));
+    const priorEtag = computeEtag(priorBytes);
+
+    const prepared = await prepareSaveDraft(
+      config,
+      themeSchemas,
+      'about.json',
+      { ...validPage, title: 'Changed' },
+      priorEtag,
+    );
+
+    assert.deepEqual(prepared.paths, []);
+    assert.equal(typeof prepared.etag, 'string');
+    assert.ok(
+      JSON.parse(readFileSync(join(config.draftsRoot, 'about.json'), 'utf-8')).title === 'Changed',
+      'the draft must actually be written',
+    );
+
+    const failures = prepared.undo();
+    assert.deepEqual(failures, []);
+    assert.ok(readFileSync(join(config.draftsRoot, 'about.json')).equals(priorBytes), 'undo must restore the prior draft bytes');
+  } finally {
+    cleanup();
+  }
+});
+
+test("prepareSaveDraft's undo deletes the draft if it did not exist before", async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    const prepared = await prepareSaveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
+
+    assert.ok(existsSync(join(config.draftsRoot, 'about.json')));
+    const failures = prepared.undo();
+    assert.deepEqual(failures, []);
+    assert.equal(existsSync(join(config.draftsRoot, 'about.json')), false);
+  } finally {
+    cleanup();
+  }
+});
+
+test('prepareDiscardDraft discards the draft, returns no git paths, and its undo restores the discarded draft', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
+    const priorBytes = readFileSync(join(config.draftsRoot, 'about.json'));
+
+    const prepared = await prepareDiscardDraft(config, 'about.json');
+
+    assert.deepEqual(prepared.paths, []);
+    assert.equal(existsSync(join(config.draftsRoot, 'about.json')), false);
+
+    const failures = prepared.undo();
+    assert.deepEqual(failures, []);
+    assert.ok(readFileSync(join(config.draftsRoot, 'about.json')).equals(priorBytes), 'undo must restore the discarded draft');
   } finally {
     cleanup();
   }

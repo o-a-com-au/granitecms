@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { SiteConfig } from '../config.ts';
 import { ContentReadError, readContentFile } from './content-read.ts';
 import { computeEtag } from './etag.ts';
 import { sanitisePath } from './path-safety.ts';
+import type { PreparedOperation } from './prepared-operation.ts';
 import type { ThemeSchemas } from './validation.ts';
 import { validatePage } from './validation.ts';
 import { enqueue } from './write-queue.ts';
@@ -123,4 +124,68 @@ export function saveDraft(
 
 export function discardDraft(config: SiteConfig, relativePath: string): Promise<void> {
   return enqueue(() => discardDraftJob(config, relativePath));
+}
+
+// The batch.ts-composable shape, mirroring publish.ts/move.ts/
+// delete-content.ts's own prepare* exports for a single uniform
+// vocabulary - even though saveDraftJob/discardDraftJob never call
+// commitPaths at all (drafts are never git-tracked, so paths is
+// always []), batch.ts still needs an undo for them: F6 requires "no
+// partial writes" for a whole failed batch, which includes rolling
+// back an earlier draft write if a later operation in the same batch
+// fails. Snapshots the draft's prior bytes/existence *before*
+// delegating to the existing job function, rather than reimplementing
+// its logic here.
+export async function prepareSaveDraft(
+  config: SiteConfig,
+  themeSchemas: ThemeSchemas,
+  relativePath: string,
+  content: unknown,
+  expectedEtag: string,
+): Promise<PreparedOperation & { etag: string }> {
+  const draftPath = sanitisePath(config.draftsRoot, relativePath);
+  const existedBefore = existsSync(draftPath);
+  const originalBytes = existedBefore ? readFileSync(draftPath) : null;
+
+  const etag = await saveDraftJob(config, themeSchemas, relativePath, content, expectedEtag);
+
+  return {
+    paths: [],
+    etag,
+    undo: () => {
+      try {
+        if (existedBefore) {
+          writeFileSync(draftPath, originalBytes as Buffer);
+        } else {
+          unlinkSync(draftPath);
+        }
+        return [];
+      } catch (error) {
+        return [error];
+      }
+    },
+  };
+}
+
+export async function prepareDiscardDraft(config: SiteConfig, relativePath: string): Promise<PreparedOperation> {
+  const draftPath = sanitisePath(config.draftsRoot, relativePath);
+  const existedBefore = existsSync(draftPath);
+  const originalBytes = existedBefore ? readFileSync(draftPath) : null;
+
+  await discardDraftJob(config, relativePath);
+
+  return {
+    paths: [],
+    undo: () => {
+      try {
+        if (existedBefore) {
+          mkdirSync(dirname(draftPath), { recursive: true });
+          writeFileSync(draftPath, originalBytes as Buffer);
+        }
+        return [];
+      } catch (error) {
+        return [error];
+      }
+    },
+  };
 }
