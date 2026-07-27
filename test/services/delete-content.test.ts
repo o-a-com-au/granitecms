@@ -54,6 +54,50 @@ test('F3: deleting a live page with a redirectTo records a redirect in the same 
   }
 });
 
+function postJson(title: string): string {
+  return JSON.stringify({
+    schemaVersion: 4,
+    title,
+    type: 'post',
+    layout: 'theme',
+    published: true,
+    author: 'Jane Editor',
+    publishDate: '2026-07-27',
+    tags: [],
+    sections: [],
+  });
+}
+
+test('deleting a post with a redirectTo records a /blog/-shaped redirect, same as a page', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/posts/hello-world.json', postJson('Hello World'));
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+
+    await deleteContent(config, 'posts/hello-world.json', '/blog/moved', 'delete post, redirect', author);
+
+    assert.equal(loadRedirects(config)['/blog/hello-world'], '/blog/moved');
+    assert.equal(commitCount(siteRoot), before + 1);
+  } finally {
+    cleanup();
+  }
+});
+
+test('deleting a menu with a redirectTo records no redirect (menus have no public URL)', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/menus/main.json', JSON.stringify({ schemaVersion: 1, items: [] }));
+    const config = loadSiteConfig(siteRoot);
+
+    await deleteContent(config, 'menus/main.json', '/somewhere', 'delete menu', author);
+
+    assert.deepEqual(loadRedirects(config), {});
+  } finally {
+    cleanup();
+  }
+});
+
 test('deleting a page with no redirectTo records no redirect', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
