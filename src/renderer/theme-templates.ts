@@ -42,3 +42,40 @@ export function loadThemeTemplates(themeRoot: string): ThemeTemplates {
     blocks: loadTypeTemplates(join(themeRoot, 'blocks')),
   };
 }
+
+// Flat *.liquid files, one per name, no subdirectory-per-name and no
+// co-located schema.json - unlike sections/blocks, snippets and
+// layouts are theme-author code with no user-facing settings to
+// declare, matching Shopify's own flat snippets/layouts convention.
+// Same agent-configuration-not-request-path caveat as loadTypeTemplates.
+function loadFlatTemplates(dir: string): Record<string, string> {
+  const templates: Record<string, string> = {};
+
+  let entries: string[];
+  try {
+    entries = readdirSync(dir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.liquid'))
+      .map((entry) => entry.name);
+  } catch {
+    return templates;
+  }
+
+  for (const fileName of entries) {
+    const name = fileName.slice(0, -'.liquid'.length);
+    try {
+      templates[name] = readFileSync(join(dir, fileName), 'utf-8');
+    } catch {
+      continue;
+    }
+  }
+
+  return templates;
+}
+
+export function loadSnippets(themeRoot: string): Record<string, string> {
+  return loadFlatTemplates(join(themeRoot, 'snippets'));
+}
+
+export function loadLayouts(themeRoot: string): Record<string, string> {
+  return loadFlatTemplates(join(themeRoot, 'layouts'));
+}

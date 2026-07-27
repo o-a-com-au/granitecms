@@ -3,7 +3,7 @@ import type { SiteConfig } from './config.ts';
 import { loadSiteConfig } from './config.ts';
 import { createEngine } from './renderer/engine.ts';
 import type { ThemeTemplates } from './renderer/theme-templates.ts';
-import { loadThemeTemplates } from './renderer/theme-templates.ts';
+import { loadSnippets, loadThemeTemplates } from './renderer/theme-templates.ts';
 import type { StartupCheckOptions } from './services/startup-checks.ts';
 import { runStartupChecks } from './services/startup-checks.ts';
 import type { ThemeSchemas } from './services/validation.ts';
@@ -34,8 +34,7 @@ export function bootSite(siteRoot: string, options?: StartupCheckOptions): Boote
   const config = loadSiteConfig(siteRoot);
   const themeSchemas = loadThemeSchemas(config.themeRoot);
   const themeTemplates = loadThemeTemplates(config.themeRoot);
-  // Empty snippets map for now - Part 2 of this change adds
-  // loadSnippets and passes its result here.
-  const engine = createEngine({});
+  const snippets = loadSnippets(config.themeRoot);
+  const engine = createEngine(snippets);
   return { config, themeSchemas, themeTemplates, engine };
 }
