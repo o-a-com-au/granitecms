@@ -1,0 +1,25 @@
+{
+  "$id": "post.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Post",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "title", "type", "layout", "published", "author", "publishDate", "tags", "sections"],
+  "properties": {
+    "schemaVersion": { "type": "integer", "minimum": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "type": { "const": "post" },
+    "layout": { "type": "string", "minLength": 1 },
+    "published": { "type": "boolean" },
+    "author": { "type": "string", "minLength": 1 },
+    "publishDate": { "type": "string", "minLength": 1 },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "sections": {
+      "type": "array",
+      "items": { "$ref": "instance.schema.json" }
+    }
+  }
+}

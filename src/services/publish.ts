@@ -8,7 +8,7 @@ import type { PreparedOperation } from './prepared-operation.ts';
 import { loadRedirects, removeRedirectForPath } from './redirects.ts';
 import { pagePathToUrl } from './urls.ts';
 import type { ThemeSchemas } from './validation.ts';
-import { validatePage } from './validation.ts';
+import { validateContent } from './validation.ts';
 import { enqueue } from './write-queue.ts';
 
 const PAGES_PREFIX = 'pages/';
@@ -154,7 +154,7 @@ export function preparePublishDrafts(
     }
 
     const parsed: unknown = JSON.parse(draftContent.toString('utf-8'));
-    const result = validatePage(parsed, themeSchemas);
+    const result = validateContent(relativePath, parsed, themeSchemas);
     if (!result.valid) {
       throw new PublishError(
         'validation-failed',

@@ -7,6 +7,8 @@ export interface SiteConfig {
   themeRoot: string;
   assetsRoot: string;
   pagesRoot: string;
+  postsRoot: string;
+  menusRoot: string;
   redirectsPath: string;
   dataRoot: string;
   searchIndexPath: string;
@@ -34,6 +36,8 @@ export function loadSiteConfig(siteRoot: string): SiteConfig {
     themeRoot,
     assetsRoot: join(themeRoot, 'assets'),
     pagesRoot: join(contentRoot, 'pages'),
+    postsRoot: join(contentRoot, 'posts'),
+    menusRoot: join(contentRoot, 'menus'),
     redirectsPath: join(normalisedRoot, 'redirects.json'),
     dataRoot,
     searchIndexPath: join(dataRoot, 'search-index.sqlite'),

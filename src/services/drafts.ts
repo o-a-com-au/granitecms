@@ -6,7 +6,7 @@ import { computeEtag } from './etag.ts';
 import { sanitisePath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
 import type { ThemeSchemas } from './validation.ts';
-import { validatePage } from './validation.ts';
+import { validateContent } from './validation.ts';
 import { enqueue } from './write-queue.ts';
 
 export type DraftReason = 'validation-failed' | 'conflict';
@@ -81,7 +81,7 @@ async function saveDraftJob(
 
   // Validate before touching disk at all, so a validation failure
   // writes nothing (checklist C3) structurally, not via cleanup.
-  const result = validatePage(content, themeSchemas);
+  const result = validateContent(relativePath, content, themeSchemas);
   if (!result.valid) {
     throw new DraftError(
       'validation-failed',

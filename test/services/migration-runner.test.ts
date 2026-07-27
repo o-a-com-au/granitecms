@@ -65,6 +65,33 @@ test('F1: the runner walks content and drafts, migrating any file below current 
   }
 });
 
+test('F1: a menus/ file below current version is migrated and validated against the menu schema, not the page schema', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(
+      siteRoot,
+      'content/menus/main.json',
+      JSON.stringify({ schemaVersion: 1, items: [{ label: 'Home', url: '/' }] }),
+    );
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+
+    // If this dispatched to validatePage instead of validateMenu, it
+    // would throw validation-failed (a menu has no title/type/layout/
+    // sections) - reaching a successful commit proves the migration
+    // runner's dispatch is genuinely type-aware, not just page-shaped.
+    await runMigrations(config, themeSchemas, identityMigration, 2, author);
+
+    const migratedMenu = JSON.parse(
+      readFileSync(join(config.menusRoot, 'main.json'), 'utf-8'),
+    ) as { schemaVersion: number };
+    assert.equal(migratedMenu.schemaVersion, 2);
+    assert.equal(commitCount(siteRoot), before + 1);
+  } finally {
+    cleanup();
+  }
+});
+
 test('F1: when nothing is below current version the runner writes nothing and creates no commit', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {

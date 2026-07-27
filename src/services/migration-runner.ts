@@ -5,7 +5,7 @@ import { listFilesRecursively } from './fs-walk.ts';
 import type { CommitAuthor } from './git.ts';
 import { GitOperationError, commitPaths } from './git.ts';
 import type { ThemeSchemas } from './validation.ts';
-import { validatePage } from './validation.ts';
+import { validateContent } from './validation.ts';
 import { enqueue } from './write-queue.ts';
 
 export type MigrationFunction = (content: Record<string, unknown>) => Record<string, unknown>;
@@ -101,12 +101,14 @@ async function runMigrationsJob(
   author: CommitAuthor,
 ): Promise<void> {
   const files = [
-    ...listFilesRecursively(config.contentRoot, config.contentRoot, '.json').map((rel) =>
-      join(config.contentRoot, rel),
-    ),
-    ...listFilesRecursively(config.draftsRoot, config.draftsRoot, '.json').map((rel) =>
-      join(config.draftsRoot, rel),
-    ),
+    ...listFilesRecursively(config.contentRoot, config.contentRoot, '.json').map((rel) => ({
+      path: join(config.contentRoot, rel),
+      relativePath: rel,
+    })),
+    ...listFilesRecursively(config.draftsRoot, config.draftsRoot, '.json').map((rel) => ({
+      path: join(config.draftsRoot, rel),
+      relativePath: rel,
+    })),
   ];
 
   // Compute every migration before writing anything. If any file's
@@ -114,7 +116,7 @@ async function runMigrationsJob(
   // files so far is simply discarded - a mid-list failure aborts with
   // literally zero writes having happened (F4's primary scenario).
   const toMigrate: MigratedFile[] = [];
-  for (const path of files) {
+  for (const { path, relativePath } of files) {
     const originalBytes = readFileSync(path);
     const parsed = JSON.parse(originalBytes.toString('utf-8')) as Record<string, unknown>;
     const schemaVersion = parsed.schemaVersion;
@@ -125,7 +127,7 @@ async function runMigrationsJob(
 
     const migrated = applyMigrationChain(parsed, migrations, currentVersion, path);
 
-    const result = validatePage(migrated, themeSchemas);
+    const result = validateContent(relativePath, migrated, themeSchemas);
     if (!result.valid) {
       throw new MigrationError(
         'validation-failed',

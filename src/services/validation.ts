@@ -33,6 +33,8 @@ function readSchema(filename: string): object {
 const instanceSchema = readSchema('instance.schema.json');
 ajv.addSchema(instanceSchema);
 const validatePageEnvelope = ajv.compile(readSchema('page.schema.json'));
+const validatePostEnvelope = ajv.compile(readSchema('post.schema.json'));
+const validateMenuEnvelope = ajv.compile(readSchema('menu.schema.json'));
 const validateInstanceEnvelope = ajv.compile(instanceSchema);
 
 function normaliseErrors(errors: ErrorObject[] | null | undefined): ValidationError[] {
@@ -61,7 +63,7 @@ function prefixErrors(errors: ValidationError[], prefix: string): ValidationErro
   return errors.map((error) => ({ ...error, path: `${prefix}${error.path}` }));
 }
 
-interface PageShape {
+interface SectionedContentShape {
   sections: unknown[];
 }
 
@@ -109,13 +111,21 @@ export function validateInstance(
   return { valid: errors.length === 0, errors };
 }
 
-export function validatePage(page: unknown, themeSchemas: ThemeSchemas): ValidationResult {
-  const envelopeResult = runValidator(validatePageEnvelope, page);
+// Shared by validatePage and validatePost: both envelopes require an
+// identical sections/blocks recursion once their own envelope-level
+// shape is confirmed valid - genuinely load-bearing for two real
+// content types now, not a speculative abstraction.
+function validateSectionedContent(
+  envelopeValidate: ValidateFunction,
+  content: unknown,
+  themeSchemas: ThemeSchemas,
+): ValidationResult {
+  const envelopeResult = runValidator(envelopeValidate, content);
   if (!envelopeResult.valid) {
     return envelopeResult;
   }
 
-  const typed = page as unknown as PageShape;
+  const typed = content as unknown as SectionedContentShape;
   const errors: ValidationError[] = [];
 
   typed.sections.forEach((section, index) => {
@@ -124,4 +134,33 @@ export function validatePage(page: unknown, themeSchemas: ThemeSchemas): Validat
   });
 
   return { valid: errors.length === 0, errors };
+}
+
+export function validatePage(page: unknown, themeSchemas: ThemeSchemas): ValidationResult {
+  return validateSectionedContent(validatePageEnvelope, page, themeSchemas);
+}
+
+export function validatePost(post: unknown, themeSchemas: ThemeSchemas): ValidationResult {
+  return validateSectionedContent(validatePostEnvelope, post, themeSchemas);
+}
+
+export function validateMenu(menu: unknown): ValidationResult {
+  return runValidator(validateMenuEnvelope, menu);
+}
+
+// Dispatches on the relative path's prefix, not an in-file `type`
+// field: a menu has no `type` field at all, and the correct schema to
+// parse against must be known before the content is even validated.
+export function validateContent(
+  relativePath: string,
+  content: unknown,
+  themeSchemas: ThemeSchemas,
+): ValidationResult {
+  if (relativePath.startsWith('menus/')) {
+    return validateMenu(content);
+  }
+  if (relativePath.startsWith('posts/')) {
+    return validatePost(content, themeSchemas);
+  }
+  return validatePage(content, themeSchemas);
 }
