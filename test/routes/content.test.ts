@@ -376,6 +376,38 @@ test('F4: POST /v1/content/move returns 404 when the source page does not exist'
   }
 });
 
+test('F4: POST /v1/content/move against a /blog/ URL is not extended to posts in this pass - it safely 404s rather than corrupting anything', async () => {
+  const { app, siteRoot, cleanup } = buildContentTestServer();
+  try {
+    writeAndCommit(siteRoot, 'content/posts/hello-world.json', JSON.stringify({
+      schemaVersion: 4,
+      title: 'Hello World',
+      type: 'post',
+      layout: 'theme',
+      published: true,
+      author: 'Jane Editor',
+      publishDate: '2026-07-27',
+      tags: [],
+      sections: [],
+    }));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/content/move',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { from: '/blog/hello-world', to: '/blog/renamed', message: 'move', author },
+    });
+    // move.ts is pages-only by design (see docs/phase-2-checklist.md's
+    // Group L notes) - a /blog/ URL resolves via pages' own
+    // urlToPagePath convention, which never finds a page there, so this
+    // is a deliberate, harmless 404, not a bug.
+    assert.equal(response.statusCode, 404);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
 test('F4: POST /v1/content/move returns 409 when the destination already exists', async () => {
   const { app, siteRoot, cleanup } = buildContentTestServer();
   try {

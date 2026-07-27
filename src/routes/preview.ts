@@ -5,6 +5,7 @@ import type { SiteConfig } from '../config.ts';
 import { PageRenderError, renderPage } from '../renderer/render-page.ts';
 import type { ThemeTemplates } from '../renderer/theme-templates.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
+import { isBlogUrl, urlToPostPath } from '../services/post-urls.ts';
 import { requireScope } from '../services/token-auth.ts';
 import { urlToPagePath } from '../services/urls.ts';
 import type { TokenEntry } from '../server-config.ts';
@@ -25,6 +26,11 @@ function toRenderPath(pagesRelativePath: string): string {
   return join('pages', pagesRelativePath);
 }
 
+// Same seam as toRenderPath above, for posts.
+function toPostsRenderPath(postsRelativePath: string): string {
+  return join('posts', postsRelativePath);
+}
+
 async function handlePreviewRequest(
   request: FastifyRequest<{ Params: { '*': string } }>,
   reply: FastifyReply,
@@ -34,9 +40,30 @@ async function handlePreviewRequest(
   engine: Liquid,
 ): Promise<void> {
   const url = `/${request.params['*']}`;
-  const relativePath = urlToPagePath(url);
 
   try {
+    // /blog is a permanently reserved namespace, same as public.ts -
+    // no redirects.json fallback here either way (preview never
+    // consults it, per this file's own established comment above).
+    if (isBlogUrl(url)) {
+      const relativePath = urlToPostPath(url);
+      if (relativePath === null) {
+        reply.code(404).send({ statusCode: 404, error: 'Not Found', message: `No page at "${url}"` });
+        return;
+      }
+      const html = await renderPage(
+        config,
+        themeTemplates,
+        layouts,
+        engine,
+        toPostsRenderPath(relativePath),
+        'preview',
+      );
+      reply.type('text/html; charset=utf-8').send(html);
+      return;
+    }
+
+    const relativePath = urlToPagePath(url);
     const html = await renderPage(config, themeTemplates, layouts, engine, toRenderPath(relativePath), 'preview');
     reply.type('text/html; charset=utf-8').send(html);
   } catch (error) {

@@ -64,6 +64,7 @@ export default tseslint.config(
       'src/services/redirects.ts',
       'src/services/move.ts',
       'src/services/resolve-url.ts',
+      'src/services/resolve-blog-url.ts',
       'src/services/fs-walk.ts',
       'src/services/content-read.ts',
       'src/services/delete-content.ts',

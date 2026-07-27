@@ -100,6 +100,49 @@ test('C5: previewing a page with no draft falls back to the live version', async
   }
 });
 
+test('previewing a draft-only post at /v1/preview/blog/<slug> renders it', async () => {
+  const { app, siteRoot, cleanup } = buildPreviewTestServer();
+  try {
+    writeJson(siteRoot, 'drafts/posts/hello-world.json', {
+      schemaVersion: 4,
+      title: 'Hello World',
+      type: 'post',
+      layout: 'theme',
+      published: true,
+      author: 'Jane Editor',
+      publishDate: '2026-07-27',
+      tags: [],
+      sections: [{ id: 'sec-1', type: 'hero', settings: { heading: 'Draft post heading' } }],
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/preview/blog/hello-world',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.ok(response.body.includes('Draft post heading'));
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('previewing a nonexistent /v1/preview/blog/<slug> returns 404', async () => {
+  const { app, cleanup } = buildPreviewTestServer();
+  try {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/preview/blog/never-existed',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+    });
+    assert.equal(response.statusCode, 404);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
 test('a preview request with no token is rejected with 401', async () => {
   const { app, cleanup } = buildPreviewTestServer();
   try {

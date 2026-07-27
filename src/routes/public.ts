@@ -5,6 +5,8 @@ import type { SiteConfig } from '../config.ts';
 import { PageRenderError, renderPage } from '../renderer/render-page.ts';
 import type { ThemeTemplates } from '../renderer/theme-templates.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
+import { isBlogUrl } from '../services/post-urls.ts';
+import { resolveBlogUrl } from '../services/resolve-blog-url.ts';
 import { resolveUrl } from '../services/resolve-url.ts';
 
 export interface PublicRouteOptions {
@@ -21,6 +23,13 @@ export interface PublicRouteOptions {
 // between them, not an arbitrary literal.
 function toRenderPath(pagesRelativePath: string): string {
   return join('pages', pagesRelativePath);
+}
+
+// Same seam as toRenderPath above, for posts: resolveBlogUrl's
+// relativePath is relative to postsRoot, renderPage's is relative to
+// contentRoot/draftsRoot directly.
+function toPostsRenderPath(postsRelativePath: string): string {
+  return join('posts', postsRelativePath);
 }
 
 // A themed 404: content/pages/404.json, if it exists and is published,
@@ -71,6 +80,35 @@ async function handlePublicRequest(
   const url = `/${request.params['*']}`;
 
   try {
+    // /blog is a permanently reserved namespace (confirmed design
+    // decision): checked first, and never falls through to page
+    // resolution even on a miss - a page manually placed at
+    // content/pages/blog/x.json is deliberately unreachable.
+    if (isBlogUrl(url)) {
+      const resolved = resolveBlogUrl(config, url);
+
+      if (resolved.kind === 'not-found') {
+        await sendNotFound(reply, config, themeTemplates, layouts, engine, url);
+        return;
+      }
+
+      if (resolved.kind === 'redirect') {
+        reply.code(301).header('location', resolved.to).send();
+        return;
+      }
+
+      const html = await renderPage(
+        config,
+        themeTemplates,
+        layouts,
+        engine,
+        toPostsRenderPath(resolved.relativePath),
+        'public',
+      );
+      reply.type('text/html; charset=utf-8').send(html);
+      return;
+    }
+
     const resolved = resolveUrl(config, url);
 
     if (resolved.kind === 'not-found') {

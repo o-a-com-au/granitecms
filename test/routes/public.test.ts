@@ -114,6 +114,65 @@ test('an unpublished content/pages/404.json falls back to the plain JSON 404 rat
   }
 });
 
+test('/blog/<slug> serves a live, published post', async () => {
+  const { app, siteRoot, cleanup } = buildPublicTestServer();
+  try {
+    writeJson(siteRoot, 'content/posts/hello-world.json', {
+      schemaVersion: 4,
+      title: 'Hello World',
+      type: 'post',
+      layout: 'theme',
+      published: true,
+      author: 'Jane Editor',
+      publishDate: '2026-07-27',
+      tags: ['news'],
+      sections: [{ id: 'sec-1', type: 'hero', settings: { heading: 'Hello World' } }],
+    });
+
+    const response = await app.inject({ method: 'GET', url: '/blog/hello-world' });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['content-type'], 'text/html; charset=utf-8');
+    assert.ok(response.body.includes('Hello World'));
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('/blog is a permanently reserved namespace: a page at content/pages/blog/x.json is unreachable at /blog/x', async () => {
+  const { app, siteRoot, cleanup } = buildPublicTestServer();
+  try {
+    writeJson(siteRoot, 'content/pages/blog/x.json', {
+      schemaVersion: 4,
+      title: 'Shadowed Page',
+      type: 'page',
+      layout: 'theme',
+      published: true,
+      sections: [],
+    });
+
+    const response = await app.inject({ method: 'GET', url: '/blog/x' });
+    assert.equal(response.statusCode, 404);
+    assert.ok(!response.body.includes('Shadowed Page'));
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('a /blog/<slug> URL with no matching post renders the themed 404, same as a missing page', async () => {
+  const { app, cleanup } = buildPublicTestServer();
+  try {
+    const response = await app.inject({ method: 'GET', url: '/blog/never-existed' });
+    assert.equal(response.statusCode, 404);
+    assert.equal(response.headers['content-type'], 'text/html; charset=utf-8');
+    assert.ok(response.body.includes('Page not found'));
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
 test('the root URL / serves content/pages/index.json', async () => {
   const { app, cleanup } = buildPublicTestServer();
   try {
