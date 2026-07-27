@@ -68,6 +68,8 @@ The agent package follows semver. The capabilities endpoint reports the agent pa
 
 Compiled TypeScript is readable JavaScript; minification obfuscates but does not secure. The commercial posture is licensing terms plus shipping only compiled output. Binary packaging (Node SEA, pkg, bytenode) is noted as possible but not planned: all are speed bumps rather than locks, and all make field debugging harder. This is a settled decision unless the commercial context changes.
 
+The commercial context did change during Phase 2: a source-available, open-core commercialisation strategy was agreed (free self-hosted engine, paid hosted admin, paid enterprise features), captured in `docs/commercialisation-brochure.md`. This does not alter the packaging stance above, which concerns what ships inside the npm package, not whether the agent's source repository is publicly viewable. Whether the source repository itself is made public is a separate, still-open decision.
+
 ## Tech stack
 
 - Runtime and language: Node.js 22+ with TypeScript, compiled to JS for distribution
@@ -268,6 +270,7 @@ Built inside the agent repo from the start, against a local test site scaffold, 
 - Whether `redirects.json` should be schema-validated content with its own editor surface, or stay machine-written plumbing
 - Whether the preview overlay should support previewing a *set* of drafts as a batch (a "release" concept) or per-page preview is enough
 - Whether the admin can trigger a site's agent self-update, or updates remain a deliberate per-site operator action
+- Whether the Phase 3 admin is single-tenant (one deployment per hosting customer) or multi-tenant (one shared admin serving many paying customers, needing customer isolation and billing built in). The "one instance total" framing above assumed a single internal or agency-run deployment; the hosted-admin commercialisation strategy in `docs/commercialisation-brochure.md` needs this decided before Phase 3 starts, since it changes the registry and auth model rather than being a later add-on
 
 ## Definition of done for MVP
 
