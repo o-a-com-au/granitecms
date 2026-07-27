@@ -8,6 +8,7 @@ import { batchRoutes } from './batch.ts';
 import { capabilitiesRoutes } from './capabilities.ts';
 import { contentRoutes } from './content.ts';
 import { draftsRoutes } from './drafts.ts';
+import { gitRoutes } from './git.ts';
 import { previewRoutes } from './preview.ts';
 import { publishRoutes } from './publish.ts';
 
@@ -70,4 +71,5 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
     themeSchemas: opts.themeSchemas,
     tokens: opts.tokens,
   });
+  fastify.register(gitRoutes, { config: opts.config, tokens: opts.tokens });
 };
