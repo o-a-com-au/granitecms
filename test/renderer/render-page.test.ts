@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
+import { createEngine } from '../../src/renderer/engine.ts';
 import { PageRenderError, renderPage, renderSections } from '../../src/renderer/render-page.ts';
 import { loadThemeTemplates } from '../../src/renderer/theme-templates.ts';
 import type { PageContent } from '../../src/renderer/render-page.ts';
@@ -10,6 +11,7 @@ import { createTmpSiteRoot, writeJson } from '../helpers/tmp-site.ts';
 
 const fixturesDir = join(import.meta.dirname, '..', 'fixtures');
 const themeTemplates = loadThemeTemplates(join(fixturesDir, 'theme'));
+const engine = createEngine({});
 
 function page(sections: PageContent['sections'], published = true): PageContent {
   return { schemaVersion: 1, title: 'Test page', published, sections };
@@ -22,6 +24,7 @@ test('D1: a page JSON plus theme renders to HTML with sections in declared order
       { id: 'sec-2', type: 'hero', settings: { heading: 'Second' } },
     ]),
     themeTemplates,
+    engine,
   );
 
   assert.ok(html.includes('First'));
@@ -40,6 +43,7 @@ test('D2: block settings render inside their parent section', async () => {
       },
     ]),
     themeTemplates,
+    engine,
   );
 
   const sectionStart = html.indexOf('data-section-id="sec-1"');
@@ -73,6 +77,7 @@ test('D2: a block nested inside another block (blocks-within-blocks) renders cor
       },
     ]),
     themeTemplates,
+    engine,
   );
 
   const groupStart = html.indexOf('data-block-id="blk-group"');
@@ -86,6 +91,7 @@ test('D3: text settings containing HTML are escaped in output by default', async
   const html = await renderSections(
     page([{ id: 'sec-1', type: 'hero', settings: { heading: '<script>alert(1)</script>' } }]),
     themeTemplates,
+    engine,
   );
 
   assert.ok(!html.includes('<script>alert(1)</script>'), 'raw HTML must not appear unescaped');
@@ -113,7 +119,7 @@ test('D4: a template that loops forever is killed by the render timeout and retu
 
   const start = Date.now();
   await assert.rejects(
-    renderSections(page([{ id: 'sec-1', type: 'runaway', settings: {} }]), runawayThemeTemplates),
+    renderSections(page([{ id: 'sec-1', type: 'runaway', settings: {} }]), runawayThemeTemplates, engine),
     PageRenderError,
   );
   const elapsed = Date.now() - start;
@@ -122,7 +128,7 @@ test('D4: a template that loops forever is killed by the render timeout and retu
 
 test('D7: rendering a page whose section type is missing from the theme produces a clear error identifying the section, not a crash', async () => {
   await assert.rejects(
-    renderSections(page([{ id: 'sec-missing', type: 'does-not-exist', settings: {} }]), themeTemplates),
+    renderSections(page([{ id: 'sec-missing', type: 'does-not-exist', settings: {} }]), themeTemplates, engine),
     (error: unknown) => {
       assert.ok(error instanceof PageRenderError);
       assert.equal(error.reason, 'missing-section-type');
@@ -145,6 +151,7 @@ test('D7: rendering a section whose block type is missing from the theme produce
         },
       ]),
       themeTemplates,
+      engine,
     ),
     (error: unknown) => {
       assert.ok(error instanceof PageRenderError);
@@ -167,7 +174,7 @@ test('D5: public mode renders /content/ only; a page existing only as a draft is
     );
 
     await assert.rejects(
-      renderPage(config, themeTemplates, 'about.json', 'public'),
+      renderPage(config, themeTemplates, engine, 'about.json', 'public'),
       (error: unknown) => error instanceof PageRenderError && error.reason === 'page-not-found',
     );
   } finally {
@@ -186,7 +193,7 @@ test('D5/C8: public mode treats an unpublished live page (published: false) as n
     );
 
     await assert.rejects(
-      renderPage(config, themeTemplates, 'about.json', 'public'),
+      renderPage(config, themeTemplates, engine, 'about.json', 'public'),
       (error: unknown) => error instanceof PageRenderError && error.reason === 'page-not-found',
     );
   } finally {
@@ -204,7 +211,7 @@ test('public mode renders a real published live page', async () => {
       page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Live and published' } }]),
     );
 
-    const html = await renderPage(config, themeTemplates, 'about.json', 'public');
+    const html = await renderPage(config, themeTemplates, engine, 'about.json', 'public');
     assert.ok(html.includes('Live and published'));
   } finally {
     cleanup();
@@ -226,7 +233,7 @@ test('D6: preview mode renders the draft version when a draft exists', async () 
       page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Draft version' } }]),
     );
 
-    const html = await renderPage(config, themeTemplates, 'about.json', 'preview');
+    const html = await renderPage(config, themeTemplates, engine, 'about.json', 'preview');
     assert.ok(html.includes('Draft version'));
     assert.ok(!html.includes('Live version'));
   } finally {
@@ -244,7 +251,7 @@ test('D6: preview mode falls back to live when no draft exists', async () => {
       page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Live version' } }]),
     );
 
-    const html = await renderPage(config, themeTemplates, 'about.json', 'preview');
+    const html = await renderPage(config, themeTemplates, engine, 'about.json', 'preview');
     assert.ok(html.includes('Live version'));
   } finally {
     cleanup();

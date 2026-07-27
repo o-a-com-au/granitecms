@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
+import type { Liquid } from 'liquidjs';
 import type { SiteConfig } from '../config.ts';
 import type { ThemeTemplates } from '../renderer/theme-templates.ts';
 import type { TokenEntry } from '../server-config.ts';
@@ -13,6 +14,7 @@ export interface V1RouteOptions {
   config: SiteConfig;
   themeSchemas: ThemeSchemas;
   themeTemplates: ThemeTemplates;
+  engine: Liquid;
   tokens: TokenEntry[];
 }
 
@@ -41,6 +43,7 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   fastify.register(previewRoutes, {
     config: opts.config,
     themeTemplates: opts.themeTemplates,
+    engine: opts.engine,
     tokens: opts.tokens,
   });
 

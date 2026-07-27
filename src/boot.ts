@@ -1,5 +1,7 @@
+import type { Liquid } from 'liquidjs';
 import type { SiteConfig } from './config.ts';
 import { loadSiteConfig } from './config.ts';
+import { createEngine } from './renderer/engine.ts';
 import type { ThemeTemplates } from './renderer/theme-templates.ts';
 import { loadThemeTemplates } from './renderer/theme-templates.ts';
 import type { StartupCheckOptions } from './services/startup-checks.ts';
@@ -11,6 +13,7 @@ export interface BootedSite {
   config: SiteConfig;
   themeSchemas: ThemeSchemas;
   themeTemplates: ThemeTemplates;
+  engine: Liquid;
 }
 
 // The composition root: startup checks, config, and theme loading, in
@@ -31,5 +34,8 @@ export function bootSite(siteRoot: string, options?: StartupCheckOptions): Boote
   const config = loadSiteConfig(siteRoot);
   const themeSchemas = loadThemeSchemas(config.themeRoot);
   const themeTemplates = loadThemeTemplates(config.themeRoot);
-  return { config, themeSchemas, themeTemplates };
+  // Empty snippets map for now - Part 2 of this change adds
+  // loadSnippets and passes its result here.
+  const engine = createEngine({});
+  return { config, themeSchemas, themeTemplates, engine };
 }

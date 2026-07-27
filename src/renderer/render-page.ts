@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
+import type { Liquid } from 'liquidjs';
 import type { SiteConfig } from '../config.ts';
 import { sanitisePath } from '../services/path-safety.ts';
-import { engine } from './engine.ts';
 import type { ThemeTemplates } from './theme-templates.ts';
 
 export type PageRenderReason =
@@ -44,6 +44,7 @@ async function renderInstance(
   instance: SectionOrBlockInstance,
   kind: 'section' | 'block',
   themeTemplates: ThemeTemplates,
+  engine: Liquid,
 ): Promise<string> {
   const templates = kind === 'section' ? themeTemplates.sections : themeTemplates.blocks;
   const template = templates[instance.type];
@@ -56,7 +57,7 @@ async function renderInstance(
 
   const blocksHtml: string[] = [];
   for (const block of instance.blocks ?? []) {
-    blocksHtml.push(await renderInstance(block, 'block', themeTemplates));
+    blocksHtml.push(await renderInstance(block, 'block', themeTemplates, engine));
   }
 
   // Shopify-style scope shape: settings nested under the instance, not
@@ -87,10 +88,11 @@ async function renderInstance(
 export async function renderSections(
   page: PageContent,
   themeTemplates: ThemeTemplates,
+  engine: Liquid,
 ): Promise<string> {
   const html: string[] = [];
   for (const section of page.sections) {
-    html.push(await renderInstance(section, 'section', themeTemplates));
+    html.push(await renderInstance(section, 'section', themeTemplates, engine));
   }
   return html.join('');
 }
@@ -136,9 +138,10 @@ function loadPageForRender(config: SiteConfig, relativePath: string, mode: Rende
 export async function renderPage(
   config: SiteConfig,
   themeTemplates: ThemeTemplates,
+  engine: Liquid,
   relativePath: string,
   mode: RenderMode,
 ): Promise<string> {
   const page = loadPageForRender(config, relativePath, mode);
-  return renderSections(page, themeTemplates);
+  return renderSections(page, themeTemplates, engine);
 }

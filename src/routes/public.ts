@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import type { Liquid } from 'liquidjs';
 import type { SiteConfig } from '../config.ts';
 import { PageRenderError, renderPage } from '../renderer/render-page.ts';
 import type { ThemeTemplates } from '../renderer/theme-templates.ts';
@@ -9,6 +10,7 @@ import { resolveUrl } from '../services/resolve-url.ts';
 export interface PublicRouteOptions {
   config: SiteConfig;
   themeTemplates: ThemeTemplates;
+  engine: Liquid;
 }
 
 // resolveUrl's relativePath is relative to pagesRoot (e.g. "about.json"),
@@ -25,6 +27,7 @@ async function handlePublicRequest(
   reply: FastifyReply,
   config: SiteConfig,
   themeTemplates: ThemeTemplates,
+  engine: Liquid,
 ): Promise<void> {
   // The public catch-all is registered without a /v1 prefix alongside
   // v1Routes (which has its own exact/prefixed routes). Fastify's
@@ -53,7 +56,7 @@ async function handlePublicRequest(
       return;
     }
 
-    const html = await renderPage(config, themeTemplates, toRenderPath(resolved.relativePath), 'public');
+    const html = await renderPage(config, themeTemplates, engine, toRenderPath(resolved.relativePath), 'public');
     reply.type('text/html; charset=utf-8').send(html);
   } catch (error) {
     // A traversal attempt and an ordinary miss get the identical 404 -
@@ -85,6 +88,7 @@ export const publicRoutes: FastifyPluginAsync<PublicRouteOptions> = async (
       reply,
       opts.config,
       opts.themeTemplates,
+      opts.engine,
     ),
   );
 };

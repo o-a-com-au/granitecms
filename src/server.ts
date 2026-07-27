@@ -46,6 +46,7 @@ export function buildServer(
     config: booted.config,
     themeSchemas: booted.themeSchemas,
     themeTemplates: booted.themeTemplates,
+    engine: booted.engine,
     tokens: serverConfig.tokens,
   });
 
@@ -56,7 +57,11 @@ export function buildServer(
   // regardless of registration order (verified empirically). What
   // actually protects unmatched /v1/* paths from being swallowed as
   // page lookups is the explicit guard inside publicRoutes itself.
-  app.register(publicRoutes, { config: booted.config, themeTemplates: booted.themeTemplates });
+  app.register(publicRoutes, {
+    config: booted.config,
+    themeTemplates: booted.themeTemplates,
+    engine: booted.engine,
+  });
 
   return app;
 }

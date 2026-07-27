@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import type { Liquid } from 'liquidjs';
 import type { SiteConfig } from '../config.ts';
 import { PageRenderError, renderPage } from '../renderer/render-page.ts';
 import type { ThemeTemplates } from '../renderer/theme-templates.ts';
@@ -11,6 +12,7 @@ import type { TokenEntry } from '../server-config.ts';
 export interface PreviewRouteOptions {
   config: SiteConfig;
   themeTemplates: ThemeTemplates;
+  engine: Liquid;
   tokens: TokenEntry[];
 }
 
@@ -27,12 +29,13 @@ async function handlePreviewRequest(
   reply: FastifyReply,
   config: SiteConfig,
   themeTemplates: ThemeTemplates,
+  engine: Liquid,
 ): Promise<void> {
   const url = `/${request.params['*']}`;
   const relativePath = urlToPagePath(url);
 
   try {
-    const html = await renderPage(config, themeTemplates, toRenderPath(relativePath), 'preview');
+    const html = await renderPage(config, themeTemplates, engine, toRenderPath(relativePath), 'preview');
     reply.type('text/html; charset=utf-8').send(html);
   } catch (error) {
     if (error instanceof PathSafetyError) {
@@ -60,6 +63,7 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOptions> = async (
         reply,
         opts.config,
         opts.themeTemplates,
+        opts.engine,
       ),
   );
 };

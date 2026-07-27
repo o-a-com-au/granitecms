@@ -44,20 +44,20 @@ test('H1: the full fixture site clones to a temp dir, and the agent boots agains
 
     // "Boots against it... with no steps beyond config": bootSite
     // takes nothing but the cloned site's root path.
-    const { config, themeTemplates } = bootSite(clonedSiteRoot);
+    const { config, themeTemplates, engine } = bootSite(clonedSiteRoot);
 
     // "Serves pages": render real pages through the actual renderer,
     // including the hierarchical child page and the block nested
     // inside its parent section.
-    const aboutHtml = await renderPage(config, themeTemplates, 'pages/about.json', 'public');
+    const aboutHtml = await renderPage(config, themeTemplates, engine, 'pages/about.json', 'public');
     assert.ok(aboutHtml.includes('About Us'));
     assert.ok(aboutHtml.includes('Meet the team'));
 
-    const teamHtml = await renderPage(config, themeTemplates, 'pages/about/team.json', 'public');
+    const teamHtml = await renderPage(config, themeTemplates, engine, 'pages/about/team.json', 'public');
     assert.ok(teamHtml.includes('Our Team'));
 
     // Public mode still honours published: false against the cloned copy.
-    await assert.rejects(renderPage(config, themeTemplates, 'pages/hidden.json', 'public'));
+    await assert.rejects(renderPage(config, themeTemplates, engine, 'pages/hidden.json', 'public'));
 
     // URL resolution works end to end against the clone.
     assert.deepEqual(resolveUrl(config, '/about'), { kind: 'page', relativePath: 'about.json' });
