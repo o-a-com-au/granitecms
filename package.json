@@ -5,6 +5,17 @@
   "type": "module",
   "description": "Self-hosted, git-backed CMS agent, distributed as a compiled npm package.",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
   "engines": {
     "node": ">=22.6.0"
   },
@@ -12,7 +23,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test",
-    "build": "tsc -p tsconfig.build.json && cp -r src/schemas dist/schemas",
+    "build": "tsc -p tsconfig.build.json && cp -r src/schemas/. dist/schemas/",
     "prepack": "npm run build"
   },
   "devDependencies": {
