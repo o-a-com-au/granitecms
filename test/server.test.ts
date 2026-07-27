@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { bootSite } from '../src/boot.ts';
 import { buildServer, startServer } from '../src/server.ts';
 import { loadServerConfig } from '../src/server-config.ts';
 import { CURRENT_SCHEMA_VERSION } from '../src/migrations/index.ts';
+import { CHECKPOINT_MESSAGE, getCommitLog } from '../src/services/git-history.ts';
 import { DRIVER_NAME } from '../src/search/drivers/node-sqlite-driver.ts';
 import { createTmpSiteRoot, writeJson } from './helpers/tmp-site.ts';
 
@@ -117,6 +118,11 @@ test('A1: the server boots by calling bootSite and starts a Fastify instance lis
     // socket. port: 0 (ephemeral), not a fixed port: node --test runs
     // files in parallel by default, and a fixed port risks flaky
     // collisions with other test files' real listeners.
+    // Since this test uses startServer (not buildServer), its own
+    // app.close() below also incidentally triggers one checkpoint run
+    // (H4) - harmless, since this fixture's drafts/ is untouched, a
+    // cheap 'clean' short-circuit (one extra execFileSync call, no
+    // commit), not a behaviour change to this test's own assertions.
     writeJson(siteRoot, 'site.config.json', { port: 0 });
 
     const app = await startServer(siteRoot, { logger: false });
@@ -220,6 +226,63 @@ test('H3: a disallowed IP still reaches the public website and static assets - t
     } finally {
       await app.close();
     }
+  } finally {
+    cleanup();
+  }
+});
+
+test('H4: a real startServer instance runs a final draft checkpoint on graceful shutdown via app.close()', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeJson(siteRoot, 'site.config.json', { port: 0 });
+    mkdirSync(join(siteRoot, 'drafts', 'pages'), { recursive: true });
+    writeFileSync(join(siteRoot, 'drafts', 'pages', 'uncommitted.json'), '{"draft":true}');
+
+    const app = await startServer(siteRoot, { logger: false });
+    await app.close();
+
+    const config = bootSite(siteRoot).config;
+    const result = getCommitLog(config, {});
+    const checkpoint = result.commits.find((c) => c.message === CHECKPOINT_MESSAGE);
+    assert.ok(checkpoint, 'a checkpoint commit must exist after shutdown');
+    assert.equal(checkpoint?.isCheckpoint, true);
+  } finally {
+    cleanup();
+  }
+});
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+test('H4: SIGTERM triggers the same graceful-shutdown checkpoint, not just a direct app.close() call', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeJson(siteRoot, 'site.config.json', { port: 0 });
+    mkdirSync(join(siteRoot, 'drafts', 'pages'), { recursive: true });
+    writeFileSync(join(siteRoot, 'drafts', 'pages', 'uncommitted.json'), '{"draft":true}');
+
+    await startServer(siteRoot, { logger: false });
+    // Exercises the real signal-listener function registered by
+    // startServer itself, not just the onClose hook it delegates to -
+    // process.emit synthesizes the signal without actually sending a
+    // real OS signal to this test process. Polled rather than awaited
+    // via a second onClose hook: Fastify's own onClose hooks run in
+    // reverse registration order, so a hook added here afterward would
+    // fire *before* startServer's own checkpoint hook completes, a
+    // race this avoids entirely.
+    const config = bootSite(siteRoot).config;
+    process.emit('SIGTERM');
+
+    const deadline = Date.now() + 2000;
+    let checkpoint: ReturnType<typeof getCommitLog>['commits'][number] | undefined;
+    while (!checkpoint && Date.now() < deadline) {
+      checkpoint = getCommitLog(config, {}).commits.find((c) => c.message === CHECKPOINT_MESSAGE);
+      if (!checkpoint) {
+        await sleep(20);
+      }
+    }
+    assert.ok(checkpoint, 'a checkpoint commit must exist after a real SIGTERM');
   } finally {
     cleanup();
   }

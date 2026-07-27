@@ -20,10 +20,16 @@ export interface ServerConfig {
   rateLimit: RateLimitConfig;
   trustProxy: boolean;
   ipAllowlist: string[];
+  checkpointIntervalMs: number;
 }
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_RATE_LIMIT: RateLimitConfig = { max: 60, windowMs: 60000 };
+// The build plan's own literal example ("every 30 minutes"), adopted
+// as-is rather than re-litigated - its own [REVIEW] flag was about
+// whether checkpoints belong on main vs a dedicated branch (resolved:
+// main), not this number specifically.
+const DEFAULT_CHECKPOINT_INTERVAL_MS = 1_800_000;
 const VALID_SCOPES = new Set<Scope>(['content', 'theme', 'media']);
 // sha256 digest, hex-encoded: exactly 64 lowercase hex characters.
 const HEX64_PATTERN = /^[0-9a-f]{64}$/;
@@ -152,6 +158,19 @@ function parseIpAllowlist(value: unknown): string[] {
   return value as string[];
 }
 
+function parseCheckpointIntervalMs(value: unknown): number {
+  if (value === undefined) {
+    return DEFAULT_CHECKPOINT_INTERVAL_MS;
+  }
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    throw new StartupCheckError(
+      'invalid-site-config',
+      `site.config.json's "checkpointIntervalMs" must be a positive integer, got ${JSON.stringify(value)}`,
+    );
+  }
+  return value;
+}
+
 // Kept separate from SiteConfig (src/config.ts, pure filesystem paths)
 // and from BootedSite (src/boot.ts): this is site.config.json's
 // non-path settings. Later groups add fields here (a media bucket for
@@ -173,7 +192,14 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
   try {
     raw = readFileSync(configPath, 'utf-8');
   } catch {
-    return { port: DEFAULT_PORT, tokens: [], rateLimit: DEFAULT_RATE_LIMIT, trustProxy: false, ipAllowlist: [] };
+    return {
+      port: DEFAULT_PORT,
+      tokens: [],
+      rateLimit: DEFAULT_RATE_LIMIT,
+      trustProxy: false,
+      ipAllowlist: [],
+      checkpointIntervalMs: DEFAULT_CHECKPOINT_INTERVAL_MS,
+    };
   }
 
   let parsed: unknown;
@@ -202,6 +228,7 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
   const rateLimit = parseRateLimit(record.rateLimit);
   const trustProxy = parseTrustProxy(record.trustProxy);
   const ipAllowlist = parseIpAllowlist(record.ipAllowlist);
+  const checkpointIntervalMs = parseCheckpointIntervalMs(record.checkpointIntervalMs);
 
-  return { port, tokens, rateLimit, trustProxy, ipAllowlist };
+  return { port, tokens, rateLimit, trustProxy, ipAllowlist, checkpointIntervalMs };
 }

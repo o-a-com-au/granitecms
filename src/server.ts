@@ -7,6 +7,8 @@ import { loadServerConfig } from './server-config.ts';
 import { assetsRoutes } from './routes/assets.ts';
 import { v1Routes } from './routes/index.ts';
 import { publicRoutes } from './routes/public.ts';
+import { CHECKPOINT_AUTHOR, runCheckpoint } from './services/checkpoint.ts';
+import { startIntervalJob } from './services/interval-job.ts';
 
 export interface BuildServerOptions {
   logger?: boolean;
@@ -95,6 +97,12 @@ export function buildServer(
   return app;
 }
 
+// Neither a recurring timer nor process signal handling exists
+// anywhere else in this codebase - this is genuinely new machinery for
+// the low-frequency draft-checkpoint background job (checklist H4).
+// Wired only here, never in buildServer: every existing route test
+// uses buildServer + .inject() directly and must stay completely
+// unaffected by any of this.
 export async function startServer(
   siteRoot: string,
   options: BuildServerOptions = {},
@@ -102,6 +110,37 @@ export async function startServer(
   const booted = bootSite(siteRoot);
   const serverConfig = loadServerConfig(siteRoot);
   const app = buildServer(booted, serverConfig, options);
+
+  const doCheckpoint = () => runCheckpoint(booted.config, CHECKPOINT_AUTHOR);
+  const scheduler = startIntervalJob(doCheckpoint, serverConfig.checkpointIntervalMs, (error) => {
+    app.log.error(error, 'background draft checkpoint failed');
+  });
+
+  // Node's default action for an unhandled SIGTERM/SIGINT is immediate
+  // process termination, bypassing all JS-level cleanup - without
+  // this, a real kill/Ctrl-C would never run the final checkpoint
+  // (build plan: "and on graceful shutdown"). process.once (not .on)
+  // self-removes after firing, and is explicitly removed again inside
+  // onClose below, so a test calling app.close() leaves zero global
+  // process-level listeners behind across the many startServer/
+  // buildServer calls the suite makes.
+  const shutdown = (): void => {
+    app.close().catch((error: unknown) => app.log.error(error, 'error during shutdown'));
+  };
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
+
+  app.addHook('onClose', async () => {
+    scheduler.stop();
+    process.removeListener('SIGTERM', shutdown);
+    process.removeListener('SIGINT', shutdown);
+    try {
+      await doCheckpoint();
+    } catch (error) {
+      app.log.error(error, 'final draft checkpoint on shutdown failed');
+    }
+  });
+
   await app.listen({ port: serverConfig.port });
   return app;
 }

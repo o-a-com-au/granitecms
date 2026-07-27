@@ -16,6 +16,7 @@ test('a site with no site.config.json defaults to port 3000 and no tokens, witho
       rateLimit: { max: 60, windowMs: 60000 },
       trustProxy: false,
       ipAllowlist: [],
+      checkpointIntervalMs: 1_800_000,
     });
   } finally {
     cleanup();
@@ -33,6 +34,7 @@ test('a site.config.json with a valid port is read correctly', () => {
       rateLimit: { max: 60, windowMs: 60000 },
       trustProxy: false,
       ipAllowlist: [],
+      checkpointIntervalMs: 1_800_000,
     });
   } finally {
     cleanup();
@@ -50,6 +52,7 @@ test('a site.config.json missing "port" defaults to port 3000', () => {
       rateLimit: { max: 60, windowMs: 60000 },
       trustProxy: false,
       ipAllowlist: [],
+      checkpointIntervalMs: 1_800_000,
     });
   } finally {
     cleanup();
@@ -223,6 +226,40 @@ test('a site.config.json with a non-array ipAllowlist is a hard startup failure'
   const { siteRoot, cleanup } = createTmpSiteRoot();
   try {
     writeJson(siteRoot, 'site.config.json', { ipAllowlist: '127.0.0.1' });
+    assert.throws(
+      () => loadServerConfig(siteRoot),
+      (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-site-config',
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a valid checkpointIntervalMs is read correctly', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'site.config.json', { checkpointIntervalMs: 5000 });
+    const config = loadServerConfig(siteRoot);
+    assert.equal(config.checkpointIntervalMs, 5000);
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json missing checkpointIntervalMs defaults to 30 minutes', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    const config = loadServerConfig(siteRoot);
+    assert.equal(config.checkpointIntervalMs, 1_800_000);
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a non-positive-integer checkpointIntervalMs is a hard startup failure', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'site.config.json', { checkpointIntervalMs: 0 });
     assert.throws(
       () => loadServerConfig(siteRoot),
       (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-site-config',

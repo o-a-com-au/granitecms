@@ -29,7 +29,7 @@ const MAX_LOG_LIMIT = 500;
 // The checkpoint commit's *author identity* is a separate, still-open
 // question (docs/phase-2-checklist.md) this module does not attempt
 // to resolve - flagging is by message only.
-const CHECKPOINT_MESSAGE = 'chore: draft checkpoint';
+export const CHECKPOINT_MESSAGE = 'chore: draft checkpoint';
 
 const FIELD_SEP = '\x1f';
 const RECORD_SEP = '\x1e';
