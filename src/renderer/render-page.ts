@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { Liquid } from 'liquidjs';
 import type { SiteConfig } from '../config.ts';
+import { loadMenus } from '../services/menus.ts';
 import { sanitisePath } from '../services/path-safety.ts';
 import type { ThemeTemplates } from './theme-templates.ts';
 
@@ -169,6 +170,13 @@ export async function renderPage(
 
   const bodyHtml = await renderSections(page, themeTemplates, engine);
 
+  // Menus are content, not theme data - loaded fresh here rather than
+  // once at boot, same freshness guarantee as the page itself. Scoped
+  // to the layout only (not threaded into renderSections/renderInstance
+  // above), matching the confirmed requirement: a layout renders nav,
+  // sections/blocks don't need it in this pass.
+  const menus = loadMenus(config, mode);
+
   // content_for_layout is already-rendered, already-safe HTML (like
   // blocksHtml handed to a section template) - the layout template
   // itself must use `{{ content_for_layout | raw }}`, or engine.ts's
@@ -176,5 +184,6 @@ export async function renderPage(
   return (await engine.parseAndRender(layoutTemplate, {
     content_for_layout: bodyHtml,
     page: { title: page.title },
+    menus,
   })) as string;
 }

@@ -55,6 +55,7 @@ const FS_USAGE_ALLOWLIST = new Set<string>([
   'renderer/theme-templates.ts', // walks agent-configured theme directories, not request paths
   'services/redirects.ts', // reads the agent-configured redirectsPath, not a request path
   'services/fs-walk.ts', // walks agent-configured roots (content/drafts/theme), not request paths
+  'services/menus.ts', // walks agent-configured menusRoot/draftsRoot, not request paths
   'services/migration-runner.ts', // walks and rewrites files under agent-configured content/drafts roots, not request paths
   'search/rebuild-index.ts', // walks agent-configured pagesRoot and writes to agent-configured dataRoot, not request paths
   'server-config.ts', // reads site.config.json from the agent-configured siteRoot, not a request path

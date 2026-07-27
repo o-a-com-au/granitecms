@@ -40,6 +40,73 @@ test('a rendered page is wrapped in its named layout, with the body content corr
   }
 });
 
+test('a layout can read live menus, threaded into scope as `menus`', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    writeJson(siteRoot, 'content/about.json', page({ layout: 'nav' }));
+    writeJson(siteRoot, 'content/menus/main.json', {
+      schemaVersion: 1,
+      items: [{ label: 'Home', url: '/' }, { label: 'About', url: '/about' }],
+    });
+
+    const layoutsWithNav = {
+      ...layouts,
+      nav: '<nav>{% for item in menus.main.items %}<a href="{{ item.url }}">{{ item.label }}</a>{% endfor %}</nav>{{ content_for_layout | raw }}',
+    };
+
+    const html = await renderPage(config, themeTemplates, layoutsWithNav, engine, 'about.json', 'public');
+
+    assert.ok(html.includes('<a href="/">Home</a>'));
+    assert.ok(html.includes('<a href="/about">About</a>'));
+  } finally {
+    cleanup();
+  }
+});
+
+test('a layout referencing a menu that does not exist gets an empty/undefined value, not a crash', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    writeJson(siteRoot, 'content/about.json', page({ layout: 'nav' }));
+
+    const layoutsWithNav = {
+      ...layouts,
+      nav: '<nav>{% for item in menus.main.items %}<a href="{{ item.url }}">{{ item.label }}</a>{% endfor %}</nav>{{ content_for_layout | raw }}',
+    };
+
+    const html = await renderPage(config, themeTemplates, layoutsWithNav, engine, 'about.json', 'public');
+    assert.match(html, /<nav><\/nav>/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('preview mode overlays a draft menu over its live counterpart, matching the page draft-overlay precedent', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    writeJson(siteRoot, 'content/about.json', page({ layout: 'nav' }));
+    writeJson(siteRoot, 'content/menus/main.json', { schemaVersion: 1, items: [{ label: 'Live', url: '/live' }] });
+    writeJson(siteRoot, 'drafts/menus/main.json', { schemaVersion: 1, items: [{ label: 'Draft', url: '/draft' }] });
+
+    const layoutsWithNav = {
+      ...layouts,
+      nav: '<nav>{% for item in menus.main.items %}<a href="{{ item.url }}">{{ item.label }}</a>{% endfor %}</nav>{{ content_for_layout | raw }}',
+    };
+
+    const previewHtml = await renderPage(config, themeTemplates, layoutsWithNav, engine, 'about.json', 'preview');
+    assert.ok(previewHtml.includes('>Draft<'));
+    assert.ok(!previewHtml.includes('>Live<'));
+
+    const publicHtml = await renderPage(config, themeTemplates, layoutsWithNav, engine, 'about.json', 'public');
+    assert.ok(publicHtml.includes('>Live<'));
+    assert.ok(!publicHtml.includes('>Draft<'));
+  } finally {
+    cleanup();
+  }
+});
+
 test('a page whose layout name does not exist in the theme throws PageRenderError(missing-layout)', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
