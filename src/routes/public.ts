@@ -23,6 +23,31 @@ function toRenderPath(pagesRelativePath: string): string {
   return join('pages', pagesRelativePath);
 }
 
+// A themed 404: content/pages/404.json, if it exists and is published,
+// is rendered through the ordinary public renderPage pipeline (layout +
+// sections + blocks, same as any other page) - no special-casing in
+// render-page.ts itself, no separate "is this the 404 page" concept.
+// The HTTP status is always 404 regardless, even though the body is a
+// full HTML page. Any failure at all while attempting this - no
+// 404.json, it's unpublished, or its own theme is broken - falls back
+// to today's plain JSON error rather than ever turning a 404 into a
+// 500 for a visitor who was already looking at a missing page.
+async function sendNotFound(
+  reply: FastifyReply,
+  config: SiteConfig,
+  themeTemplates: ThemeTemplates,
+  layouts: Record<string, string>,
+  engine: Liquid,
+  url: string,
+): Promise<void> {
+  try {
+    const html = await renderPage(config, themeTemplates, layouts, engine, toRenderPath('404.json'), 'public');
+    reply.code(404).type('text/html; charset=utf-8').send(html);
+  } catch {
+    reply.code(404).send({ statusCode: 404, error: 'Not Found', message: `No page at "${url}"` });
+  }
+}
+
 async function handlePublicRequest(
   request: FastifyRequest<{ Params: { '*': string } }>,
   reply: FastifyReply,
@@ -49,7 +74,7 @@ async function handlePublicRequest(
     const resolved = resolveUrl(config, url);
 
     if (resolved.kind === 'not-found') {
-      reply.code(404).send({ statusCode: 404, error: 'Not Found', message: `No page at "${url}"` });
+      await sendNotFound(reply, config, themeTemplates, layouts, engine, url);
       return;
     }
 
@@ -72,11 +97,11 @@ async function handlePublicRequest(
     // deliberately not 400, so a public, unauthenticated route never
     // gives an attacker a signal that distinguishes the two.
     if (error instanceof PathSafetyError) {
-      reply.code(404).send({ statusCode: 404, error: 'Not Found', message: `No page at "${url}"` });
+      await sendNotFound(reply, config, themeTemplates, layouts, engine, url);
       return;
     }
     if (error instanceof PageRenderError && error.reason === 'page-not-found') {
-      reply.code(404).send({ statusCode: 404, error: 'Not Found', message: `No page at "${url}"` });
+      await sendNotFound(reply, config, themeTemplates, layouts, engine, url);
       return;
     }
     // Any other PageRenderError reason (missing-section-type,

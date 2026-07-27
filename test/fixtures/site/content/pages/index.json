@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 4,
+  "title": "Home",
+  "type": "page",
+  "layout": "theme",
+  "published": true,
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": {
+        "heading": "Fixture Site",
+        "subheading": "This is the home page"
+      },
+      "blocks": [
+        {
+          "id": "blk-about",
+          "type": "button",
+          "settings": { "label": "About us", "url": "/about" }
+        }
+      ]
+    }
+  ]
+}

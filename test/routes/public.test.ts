@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, rmSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { bootSite } from '../../src/boot.ts';
@@ -65,11 +65,61 @@ test('C2: a request for an unpublished page URL returns 404', async () => {
   }
 });
 
-test('C2: a request for a nonexistent page URL returns 404', async () => {
+test('C2: a request for a nonexistent page URL returns 404, rendering the themed content/pages/404.json through the full layout/section/block pipeline', async () => {
   const { app, cleanup } = buildPublicTestServer();
   try {
     const response = await app.inject({ method: 'GET', url: '/never-existed' });
     assert.equal(response.statusCode, 404);
+    assert.equal(response.headers['content-type'], 'text/html; charset=utf-8');
+    assert.ok(response.body.includes('Page not found'));
+    // Proves the layout actually wrapped it (the same site-name snippet
+    // every other page gets via the layout), not a bare section render.
+    assert.ok(response.body.includes('site-name'));
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('a nonexistent page URL still returns a plain JSON 404 when no content/pages/404.json exists', async () => {
+  const { app, siteRoot, cleanup } = buildPublicTestServer();
+  try {
+    unlinkSync(join(siteRoot, 'content', 'pages', '404.json'));
+    const response = await app.inject({ method: 'GET', url: '/never-existed' });
+    assert.equal(response.statusCode, 404);
+    assert.equal(response.headers['content-type'], 'application/json; charset=utf-8');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('an unpublished content/pages/404.json falls back to the plain JSON 404 rather than a 500', async () => {
+  const { app, siteRoot, cleanup } = buildPublicTestServer();
+  try {
+    writeJson(siteRoot, 'content/pages/404.json', {
+      schemaVersion: 4,
+      title: 'Page Not Found',
+      type: 'page',
+      layout: 'theme',
+      published: false,
+      sections: [],
+    });
+    const response = await app.inject({ method: 'GET', url: '/never-existed' });
+    assert.equal(response.statusCode, 404);
+    assert.equal(response.headers['content-type'], 'application/json; charset=utf-8');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('the root URL / serves content/pages/index.json', async () => {
+  const { app, cleanup } = buildPublicTestServer();
+  try {
+    const response = await app.inject({ method: 'GET', url: '/' });
+    assert.equal(response.statusCode, 200);
+    assert.ok(response.body.includes('Fixture Site'));
   } finally {
     await app.close();
     cleanup();
@@ -105,15 +155,14 @@ test('C4: a live page always wins over a redirect recorded at the same URL, at t
   }
 });
 
-test('C6: a path traversal attempt against the public route fails safely, never a 500 or leaked content', async () => {
+test('C6: a path traversal attempt against the public route fails safely, never a 500 or leaked content (and renders the themed 404, not just a plain error)', async () => {
   const { app, cleanup } = buildPublicTestServer();
   try {
     const response = await app.inject({ method: 'GET', url: '/..%2f..%2f..%2fetc%2fpasswd' });
-    assert.ok(
-      response.statusCode === 400 || response.statusCode === 404,
-      `expected 400 or 404, got ${response.statusCode}`,
-    );
+    assert.equal(response.statusCode, 404);
     assert.ok(!response.body.includes('root:'));
+    assert.equal(response.headers['content-type'], 'text/html; charset=utf-8');
+    assert.ok(response.body.includes('Page not found'));
   } finally {
     await app.close();
     cleanup();

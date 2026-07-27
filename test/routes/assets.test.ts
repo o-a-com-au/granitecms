@@ -68,10 +68,14 @@ test('/assets/* is not swallowed by the public catch-all, and an unrelated path 
     // A path that merely starts with "assets" as a string, but isn't
     // under the real /assets/ prefix, must still reach the public
     // page-lookup catch-all (and 404 there, since no such page exists) -
-    // proving the two routes don't ambiguously overlap.
+    // proving the two routes don't ambiguously overlap. The fixture
+    // site ships a themed content/pages/404.json (see public.test.ts's
+    // "themed 404" tests), so the catch-all's 404 renders that page as
+    // HTML rather than the plain JSON error - still a 404, just no
+    // longer the bare JSON shape.
     const unrelatedResponse = await app.inject({ method: 'GET', url: '/assetsfoo' });
     assert.equal(unrelatedResponse.statusCode, 404);
-    assert.equal(unrelatedResponse.headers['content-type'], 'application/json; charset=utf-8');
+    assert.equal(unrelatedResponse.headers['content-type'], 'text/html; charset=utf-8');
   } finally {
     await app.close();
     cleanup();
