@@ -4,6 +4,7 @@ import type { SiteConfig } from '../config.ts';
 import type { ThemeTemplates } from '../renderer/theme-templates.ts';
 import type { TokenEntry } from '../server-config.ts';
 import type { ThemeSchemas } from '../services/validation.ts';
+import { batchRoutes } from './batch.ts';
 import { capabilitiesRoutes } from './capabilities.ts';
 import { contentRoutes } from './content.ts';
 import { draftsRoutes } from './drafts.ts';
@@ -60,6 +61,11 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
     tokens: opts.tokens,
   });
   fastify.register(publishRoutes, {
+    config: opts.config,
+    themeSchemas: opts.themeSchemas,
+    tokens: opts.tokens,
+  });
+  fastify.register(batchRoutes, {
     config: opts.config,
     themeSchemas: opts.themeSchemas,
     tokens: opts.tokens,

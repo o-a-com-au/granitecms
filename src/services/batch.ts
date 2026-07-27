@@ -184,9 +184,19 @@ async function rollbackAndThrow(
     throw new BatchError(reason, `Batch failed: ${detail}`, { cause, ...context });
   }
 
-  // commitPaths only ever throws GitOperationError, so a failure that
-  // isn't one of the four domain errors above can only have come from
-  // the commit step itself.
+  // context.stage is only ever set when this was called from the
+  // operations/publish loop, never from the post-loop commitPaths call
+  // below - so a non-domain error reaching here (e.g. PathSafetyError
+  // thrown by sanitisePath deep inside a prepareX function) came from
+  // there too. Rethrow it as-is rather than mislabelling it
+  // 'commit-failed': callers up the stack (the route's own
+  // PathSafetyError check) need to see the original error type.
+  if (context.stage) {
+    throw cause;
+  }
+
+  // No stage means this can only have come from the commitPaths call
+  // just above, which only ever throws GitOperationError.
   const detail = cause instanceof Error ? cause.message : String(cause);
   throw new BatchError('commit-failed', `Batch failed: ${detail}`, { cause, ...context });
 }
