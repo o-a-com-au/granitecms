@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 4,
+  "title": "Hello World",
+  "type": "post",
+  "layout": "theme",
+  "published": true,
+  "author": "Jane Editor",
+  "publishDate": "2026-07-27",
+  "tags": ["news", "launch"],
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": {
+        "heading": "Hello World",
+        "subheading": "Our very first blog post"
+      },
+      "blocks": []
+    }
+  ]
+}
