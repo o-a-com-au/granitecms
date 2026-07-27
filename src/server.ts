@@ -1,3 +1,4 @@
+import rateLimitPlugin from '@fastify/rate-limit';
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import type { BootedSite } from './boot.ts';
 import { bootSite } from './boot.ts';
@@ -21,7 +22,25 @@ export function buildServer(
   serverConfig: ServerConfig,
   options: BuildServerOptions = {},
 ): FastifyInstance {
-  const app = Fastify({ logger: options.logger ?? false });
+  const app = Fastify({ logger: options.logger ?? false, trustProxy: serverConfig.trustProxy });
+
+  // global: false - only routes that explicitly opt in via a
+  // config: { rateLimit: {...} } marker on their own route options
+  // (see src/services/rate-limit-config.ts) are ever limited. The
+  // max/timeWindow set here are the configured (or defaulted)
+  // site.config.json values - an opting-in route's own empty
+  // { rateLimit: {} } marker inherits these, verified empirically.
+  // Registered once here, on the root app (an ancestor of v1Routes and
+  // everything it nests), so no individual route file needs to import
+  // this plugin itself. Its own 429 response body shape
+  // ({statusCode, error, message}) already matches this project's own
+  // error-JSON convention exactly - verified empirically before relying
+  // on it, no errorResponseBuilder override needed.
+  app.register(rateLimitPlugin, {
+    global: false,
+    max: serverConfig.rateLimit.max,
+    timeWindow: serverConfig.rateLimit.windowMs,
+  });
 
   // Fastify's own default 500 body leaks the raw thrown Error.message
   // to the client verbatim - confirmed empirically before this was

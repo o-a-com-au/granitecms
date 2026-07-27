@@ -6,6 +6,7 @@ import { RevertError, revertPaths } from '../services/git-revert.ts';
 import { isValidCommitAuthor, isValidGitRef } from '../services/git.ts';
 import { mimeTypeFor } from '../services/mime-types.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
+import { WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
 import { requireScope } from '../services/token-auth.ts';
 import type { TokenEntry } from '../server-config.ts';
 
@@ -225,13 +226,13 @@ export const gitRoutes: FastifyPluginAsync<GitRouteOptions> = async (
 
   fastify.post(
     '/git/revert',
-    { preHandler: requireScope(opts.tokens, 'content') },
+    { preHandler: requireScope(opts.tokens, 'content'), config: WRITE_ROUTE_RATE_LIMIT },
     async (request, reply) => handleGitRevert(request, reply, opts.config),
   );
 
   fastify.post(
     '/git/commit',
-    { preHandler: requireScope(opts.tokens, 'content') },
+    { preHandler: requireScope(opts.tokens, 'content'), config: WRITE_ROUTE_RATE_LIMIT },
     async (request, reply) => handleGitCommit(request, reply, opts.config),
   );
 };

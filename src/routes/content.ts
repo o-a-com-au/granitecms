@@ -5,6 +5,7 @@ import { DeleteContentError, deleteContent } from '../services/delete-content.ts
 import { isValidCommitAuthor } from '../services/git.ts';
 import { MoveError, movePage } from '../services/move.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
+import { WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
 import { requireScope } from '../services/token-auth.ts';
 import type { TokenEntry } from '../server-config.ts';
 
@@ -190,7 +191,7 @@ export const contentRoutes: FastifyPluginAsync<ContentRouteOptions> = async (
 
   fastify.delete(
     '/content/*',
-    { preHandler: requireScope(opts.tokens, 'content') },
+    { preHandler: requireScope(opts.tokens, 'content'), config: WRITE_ROUTE_RATE_LIMIT },
     async (request, reply) =>
       handleDeleteContent(request as FastifyRequest<{ Params: { '*': string } }>, reply, opts.config),
   );
@@ -203,7 +204,7 @@ export const contentRoutes: FastifyPluginAsync<ContentRouteOptions> = async (
   // registration order.
   fastify.post(
     '/content/move',
-    { preHandler: requireScope(opts.tokens, 'content') },
+    { preHandler: requireScope(opts.tokens, 'content'), config: WRITE_ROUTE_RATE_LIMIT },
     async (request, reply) => handleMoveContent(request, reply, opts.config),
   );
 };

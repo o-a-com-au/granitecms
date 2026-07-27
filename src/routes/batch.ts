@@ -4,6 +4,7 @@ import type { BatchOperation, BatchPublish } from '../services/batch.ts';
 import { BatchError, runBatch } from '../services/batch.ts';
 import { isValidCommitAuthor } from '../services/git.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
+import { WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
 import { requireScope } from '../services/token-auth.ts';
 import type { ThemeSchemas } from '../services/validation.ts';
 import type { TokenEntry } from '../server-config.ts';
@@ -154,7 +155,7 @@ export const batchRoutes: FastifyPluginAsync<BatchRouteOptions> = async (
 ) => {
   fastify.post(
     '/batch',
-    { preHandler: requireScope(opts.tokens, 'content') },
+    { preHandler: requireScope(opts.tokens, 'content'), config: WRITE_ROUTE_RATE_LIMIT },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const parsed = parseBatchBody(request.body);
       if (!parsed) {

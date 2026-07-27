@@ -3,6 +3,7 @@ import type { SiteConfig } from '../config.ts';
 import { ContentReadError, readContentFile } from '../services/content-read.ts';
 import { DraftError, discardDraft, saveDraft } from '../services/drafts.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
+import { WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
 import { requireScope } from '../services/token-auth.ts';
 import type { ThemeSchemas } from '../services/validation.ts';
 import type { TokenEntry } from '../server-config.ts';
@@ -104,7 +105,7 @@ export const draftsRoutes: FastifyPluginAsync<DraftsRouteOptions> = async (
 
   fastify.put(
     '/drafts/*',
-    { preHandler: requireScope(opts.tokens, 'content') },
+    { preHandler: requireScope(opts.tokens, 'content'), config: WRITE_ROUTE_RATE_LIMIT },
     async (request, reply) =>
       handleSaveDraft(
         request as FastifyRequest<{ Params: { '*': string } }>,
@@ -116,7 +117,7 @@ export const draftsRoutes: FastifyPluginAsync<DraftsRouteOptions> = async (
 
   fastify.delete(
     '/drafts/*',
-    { preHandler: requireScope(opts.tokens, 'content') },
+    { preHandler: requireScope(opts.tokens, 'content'), config: WRITE_ROUTE_RATE_LIMIT },
     async (request, reply) =>
       handleDiscardDraft(request as FastifyRequest<{ Params: { '*': string } }>, reply, opts.config),
   );

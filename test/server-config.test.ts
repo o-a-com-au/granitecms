@@ -10,7 +10,12 @@ test('a site with no site.config.json defaults to port 3000 and no tokens, witho
   const { siteRoot, cleanup } = createTmpSiteRoot();
   try {
     const config = loadServerConfig(siteRoot);
-    assert.deepEqual(config, { port: 3000, tokens: [] });
+    assert.deepEqual(config, {
+      port: 3000,
+      tokens: [],
+      rateLimit: { max: 60, windowMs: 60000 },
+      trustProxy: false,
+    });
   } finally {
     cleanup();
   }
@@ -21,7 +26,12 @@ test('a site.config.json with a valid port is read correctly', () => {
   try {
     writeJson(siteRoot, 'site.config.json', { port: 4321 });
     const config = loadServerConfig(siteRoot);
-    assert.deepEqual(config, { port: 4321, tokens: [] });
+    assert.deepEqual(config, {
+      port: 4321,
+      tokens: [],
+      rateLimit: { max: 60, windowMs: 60000 },
+      trustProxy: false,
+    });
   } finally {
     cleanup();
   }
@@ -32,7 +42,12 @@ test('a site.config.json missing "port" defaults to port 3000', () => {
   try {
     writeJson(siteRoot, 'site.config.json', {});
     const config = loadServerConfig(siteRoot);
-    assert.deepEqual(config, { port: 3000, tokens: [] });
+    assert.deepEqual(config, {
+      port: 3000,
+      tokens: [],
+      rateLimit: { max: 60, windowMs: 60000 },
+      trustProxy: false,
+    });
   } finally {
     cleanup();
   }
@@ -114,6 +129,54 @@ test('a site.config.json with a malformed (non-hex, wrong-length) token hash is 
       () => loadServerConfig(siteRoot),
       (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-token-config',
     );
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a valid rateLimit is read correctly', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'site.config.json', { rateLimit: { max: 10, windowMs: 5000 } });
+    const config = loadServerConfig(siteRoot);
+    assert.deepEqual(config.rateLimit, { max: 10, windowMs: 5000 });
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a malformed rateLimit is a hard startup failure', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'site.config.json', { rateLimit: { max: 0, windowMs: 5000 } });
+    assert.throws(
+      () => loadServerConfig(siteRoot),
+      (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-site-config',
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a non-boolean trustProxy is a hard startup failure', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'site.config.json', { trustProxy: 'yes' });
+    assert.throws(
+      () => loadServerConfig(siteRoot),
+      (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-site-config',
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with trustProxy: true is read correctly', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'site.config.json', { trustProxy: true });
+    const config = loadServerConfig(siteRoot);
+    assert.equal(config.trustProxy, true);
   } finally {
     cleanup();
   }

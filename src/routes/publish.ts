@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest 
 import type { SiteConfig } from '../config.ts';
 import { isValidCommitAuthor } from '../services/git.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
+import { WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
 import { PublishError, publishDrafts, unpublishPage } from '../services/publish.ts';
 import { requireScope } from '../services/token-auth.ts';
 import type { ThemeSchemas } from '../services/validation.ts';
@@ -73,7 +74,7 @@ export const publishRoutes: FastifyPluginAsync<PublishRouteOptions> = async (
 ) => {
   fastify.post(
     '/publish',
-    { preHandler: requireScope(opts.tokens, 'content') },
+    { preHandler: requireScope(opts.tokens, 'content'), config: WRITE_ROUTE_RATE_LIMIT },
     async (request: FastifyRequest, reply: FastifyReply) => {
       const parsed = parsePublishBody(request.body);
       if (!parsed) {
@@ -107,7 +108,7 @@ export const publishRoutes: FastifyPluginAsync<PublishRouteOptions> = async (
 
   fastify.post(
     '/unpublish/*',
-    { preHandler: requireScope(opts.tokens, 'content') },
+    { preHandler: requireScope(opts.tokens, 'content'), config: WRITE_ROUTE_RATE_LIMIT },
     async (request, reply) => {
       const parsed = parseUnpublishBody(request.body);
       if (!parsed) {

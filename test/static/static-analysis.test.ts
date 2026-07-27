@@ -181,3 +181,75 @@ test('B4: every route registered under src/routes/ either declares a required sc
     `route file registers a route without requireScope and is not on the exemption allowlist: ${offenders.join(', ')}`,
   );
 });
+
+// H2: every write route (POST/PUT/DELETE/PATCH) must carry a rate-limit
+// config marker. A file-level check (like B4's above) is insufficient
+// here, since several route files mix GET and write routes in one
+// file (content.ts, drafts.ts, git.ts) - a file-level "does this file
+// mention rateLimit anywhere" check could pass while one specific
+// write route in that file is missing it. This scans a bounded
+// character window after each write-method registration instead - good
+// enough, not a full parser, matching this file's own established
+// regex-based style rather than a balanced-brace scanner.
+const WRITE_METHOD_PATTERN = /\.(?:post|put|delete|patch)\s*\(\s*['"]/g;
+const RATE_LIMIT_MARKER_PATTERN = /WRITE_ROUTE_RATE_LIMIT/;
+const RATE_LIMIT_WINDOW = 400;
+const RATE_LIMIT_ALLOWLIST = new Set<string>([
+  'routes/public.ts', // registers no /v1 write routes at all - the site's own public website
+  'routes/assets.ts', // registers no /v1 write routes at all - static theme assets
+]);
+
+function writeRouteMarkerOffenders(contents: string): number[] {
+  const offenderIndices: number[] = [];
+  for (const match of contents.matchAll(WRITE_METHOD_PATTERN)) {
+    const start = match.index;
+    const window = contents.slice(start, start + RATE_LIMIT_WINDOW);
+    if (!RATE_LIMIT_MARKER_PATTERN.test(window)) {
+      offenderIndices.push(start);
+    }
+  }
+  return offenderIndices;
+}
+
+test('H2 mechanism check (positive control): the write-route/rate-limit-marker pattern actually distinguishes a violating route from a compliant one', () => {
+  const violating = `
+    fastify.post('/unsafe', { preHandler: requireScope(tokens, 'content') }, async () => ({ ok: true }));
+  `;
+  const compliant = `
+    fastify.post('/safe', { preHandler: requireScope(tokens, 'content'), config: WRITE_ROUTE_RATE_LIMIT }, async () => ({ ok: true }));
+  `;
+  const getOnly = `
+    fastify.get('/read-only', { preHandler: requireScope(tokens, 'content') }, async () => ({ ok: true }));
+  `;
+
+  assert.equal(writeRouteMarkerOffenders(violating).length, 1, 'must flag the violating fixture');
+  assert.equal(writeRouteMarkerOffenders(compliant).length, 0, 'must not flag the compliant fixture');
+  assert.equal(writeRouteMarkerOffenders(getOnly).length, 0, 'a GET-only fixture is never flagged');
+});
+
+test('H2: every write route (POST/PUT/DELETE/PATCH) under src/routes/ carries a rate-limit config marker', () => {
+  const routesDir = join(srcDir, 'routes');
+  const offenders: string[] = [];
+
+  for (const file of listTsFiles(routesDir)) {
+    const relPath = relative(srcDir, file);
+    if (relPath === ROUTES_INDEX_FILE || RATE_LIMIT_ALLOWLIST.has(relPath)) {
+      continue;
+    }
+    const contents = readFileSync(file, 'utf-8');
+    if (writeRouteMarkerOffenders(contents).length > 0) {
+      offenders.push(relPath);
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `write route missing a rate-limit config marker: ${offenders.join(', ')}`,
+  );
+});
+
+test('H2: GET /v1/capabilities carries its own, more generous rate-limit marker', () => {
+  const contents = readFileSync(join(srcDir, 'routes', 'capabilities.ts'), 'utf-8');
+  assert.match(contents, /CAPABILITIES_RATE_LIMIT/);
+});

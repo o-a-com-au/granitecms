@@ -9,12 +9,20 @@ export interface TokenEntry {
   scopes: Scope[];
 }
 
+export interface RateLimitConfig {
+  max: number;
+  windowMs: number;
+}
+
 export interface ServerConfig {
   port: number;
   tokens: TokenEntry[];
+  rateLimit: RateLimitConfig;
+  trustProxy: boolean;
 }
 
 const DEFAULT_PORT = 3000;
+const DEFAULT_RATE_LIMIT: RateLimitConfig = { max: 60, windowMs: 60000 };
 const VALID_SCOPES = new Set<Scope>(['content', 'theme', 'media']);
 // sha256 digest, hex-encoded: exactly 64 lowercase hex characters.
 const HEX64_PATTERN = /^[0-9a-f]{64}$/;
@@ -76,6 +84,49 @@ function parseTokens(value: unknown): TokenEntry[] {
   return tokens;
 }
 
+function parseRateLimit(value: unknown): RateLimitConfig {
+  if (value === undefined) {
+    // Absent entirely -> the default limit applies - matches tokens'/
+    // port's own "absence is not an error" philosophy.
+    return DEFAULT_RATE_LIMIT;
+  }
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new StartupCheckError('invalid-site-config', 'site.config.json\'s "rateLimit" must be an object');
+  }
+  const record = value as Record<string, unknown>;
+  const max = record.max;
+  if (typeof max !== 'number' || !Number.isInteger(max) || max < 1) {
+    throw new StartupCheckError(
+      'invalid-site-config',
+      `site.config.json's "rateLimit.max" must be a positive integer, got ${JSON.stringify(max)}`,
+    );
+  }
+  const windowMs = record.windowMs;
+  if (typeof windowMs !== 'number' || !Number.isInteger(windowMs) || windowMs < 1) {
+    throw new StartupCheckError(
+      'invalid-site-config',
+      `site.config.json's "rateLimit.windowMs" must be a positive integer, got ${JSON.stringify(windowMs)}`,
+    );
+  }
+  return { max, windowMs };
+}
+
+function parseTrustProxy(value: unknown): boolean {
+  if (value === undefined) {
+    // Absent -> false, matching a bare single-process, no-reverse-
+    // proxy deployment assumption unless an operator explicitly opts
+    // in.
+    return false;
+  }
+  if (typeof value !== 'boolean') {
+    throw new StartupCheckError(
+      'invalid-site-config',
+      `site.config.json's "trustProxy" must be a boolean, got ${JSON.stringify(value)}`,
+    );
+  }
+  return value;
+}
+
 // Kept separate from SiteConfig (src/config.ts, pure filesystem paths)
 // and from BootedSite (src/boot.ts): this is site.config.json's
 // non-path settings. Later groups add fields here (a media bucket for
@@ -97,7 +148,7 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
   try {
     raw = readFileSync(configPath, 'utf-8');
   } catch {
-    return { port: DEFAULT_PORT, tokens: [] };
+    return { port: DEFAULT_PORT, tokens: [], rateLimit: DEFAULT_RATE_LIMIT, trustProxy: false };
   }
 
   let parsed: unknown;
@@ -123,6 +174,8 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
   }
 
   const tokens = parseTokens(record.tokens);
+  const rateLimit = parseRateLimit(record.rateLimit);
+  const trustProxy = parseTrustProxy(record.trustProxy);
 
-  return { port, tokens };
+  return { port, tokens, rateLimit, trustProxy };
 }
