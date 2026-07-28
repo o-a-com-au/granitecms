@@ -6,7 +6,13 @@ import type { CommitAuthor } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
 import { postPathToUrl } from './post-urls.ts';
-import { RedirectError, addRedirect, loadRedirects } from './redirects.ts';
+import {
+  RedirectError,
+  addRedirect,
+  isValidRedirectTarget,
+  loadRedirects,
+  serialiseRedirects,
+} from './redirects.ts';
 import { pagePathToUrl } from './urls.ts';
 import { enqueue } from './write-queue.ts';
 
@@ -35,6 +41,7 @@ export type DeleteContentReason =
   | 'page-not-found'
   | 'has-children'
   | 'redirect-cycle'
+  | 'invalid-redirect-target'
   | 'write-failed'
   | 'commit-failed'
   | 'rollback-failed';
@@ -129,16 +136,26 @@ export function prepareDeleteContent(
     // real cycle (e.g. redirectTo pointing back into an existing
     // chain), so that's surfaced as its own reason, not left to fall
     // into the generic write-failed/500 bucket an unlikely automatic-
-    // bookkeeping cycle would.
+    // bookkeeping cycle would. Format is validated the same way as the
+    // dedicated manage-redirects.ts endpoints, internal-paths-only,
+    // so the two write paths never disagree on what's allowed into
+    // redirects.json.
     const fromUrl = urlForDeletedEntry(relativePath);
     if (redirectTo !== undefined && fromUrl !== null) {
+      if (!isValidRedirectTarget(redirectTo)) {
+        throw new DeleteContentError(
+          'invalid-redirect-target',
+          `redirectTo "${redirectTo}" must be an internal path starting with "/"`,
+        );
+      }
+
       redirectsBefore = existsSync(config.redirectsPath)
         ? readFileSync(config.redirectsPath, 'utf-8')
         : null;
 
-      let redirects;
+      let entries;
       try {
-        redirects = addRedirect(loadRedirects(config), fromUrl, redirectTo);
+        entries = addRedirect(loadRedirects(config).entries, fromUrl, redirectTo).entries;
       } catch (error) {
         if (error instanceof RedirectError) {
           throw new DeleteContentError('redirect-cycle', error.message, { cause: error });
@@ -146,7 +163,7 @@ export function prepareDeleteContent(
         throw error;
       }
 
-      const serialised = JSON.stringify(redirects, null, 2);
+      const serialised = serialiseRedirects(entries);
       if (serialised !== (redirectsBefore ?? '')) {
         writeFileSync(config.redirectsPath, serialised);
         redirectsChanged = true;

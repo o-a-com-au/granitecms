@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import type { SiteConfig } from '../config.ts';
 import { sanitisePath } from './path-safety.ts';
-import { loadRedirects } from './redirects.ts';
+import { buildRedirectLookup, loadRedirects } from './redirects.ts';
 import { urlToPostPath } from './post-urls.ts';
 
 export type ResolvedBlogUrl =
@@ -30,8 +30,8 @@ export function resolveBlogUrl(config: SiteConfig, url: string): ResolvedBlogUrl
     }
   }
 
-  const redirects = loadRedirects(config);
-  const to = redirects[url];
+  const lookup = buildRedirectLookup(loadRedirects(config).entries);
+  const to = lookup.get(url);
   if (to !== undefined) {
     return { kind: 'redirect', to };
   }

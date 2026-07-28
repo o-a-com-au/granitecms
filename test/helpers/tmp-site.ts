@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import type { SiteConfig } from '../../src/config.ts';
+import { loadRedirects } from '../../src/services/redirects.ts';
 
 export interface TmpSite {
   siteRoot: string;
@@ -71,4 +73,11 @@ export function writeJson(siteRoot: string, relativePath: string, content: unkno
   const fullPath = join(siteRoot, relativePath);
   mkdirSync(dirname(fullPath), { recursive: true });
   writeFileSync(fullPath, JSON.stringify(content, null, 2));
+}
+
+// Convenience for tests asserting on a single redirect's target,
+// avoiding every call site re-deriving a lookup from redirects.json's
+// entries[] shape.
+export function redirectTargetFor(config: SiteConfig, from: string): string | undefined {
+  return loadRedirects(config).entries.find((entry) => entry.from === from)?.to;
 }

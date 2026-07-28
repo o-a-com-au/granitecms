@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
 import { DeleteContentError, deleteContent } from '../../src/services/delete-content.ts';
 import { loadRedirects } from '../../src/services/redirects.ts';
-import { createTmpSiteRoot, writeAndCommit, writeJson } from '../helpers/tmp-site.ts';
+import { createTmpSiteRoot, redirectTargetFor, writeAndCommit, writeJson } from '../helpers/tmp-site.ts';
 
 const author = { name: 'Jane Editor', email: 'jane@example.com' };
 
@@ -47,7 +47,7 @@ test('F3: deleting a live page with a redirectTo records a redirect in the same 
 
     await deleteContent(config, 'pages/about.json', '/company', 'delete about, redirect to company', author);
 
-    assert.equal(loadRedirects(config)['/about'], '/company');
+    assert.equal(redirectTargetFor(config, '/about'), '/company');
     assert.equal(commitCount(siteRoot), before + 1, 'redirect must land in the same commit as the delete');
   } finally {
     cleanup();
@@ -77,7 +77,7 @@ test('deleting a post with a redirectTo records a /blog/-shaped redirect, same a
 
     await deleteContent(config, 'posts/hello-world.json', '/blog/moved', 'delete post, redirect', author);
 
-    assert.equal(loadRedirects(config)['/blog/hello-world'], '/blog/moved');
+    assert.equal(redirectTargetFor(config, '/blog/hello-world'), '/blog/moved');
     assert.equal(commitCount(siteRoot), before + 1);
   } finally {
     cleanup();
@@ -92,7 +92,7 @@ test('deleting a menu with a redirectTo records no redirect (menus have no publi
 
     await deleteContent(config, 'menus/main.json', '/somewhere', 'delete menu', author);
 
-    assert.deepEqual(loadRedirects(config), {});
+    assert.deepEqual(loadRedirects(config), { schemaVersion: 1, entries: [] });
   } finally {
     cleanup();
   }
@@ -106,7 +106,7 @@ test('deleting a page with no redirectTo records no redirect', async () => {
 
     await deleteContent(config, 'pages/about.json', undefined, 'delete about', author);
 
-    assert.deepEqual(loadRedirects(config), {});
+    assert.deepEqual(loadRedirects(config), { schemaVersion: 1, entries: [] });
   } finally {
     cleanup();
   }

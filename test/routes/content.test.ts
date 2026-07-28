@@ -241,11 +241,10 @@ test('F3: DELETE /v1/content/:path with redirectTo records a redirect', async ()
     });
 
     assert.equal(response.statusCode, 204);
-    const redirects = JSON.parse(readFileSync(join(siteRoot, 'redirects.json'), 'utf-8')) as Record<
-      string,
-      string
-    >;
-    assert.equal(redirects['/about'], '/company');
+    const redirects = JSON.parse(readFileSync(join(siteRoot, 'redirects.json'), 'utf-8')) as {
+      entries: Array<{ from: string; to: string }>;
+    };
+    assert.equal(redirects.entries.find((entry) => entry.from === '/about')?.to, '/company');
   } finally {
     await app.close();
     cleanup();

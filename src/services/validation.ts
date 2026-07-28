@@ -35,6 +35,7 @@ ajv.addSchema(instanceSchema);
 const validatePageEnvelope = ajv.compile(readSchema('page.schema.json'));
 const validatePostEnvelope = ajv.compile(readSchema('post.schema.json'));
 const validateMenuEnvelope = ajv.compile(readSchema('menu.schema.json'));
+const validateRedirectsEnvelope = ajv.compile(readSchema('redirects.schema.json'));
 const validateInstanceEnvelope = ajv.compile(instanceSchema);
 
 function normaliseErrors(errors: ErrorObject[] | null | undefined): ValidationError[] {
@@ -146,6 +147,13 @@ export function validatePost(post: unknown, themeSchemas: ThemeSchemas): Validat
 
 export function validateMenu(menu: unknown): ValidationResult {
   return runValidator(validateMenuEnvelope, menu);
+}
+
+// Never routed through validateContent's dispatcher below: redirects.json
+// lives at the site root, not under content/, so it never has a
+// content/-relative path for that dispatcher to match against.
+export function validateRedirects(redirects: unknown): ValidationResult {
+  return runValidator(validateRedirectsEnvelope, redirects);
 }
 
 // Dispatches on the relative path's prefix, not an in-file `type`

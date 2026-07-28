@@ -5,8 +5,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
 import { MoveError, movePage } from '../../src/services/move.ts';
-import { loadRedirects } from '../../src/services/redirects.ts';
-import { createTmpSiteRoot, writeAndCommit } from '../helpers/tmp-site.ts';
+import { createTmpSiteRoot, redirectTargetFor, writeAndCommit } from '../helpers/tmp-site.ts';
 
 const author = { name: 'Jane Editor', email: 'jane@example.com' };
 
@@ -54,8 +53,7 @@ test('E2: moving a page moves the file (old path gone, new path present), record
     // The mechanism that would produce a 301 once Phase 2's router
     // exists: requesting the old URL resolves via redirects.json to
     // the new one.
-    const redirects = loadRedirects(config);
-    assert.equal(redirects['/about'], '/company');
+    assert.equal(redirectTargetFor(config, '/about'), '/company');
   } finally {
     cleanup();
   }
@@ -96,10 +94,9 @@ test('E3: moving a subtree moves every descendant, writes one redirect entry per
 
     assert.equal(commitCount(siteRoot), before + 1);
 
-    const redirects = loadRedirects(config);
-    assert.equal(redirects['/about'], '/company');
-    assert.equal(redirects['/about/team'], '/company/team');
-    assert.equal(redirects['/about/history'], '/company/history');
+    assert.equal(redirectTargetFor(config, '/about'), '/company');
+    assert.equal(redirectTargetFor(config, '/about/team'), '/company/team');
+    assert.equal(redirectTargetFor(config, '/about/history'), '/company/history');
 
     const statuses = statusesInLastCommit(siteRoot);
     for (const path of ['about.json', 'about/team.json', 'about/history.json']) {
@@ -129,14 +126,13 @@ test('E5 (move half): moving a page onto a destination that already had a stale 
     writeAndCommit(siteRoot, 'content/pages/destination.json', pageJson('Destination'));
     await movePage(config, '/destination', '/elsewhere', 'second move', author);
 
-    assert.equal(loadRedirects(config)['/destination'], '/elsewhere');
+    assert.equal(redirectTargetFor(config, '/destination'), '/elsewhere');
 
     writeAndCommit(siteRoot, 'content/pages/incoming.json', pageJson('Incoming'));
     await movePage(config, '/incoming', '/destination', 'move onto the stale redirect', author);
 
-    const redirects = loadRedirects(config);
-    assert.equal(redirects['/incoming'], '/destination');
-    assert.notEqual(redirects['/destination'], '/elsewhere');
+    assert.equal(redirectTargetFor(config, '/incoming'), '/destination');
+    assert.notEqual(redirectTargetFor(config, '/destination'), '/elsewhere');
   } finally {
     cleanup();
   }
@@ -202,7 +198,7 @@ test('rollback-on-commit-failure: a real git failure after the rename rolls back
 
     assert.ok(existsSync(join(config.pagesRoot, 'about.json')), 'the source page must be restored');
     assert.equal(existsSync(join(config.pagesRoot, 'company.json')), false, 'the destination must not exist');
-    assert.equal(loadRedirects(config)['/about'], undefined, 'no redirect should be left behind');
+    assert.equal(redirectTargetFor(config, '/about'), undefined, 'no redirect should be left behind');
     assert.equal(commitCount(siteRoot), before, 'no commit should be created');
   } finally {
     cleanup();

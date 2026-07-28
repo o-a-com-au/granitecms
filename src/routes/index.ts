@@ -11,6 +11,7 @@ import { draftsRoutes } from './drafts.ts';
 import { gitRoutes } from './git.ts';
 import { previewRoutes } from './preview.ts';
 import { publishRoutes } from './publish.ts';
+import { redirectsRoutes } from './redirects.ts';
 import { searchRoutes } from './search.ts';
 import { ipAllowlistGuard } from '../services/ip-allowlist.ts';
 
@@ -88,4 +89,5 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   });
   fastify.register(gitRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(searchRoutes, { config: opts.config, tokens: opts.tokens });
+  fastify.register(redirectsRoutes, { config: opts.config, tokens: opts.tokens });
 };

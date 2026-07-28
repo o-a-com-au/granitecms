@@ -5,9 +5,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
 import { BatchError, runBatch } from '../../src/services/batch.ts';
-import { loadRedirects } from '../../src/services/redirects.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
-import { createTmpSiteRoot, writeAndCommit, writeJson } from '../helpers/tmp-site.ts';
+import { createTmpSiteRoot, redirectTargetFor, writeAndCommit, writeJson } from '../helpers/tmp-site.ts';
 
 const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
 const author = { name: 'Jane Editor', email: 'jane@example.com' };
@@ -58,7 +57,7 @@ test('a batch mixing every operation type plus a trailing publish succeeds as on
 
     // content-delete with redirect
     assert.equal(existsSync(join(config.pagesRoot, 'to-delete.json')), false);
-    assert.equal(loadRedirects(config)['/to-delete'], '/keep');
+    assert.equal(redirectTargetFor(config, '/to-delete'), '/keep');
 
     // Exactly one commit for the whole batch, not one per operation.
     assert.equal(commitCount(siteRoot), before + 1);
@@ -239,7 +238,7 @@ test('reverse-order rollback: a move then a content-delete of the moved page, wh
     assert.ok(existsSync(join(config.pagesRoot, 'original.json')), 'the move must be reversed');
     assert.equal(existsSync(join(config.pagesRoot, 'moved.json')), false);
     assert.ok(existsSync(join(config.pagesRoot, 'moved', 'child.json')), 'the untouched child page must remain');
-    assert.equal(loadRedirects(config)['/original'], undefined, 'the move redirect must be reversed too');
+    assert.equal(redirectTargetFor(config, '/original'), undefined, 'the move redirect must be reversed too');
     assert.equal(commitCount(siteRoot), before);
   } finally {
     cleanup();

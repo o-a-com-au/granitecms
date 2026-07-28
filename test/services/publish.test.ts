@@ -8,9 +8,8 @@ import { saveDraft } from '../../src/services/drafts.ts';
 import { computeEtag } from '../../src/services/etag.ts';
 import { movePage } from '../../src/services/move.ts';
 import { PublishError, publishDrafts, unpublishPage } from '../../src/services/publish.ts';
-import { loadRedirects } from '../../src/services/redirects.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
-import { createTmpSiteRoot, writeAndCommit } from '../helpers/tmp-site.ts';
+import { createTmpSiteRoot, redirectTargetFor, writeAndCommit } from '../helpers/tmp-site.ts';
 
 const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
 const author = { name: 'Jane Editor', email: 'jane@example.com' };
@@ -174,7 +173,7 @@ test('E5 (publish half, move half closed out in move.test.ts): creating a page a
     // Moving the original "about" page away leaves a redirect recorded
     // at /about, pointing elsewhere.
     await movePage(config, '/about', '/about-old', 'move about away', author);
-    assert.equal(loadRedirects(config)['/about'], '/about-old');
+    assert.equal(redirectTargetFor(config, '/about'), '/about-old');
 
     // A brand-new, unrelated page is now authored and published at the
     // same URL via the normal draft workflow.
@@ -187,7 +186,7 @@ test('E5 (publish half, move half closed out in move.test.ts): creating a page a
       JSON.parse(readFileSync(join(config.pagesRoot, 'about.json'), 'utf-8')),
       page('New About'),
     );
-    assert.equal(loadRedirects(config)['/about'], undefined);
+    assert.equal(redirectTargetFor(config, '/about'), undefined);
   } finally {
     cleanup();
   }
@@ -221,7 +220,7 @@ test('E5 (posts): publishing a new post at a URL that has a stale redirect entry
     await publishDrafts(config, themeSchemas, ['posts/hello-world.json'], 'publish hello-world', author);
 
     assert.equal(commitCount(siteRoot), before + 1);
-    assert.equal(loadRedirects(config)['/blog/hello-world'], undefined);
+    assert.equal(redirectTargetFor(config, '/blog/hello-world'), undefined);
   } finally {
     cleanup();
   }
@@ -239,7 +238,7 @@ test('E5 (menus): publishing a menu never touches redirects.json (menus have no 
     // The unrelated, coincidentally-similar-looking entry is left
     // exactly as-is - publishing a menu has no redirect-clearing
     // concept at all, unlike pages/posts.
-    assert.equal(loadRedirects(config)['/menus/main'], '/somewhere');
+    assert.equal(redirectTargetFor(config, '/menus/main'), '/somewhere');
   } finally {
     cleanup();
   }

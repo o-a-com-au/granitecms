@@ -92,7 +92,7 @@ async function handleDeleteContent(
         reply.code(409).send({ statusCode: 409, error: 'Conflict', message: error.message });
         return;
       }
-      if (error.reason === 'redirect-cycle') {
+      if (error.reason === 'redirect-cycle' || error.reason === 'invalid-redirect-target') {
         reply.code(400).send({ statusCode: 400, error: 'Bad Request', message: error.message });
         return;
       }

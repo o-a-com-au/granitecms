@@ -6,8 +6,8 @@ import { commitPaths } from './git.ts';
 import type { CommitAuthor } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
-import { addRedirect, loadRedirects, removeRedirectForPath } from './redirects.ts';
-import type { RedirectMap } from './redirects.ts';
+import { addRedirect, loadRedirects, removeRedirectForPath, serialiseRedirects } from './redirects.ts';
+import type { RedirectEntry } from './redirects.ts';
 import { pagePathToUrl, urlToPagePath } from './urls.ts';
 import { enqueue } from './write-queue.ts';
 
@@ -141,18 +141,18 @@ export function prepareMovePage(config: SiteConfig, fromUrl: string, toUrl: stri
       ? readFileSync(config.redirectsPath, 'utf-8')
       : null;
 
-    let redirects: RedirectMap = loadRedirects(config);
+    let entries: RedirectEntry[] = loadRedirects(config).entries;
     for (const page of affected) {
       // E5 (move half) must run BEFORE addRedirect, not after: if the
       // destination held a stale redirect (page.newUrl was itself a
       // key), addRedirect's chain-walk would otherwise treat it as a
       // legitimate hop and silently collapse straight through it,
       // rather than the new page superseding it.
-      redirects = removeRedirectForPath(redirects, page.newUrl);
-      redirects = addRedirect(redirects, page.oldUrl, page.newUrl);
+      entries = removeRedirectForPath(entries, page.newUrl);
+      entries = addRedirect(entries, page.oldUrl, page.newUrl).entries;
     }
 
-    const redirectsAfter = JSON.stringify(redirects, null, 2);
+    const redirectsAfter = serialiseRedirects(entries);
     if (redirectsAfter !== (redirectsBefore ?? '')) {
       writeFileSync(config.redirectsPath, redirectsAfter);
       redirectsChanged = true;

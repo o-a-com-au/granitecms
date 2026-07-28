@@ -27,6 +27,7 @@ export type BatchReason =
   | 'page-not-found'
   | 'has-children'
   | 'redirect-cycle'
+  | 'invalid-redirect-target'
   // move
   | 'source-not-found'
   | 'destination-exists'

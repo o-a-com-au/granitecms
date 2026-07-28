@@ -6,7 +6,7 @@ import type { CommitAuthor } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
 import { postPathToUrl } from './post-urls.ts';
-import { loadRedirects, removeRedirectForPath } from './redirects.ts';
+import { loadRedirects, removeRedirectForPath, serialiseRedirects } from './redirects.ts';
 import { pagePathToUrl } from './urls.ts';
 import type { ThemeSchemas } from './validation.ts';
 import { validateContent } from './validation.ts';
@@ -220,12 +220,12 @@ export function preparePublishDrafts(
       const existed = existsSync(config.redirectsPath);
       const original = existed ? readFileSync(config.redirectsPath, 'utf-8') : '';
 
-      let redirects = loadRedirects(config);
+      let entriesAfterRemoval = loadRedirects(config).entries;
       for (const url of qualifyingUrls) {
-        redirects = removeRedirectForPath(redirects, url);
+        entriesAfterRemoval = removeRedirectForPath(entriesAfterRemoval, url);
       }
 
-      const updated = JSON.stringify(redirects, null, 2);
+      const updated = serialiseRedirects(entriesAfterRemoval);
       if (updated !== (existed ? original : '')) {
         writeFileSync(config.redirectsPath, updated);
         redirectsSnapshot = { path: config.redirectsPath, existed, original };
