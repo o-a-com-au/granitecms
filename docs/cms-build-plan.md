@@ -275,7 +275,7 @@ Built inside the agent repo from the start, against a local test site scaffold, 
 - Draft checkpoint mechanics: interval, and main branch versus a dedicated drafts branch
 - Whether the preview overlay should support previewing a *set* of drafts as a batch (a "release" concept) or per-page preview is enough
 - Whether the admin can trigger a site's agent self-update, or updates remain a deliberate per-site operator action
-- Whether the Phase 3 admin is single-tenant (one deployment per hosting customer) or multi-tenant (one shared admin serving many paying customers, needing customer isolation and billing built in). The "one instance total" framing above assumed a single internal or agency-run deployment; the hosted-admin commercialisation strategy in `docs/commercialisation-brochure.md` needs this decided before Phase 3 starts, since it changes the registry and auth model rather than being a later add-on
+- ~~Whether the Phase 3 admin is single-tenant or multi-tenant~~ **Resolved: single-tenant for Phase 3.** The admin ships as originally scoped - one deployment, one operator's site registry, no customer/organisation entity, no billing - matching the "one instance total" framing and this project's own anti-overengineering stance against designing for a hypothetical requirement. `docs/commercialisation-brochure.md`'s hosted Pro/Enterprise tier is real multi-tenant SaaS (many paying customers, needing customer isolation and billing), but that work is deferred: when it becomes an actual build target, it gets its own scoped design session to add an Organisation/Customer layer on top of a working single-tenant admin, rather than being speculatively designed into Phase 3 now.
 
 ## Definition of done for MVP
 
