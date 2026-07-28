@@ -17,7 +17,7 @@ test('loadMenus returns every live menu, keyed by filename without extension', (
     });
     const config = loadSiteConfig(siteRoot);
 
-    const menus = loadMenus(config, 'public');
+    const menus = loadMenus(config);
     assert.deepEqual(menus.main, { items: [{ label: 'Home', url: '/' }] });
     assert.deepEqual(menus.footer, { items: [{ label: 'Privacy', url: '/privacy' }] });
   } finally {
@@ -29,38 +29,25 @@ test('loadMenus returns {} gracefully when content/menus/ does not exist at all 
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
     const config = loadSiteConfig(siteRoot);
-    assert.deepEqual(loadMenus(config, 'public'), {});
+    assert.deepEqual(loadMenus(config), {});
   } finally {
     cleanup();
   }
 });
 
-test('loadMenus in preview mode overlays a draft menu over its live counterpart by name', () => {
+// Group N: menus have no draft state at all - a content/drafts/menus/
+// file (if one somehow existed) is simply never consulted, by any
+// caller, in any mode. There is no public-vs-preview distinction left
+// to test for menus specifically.
+test('loadMenus never overlays anything from content/drafts/menus/ - menus have no draft state', () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
     writeJson(siteRoot, 'content/menus/main.json', { schemaVersion: 1, items: [{ label: 'Live', url: '/live' }] });
     writeJson(siteRoot, 'content/drafts/menus/main.json', { schemaVersion: 1, items: [{ label: 'Draft', url: '/draft' }] });
     const config = loadSiteConfig(siteRoot);
 
-    const preview = loadMenus(config, 'preview');
-    assert.deepEqual(preview.main, { items: [{ label: 'Draft', url: '/draft' }] });
-
-    const publicMenus = loadMenus(config, 'public');
-    assert.deepEqual(publicMenus.main, { items: [{ label: 'Live', url: '/live' }] });
-  } finally {
-    cleanup();
-  }
-});
-
-test('loadMenus in preview mode includes a draft-only menu that has no live counterpart at all', () => {
-  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
-  try {
-    writeJson(siteRoot, 'content/drafts/menus/new-menu.json', { schemaVersion: 1, items: [{ label: 'New', url: '/new' }] });
-    const config = loadSiteConfig(siteRoot);
-
-    const preview = loadMenus(config, 'preview');
-    assert.deepEqual(preview['new-menu'], { items: [{ label: 'New', url: '/new' }] });
-    assert.equal(loadMenus(config, 'public')['new-menu'], undefined);
+    const menus = loadMenus(config);
+    assert.deepEqual(menus.main, { items: [{ label: 'Live', url: '/live' }] });
   } finally {
     cleanup();
   }
@@ -73,7 +60,7 @@ test('a malformed menu file (no items array) is skipped individually, not fatal'
     writeJson(siteRoot, 'content/menus/good.json', { schemaVersion: 1, items: [{ label: 'OK', url: '/ok' }] });
     const config = loadSiteConfig(siteRoot);
 
-    const menus = loadMenus(config, 'public');
+    const menus = loadMenus(config);
     assert.equal(menus.broken, undefined);
     assert.deepEqual(menus.good, { items: [{ label: 'OK', url: '/ok' }] });
   } finally {

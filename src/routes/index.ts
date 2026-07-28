@@ -9,6 +9,7 @@ import { capabilitiesRoutes } from './capabilities.ts';
 import { contentRoutes } from './content.ts';
 import { draftsRoutes } from './drafts.ts';
 import { gitRoutes } from './git.ts';
+import { menusRoutes } from './menus.ts';
 import { previewRoutes } from './preview.ts';
 import { publishRoutes } from './publish.ts';
 import { redirectsRoutes } from './redirects.ts';
@@ -90,4 +91,5 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   fastify.register(gitRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(searchRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(redirectsRoutes, { config: opts.config, tokens: opts.tokens });
+  fastify.register(menusRoutes, { config: opts.config, tokens: opts.tokens });
 };

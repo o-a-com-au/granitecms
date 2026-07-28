@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { SiteConfig } from '../config.ts';
-import type { RenderMode } from '../renderer/render-page.ts';
 import { listFilesRecursively } from './fs-walk.ts';
 
 export interface MenuContent {
@@ -39,19 +38,12 @@ function loadMenusFrom(root: string): Record<string, MenuContent> {
   return menus;
 }
 
-// Menus are content (git-tracked, draft/publish workflow), never
-// theme data - loaded fresh on every render call, not once at boot
-// like theme templates/layouts/snippets. In 'preview' mode, a draft
-// menu overlays its live counterpart by name, mirroring render-page.ts's
-// own draft-over-live pattern for pages, generalised from "one file"
-// to "every file in a directory".
-export function loadMenus(config: SiteConfig, mode: RenderMode): Record<string, MenuContent> {
-  const menus = loadMenusFrom(config.menusRoot);
-
-  if (mode === 'preview') {
-    const draftMenus = loadMenusFrom(join(config.draftsRoot, 'menus'));
-    Object.assign(menus, draftMenus);
-  }
-
-  return menus;
+// Menus are content (git-tracked), but unlike pages/posts they have no
+// draft/publish state at all (Group N) - direct-write with an
+// immediate commit, same as redirects.json. Always the live file,
+// identically in public and preview mode - there is no draft to
+// overlay. Loaded fresh on every render call, not once at boot like
+// theme templates/layouts/snippets.
+export function loadMenus(config: SiteConfig): Record<string, MenuContent> {
+  return loadMenusFrom(config.menusRoot);
 }

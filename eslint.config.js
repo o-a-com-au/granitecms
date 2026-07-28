@@ -76,6 +76,7 @@ export default tseslint.config(
       'src/services/content-read.ts',
       'src/services/delete-content.ts',
       'src/services/manage-redirects.ts',
+      'src/services/manage-menus.ts',
       'src/services/migration-runner.ts',
       'src/search/rebuild-index.ts',
       'src/server-config.ts',

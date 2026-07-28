@@ -82,7 +82,9 @@ test('a layout referencing a menu that does not exist gets an empty/undefined va
   }
 });
 
-test('preview mode overlays a draft menu over its live counterpart, matching the page draft-overlay precedent', async () => {
+// Group N: menus have no draft state at all, unlike pages - a layout
+// sees the same live menu data in both preview and public mode.
+test('a layout sees the same live menu data in preview and public mode - menus have no draft state', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
     const config = loadSiteConfig(siteRoot);
@@ -96,8 +98,8 @@ test('preview mode overlays a draft menu over its live counterpart, matching the
     };
 
     const previewHtml = await renderPage(config, themeTemplates, layoutsWithNav, engine, 'about.json', 'preview');
-    assert.ok(previewHtml.includes('>Draft<'));
-    assert.ok(!previewHtml.includes('>Live<'));
+    assert.ok(previewHtml.includes('>Live<'));
+    assert.ok(!previewHtml.includes('>Draft<'));
 
     const publicHtml = await renderPage(config, themeTemplates, layoutsWithNav, engine, 'about.json', 'public');
     assert.ok(publicHtml.includes('>Live<'));

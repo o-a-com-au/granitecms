@@ -174,8 +174,9 @@ export async function renderPage(
   // once at boot, same freshness guarantee as the page itself. Scoped
   // to the layout only (not threaded into renderSections/renderInstance
   // above), matching the confirmed requirement: a layout renders nav,
-  // sections/blocks don't need it in this pass.
-  const menus = loadMenus(config, mode);
+  // sections/blocks don't need it in this pass. No mode distinction:
+  // menus have no draft state (Group N), always the live file.
+  const menus = loadMenus(config);
 
   // content_for_layout is already-rendered, already-safe HTML (like
   // blocksHtml handed to a section template) - the layout template
