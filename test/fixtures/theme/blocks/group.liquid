@@ -1,0 +1,9 @@
+<div class="group" data-block-id="{{ block.id }}">{% for html in blocksHtml %}{{ html | raw }}{% endfor %}</div>
+{% schema %}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}
+{% endschema %}

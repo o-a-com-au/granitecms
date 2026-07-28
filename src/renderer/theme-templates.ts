@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { parseThemeComponentFile } from '../services/theme-component-file.ts';
 
 export interface ThemeTemplates {
   sections: Record<string, string>;
@@ -9,28 +10,40 @@ export interface ThemeTemplates {
 // themeRoot is agent configuration (the configured site's theme
 // directory), not a request-supplied :path parameter. This walk is
 // deliberately NOT the Group B path-sanitisation helper and must
-// never be reused for untrusted request paths. Mirrors
-// src/services/theme-schemas.ts exactly, for template.liquid files
-// instead of schema.json files.
+// never be reused for untrusted request paths.
+//
+// Flat *.liquid files, one per type, named directly (e.g. hero.liquid,
+// media-text.liquid) - no subfolder per type, no separate schema.json.
+// Mirrors loadFlatTemplates below exactly, extended to strip the
+// embedded {% schema %} block (via theme-component-file.ts's shared
+// parser - the same parse theme-schemas.ts uses for the other half of
+// the same file) before handing the remaining markup to the Liquid
+// engine, since {% schema %} is never a real, live Liquid tag.
 function loadTypeTemplates(typesDir: string): Record<string, string> {
   const templates: Record<string, string> = {};
 
   let entries: string[];
   try {
     entries = readdirSync(typesDir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.liquid'))
       .map((entry) => entry.name);
   } catch {
     return templates;
   }
 
-  for (const type of entries) {
-    const templatePath = join(typesDir, type, 'template.liquid');
+  for (const fileName of entries) {
+    const type = fileName.slice(0, -'.liquid'.length);
+    let source: string;
     try {
-      templates[type] = readFileSync(templatePath, 'utf-8');
+      source = readFileSync(join(typesDir, fileName), 'utf-8');
     } catch {
       continue;
     }
+    const parsed = parseThemeComponentFile(source);
+    if (!parsed) {
+      continue;
+    }
+    templates[type] = parsed.markup;
   }
 
   return templates;
