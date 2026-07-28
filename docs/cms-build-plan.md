@@ -258,9 +258,11 @@ Built inside the agent repo from the start, against a local test site scaffold, 
 
 ### Phase 4: media
 
-- Object storage integration with config-driven bucket and base URL per site
+- Storage behind a driver interface (mirroring the SQLite driver pattern): local filesystem as the default, config-driven object storage (bucket and base URL per site) as an option
+- Serving behind an `ImageTransformDriver` interface, default implementation a plain passthrough (serves the original file as-is; no resizing). No image-processing dependency, native or otherwise, in the MVP
 - Upload validation and SVG handling
-- imgproxy documented and configured as an external service; not bundled
+- Dynamic resizing deferred, not dropped: an imgproxy-backed (or cloud image API) driver is a later, separately-scoped addition behind the same interface, swapped in via config with no rework of storage/upload/serving. Expected to matter first for the hosted Pro tier, where imgproxy runs as a service the operator manages centrally rather than per self-hosted site
+- No Liquid filter for image URLs, ever (CLAUDE.md's ban on dynamically registered tags/filters) - matches Group K's existing asset-URL precedent. Any resize parameters get baked into the URL stored in content JSON by the admin's media picker, not computed at template-render time
 - Media picker in the admin UI
 
 ### Phase 5: AI (explicitly deferred, not part of MVP)
