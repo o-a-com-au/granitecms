@@ -24,21 +24,26 @@ Build a lightweight CMS with a Shopify-style sections and blocks content model, 
 
 The server is developed in its own repository and published as a scoped npm package (working name `@oa/cms-agent`). What ships is compiled JavaScript in `dist/` plus type declarations; TypeScript source never leaves the agent repo. A site depends on a semver-pinned version of the agent via its `package.json` and lockfile.
 
-A site is therefore a thin scaffold:
+A site is therefore a thin scaffold, restructured during Phase 2 (Group N) to exactly three top-level folders - everything a marketing manager touches lives under `content/`, everything a web designer touches lives under `theme/`, and the site's own serving configuration lives under `vhost/` (a real vhost's own scope in hosting terms - Apache/nginx/CyberPanel - the per-site serving configuration, not a multi-tenancy concept):
 
 ```
 my-site/
-  /content/           live JSON content
-  /drafts/            work in progress
+  /content/
+    /drafts/          work in progress (nested inside content/, not a sibling of it)
+    /pages/
+    /menus/           direct-write, no draft state - see below
+    redirects.json    direct-write, no draft state
   /theme/             section and block templates plus schemas
-  redirects.json
-  site.config.json    site root is implicit; config holds ports, tokens hash, media bucket, preview settings
-  package.json        depends on @oa/cms-agent at a pinned version
-  package-lock.json
-  server.js           three lines: import the agent, point it at this directory, start
+  /vhost/
+    site.config.json  config holds ports, tokens hash, media bucket, preview settings
+    package.json      depends on @oa/cms-agent at a pinned version
+    package-lock.json
+    server.js         imports the agent, points it one directory up (the real site root), starts
 ```
 
-"Drop into your own Node environment" is: clone or unzip the scaffold, `npm install`, `node server.js`. A `create-site` scaffolding command (a small companion package or a template repo) generates this structure with a starter theme.
+"Drop into your own Node environment" is: clone or unzip the scaffold, `cd vhost`, `npm install`, `node server.js`. A `create-site` scaffolding command (a small companion package or a template repo) generates this structure with a starter theme.
+
+Not every content type has a draft state. Pages and posts go through the full draft-then-publish workflow described below. Menus and redirects do not: both are edited directly with an immediate commit, the same low-ceremony model, because neither has a meaningful "preview before publish" step worth the overhead of a separate draft file.
 
 ### Prerequisites, checked at startup
 
