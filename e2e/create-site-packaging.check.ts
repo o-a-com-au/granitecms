@@ -16,7 +16,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -35,10 +35,33 @@ interface PackResult {
 }
 
 test('J4: a real npm pack + npm install + node server.js boots a scaffolded site with no steps beyond that', async (t) => {
+  // A real bug, found while manually testing a scaffolded site (Group
+  // N): `cp -r` only ever adds/overwrites, it never deletes a
+  // destination file whose source no longer exists - so when
+  // redirects.json moved from src/create-site/template/redirects.json
+  // into src/create-site/template/content/redirects.json, the stale
+  // top-level copy in dist/ survived indefinitely across rebuilds,
+  // and every scaffold shipped both. Seeded here, before the real
+  // build step, to prove the build script's `rm -rf` fix actually
+  // removes a stale destination file rather than merely not adding
+  // new ones.
+  const staleTemplateFile = join(repoRoot, 'dist', 'create-site', 'template', 'this-file-should-not-survive.json');
+  const staleSchemaFile = join(repoRoot, 'dist', 'schemas', 'this-file-should-not-survive.json');
+
   // Build explicitly, once, at the top - this is the one test in the
   // whole suite that depends on fresh dist/ output.
   await t.test('build', () => {
+    mkdirSync(join(repoRoot, 'dist', 'create-site', 'template'), { recursive: true });
+    mkdirSync(join(repoRoot, 'dist', 'schemas'), { recursive: true });
+    writeFileSync(staleTemplateFile, '{}');
+    writeFileSync(staleSchemaFile, '{}');
+
     execFileSync('npm', ['run', 'build'], { cwd: repoRoot, stdio: 'ignore' });
+  });
+
+  await t.test('the build removes stale dist/ files whose source no longer exists, not just adds new ones', () => {
+    assert.equal(existsSync(staleTemplateFile), false, 'a stale template file must not survive a rebuild');
+    assert.equal(existsSync(staleSchemaFile), false, 'a stale schema file must not survive a rebuild');
   });
 
   // A cheap, fast-failing content check before paying for a real
