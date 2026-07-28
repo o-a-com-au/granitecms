@@ -25,10 +25,15 @@ test('N: scaffoldSite produces content/(pages,menus,drafts,redirects.json), them
     assert.ok(existsSync(join(targetDir, 'content', 'drafts')));
     assert.ok(existsSync(join(targetDir, 'content', 'redirects.json')));
     assert.ok(existsSync(join(targetDir, 'theme', 'layouts', 'theme.liquid')));
-    assert.ok(existsSync(join(targetDir, 'theme', 'sections', 'hero', 'template.liquid')));
-    assert.ok(existsSync(join(targetDir, 'theme', 'blocks', 'button', 'template.liquid')));
+    assert.ok(existsSync(join(targetDir, 'theme', 'sections', 'hero.liquid')));
+    assert.ok(existsSync(join(targetDir, 'theme', 'blocks', 'button.liquid')));
     assert.ok(existsSync(join(targetDir, 'theme', 'snippets', 'site-name.liquid')));
     assert.ok(existsSync(join(targetDir, 'theme', 'assets', 'style.css')));
+    // The old subfolder-per-component shape must be genuinely gone
+    // (Group O flattened sections/blocks to one file each), not just
+    // superseded by an addition alongside it.
+    assert.equal(existsSync(join(targetDir, 'theme', 'sections', 'hero')), false);
+    assert.equal(existsSync(join(targetDir, 'theme', 'blocks', 'button')), false);
     assert.ok(existsSync(join(targetDir, 'vhost', 'site.config.json')));
     assert.ok(existsSync(join(targetDir, 'vhost', 'package.json')));
     assert.ok(existsSync(join(targetDir, 'vhost', 'server.js')));

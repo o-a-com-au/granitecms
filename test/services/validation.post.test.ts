@@ -1,19 +1,36 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { validateContent, validatePost } from '../../src/services/validation.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 
-const fixturesDir = join(import.meta.dirname, '..', 'fixtures');
-
-function readJson(...segments: string[]): unknown {
-  return JSON.parse(readFileSync(join(fixturesDir, ...segments), 'utf-8')) as unknown;
-}
-
+// Inlined rather than read from the theme fixture: this test is about
+// page/post envelope validation, not about the theme file format
+// (which is theme-component-file.test.ts's job) - decoupling the two
+// means a theme fixture restructuring never breaks this test.
 const themeSchemas: ThemeSchemas = {
-  sections: { hero: readJson('theme', 'sections', 'hero', 'schema.json') as object },
-  blocks: { button: readJson('theme', 'blocks', 'button', 'schema.json') as object },
+  sections: {
+    hero: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['heading'],
+      properties: {
+        heading: { type: 'string', minLength: 1 },
+        subheading: { type: 'string' },
+        columns: { type: 'integer', minimum: 1, maximum: 4 },
+      },
+    },
+  },
+  blocks: {
+    button: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['label', 'url'],
+      properties: {
+        label: { type: 'string', minLength: 1 },
+        url: { type: 'string', minLength: 1 },
+      },
+    },
+  },
 };
 
 function validPost(overrides: Record<string, unknown> = {}): object {
