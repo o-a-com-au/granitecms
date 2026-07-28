@@ -63,7 +63,7 @@ The search index uses SQLite through a thin driver interface owned by the agent,
 - `node:sqlite` (built into Node 22+, supports FTS5) as the default, because it removes the native-compilation dependency entirely and keeps the package pure JS
 - better-sqlite3 as an optional performance driver, loaded only if present
 
-The query layer is small and the index is disposable, so keeping the driver swappable costs almost nothing and buys full distribution freedom, including the option of a single-file esbuild bundle later. **[REVIEW]** Confirm `node:sqlite` FTS5 behaviour and performance are adequate on the target Node LTS before committing to it as the default; if not, better-sqlite3 becomes the default and the package documents the native install requirement, which npm's prebuilt binaries handle on common platforms anyway.
+The query layer is small and the index is disposable, so keeping the driver swappable costs almost nothing and buys full distribution freedom, including the option of a single-file esbuild bundle later. ~~Confirm `node:sqlite` FTS5 behaviour and performance are adequate~~ **Resolved in Phase 1: `node:sqlite` is the default.** Empirical research found it fully working, FTS5 included, no experimental flags needed (see `docs/phase-2-checklist.md`'s "Explicitly not in Phase 2 scope" note). `better-sqlite3` stays available as the optional driver behind the same interface, not the default.
 
 ### Versioning and updates
 
@@ -112,7 +112,7 @@ This solves the commit noise problem (commit-on-every-save would make history un
 
 ### Draft durability
 
-`/drafts/` is git-tracked so drafts survive a server move under constraint 2. Because saves do not commit, unpublished drafts on a lost server are only as durable as the last checkpoint. The write service runs a low-frequency background checkpoint (for example every 30 minutes when drafts have changed, and on graceful shutdown) committing `/drafts/` with a conventional `chore: draft checkpoint` message. Checkpoint commits are mechanical noise by design and are flagged so history views can hide them. **[REVIEW]** Checkpoint interval, and whether checkpoints belong on the main branch (simple, slightly noisy) or a dedicated drafts branch (cleaner history, more git machinery). Do not block Phase 1 on this.
+`/drafts/` is git-tracked so drafts survive a server move under constraint 2. Because saves do not commit, unpublished drafts on a lost server are only as durable as the last checkpoint. The write service runs a low-frequency background checkpoint (for example every 30 minutes when drafts have changed, and on graceful shutdown) committing `/drafts/` with a conventional `chore: draft checkpoint` message. Checkpoint commits are mechanical noise by design and are flagged so history views can hide them. ~~Checkpoint interval, and whether checkpoints belong on the main branch or a dedicated drafts branch~~ **Resolved in Phase 2 Group H:** main branch, not a dedicated drafts branch - Group G's `isCheckpoint` flag already lets history views hide the noise without needing branch isolation. Interval is a configurable `checkpointIntervalMs` in `site.config.json`, defaulting to 30 minutes.
 
 ### Unpublish and discard
 
@@ -206,7 +206,7 @@ Every content JSON file includes `"schemaVersion": N`. The agent ships a migrati
 
 ## Fleet management
 
-The `/v1/` prefix plus the capabilities manifest handles admin-to-site compatibility. Fleet drift is handled by the package model: updating a site is a semver dependency bump plus restart, and the admin registry displays each site's agent version from capabilities so outdated sites are visible at a glance. **[REVIEW]** Whether the admin should eventually be able to trigger a site's self-update through the agent, or updates stay a deliberate operator action per site. Lean towards deliberate for client sites; automation can come later.
+The `/v1/` prefix plus the capabilities manifest handles admin-to-site compatibility. Fleet drift is handled by the package model: updating a site is a semver dependency bump plus restart, and the admin registry displays each site's agent version from capabilities so outdated sites are visible at a glance. ~~Whether the admin should eventually be able to trigger a site's self-update~~ **Resolved: deliberate operator action for Phase 3.** The registry displays each site's version from capabilities and stops there - no remote-triggered `npm update` plus restart, which would be a disproportionate amount of new blast-radius (orchestrating a remote dependency bump and process restart, handling a failure mid-update) for a single-tenant Phase 3 admin nobody has asked for yet. Revisit only if fleet size or client demand actually makes manual updates painful.
 
 ## Security posture
 
@@ -273,11 +273,11 @@ Built inside the agent repo from the start, against a local test site scaffold, 
 
 ## Remaining open questions **[REVIEW]**
 
-- `node:sqlite` FTS5 adequacy on Node 22 LTS versus defaulting to better-sqlite3 (Phase 1 spike, low risk either way given the driver interface)
-- Draft checkpoint mechanics: interval, and main branch versus a dedicated drafts branch
-- Whether the preview overlay should support previewing a *set* of drafts as a batch (a "release" concept) or per-page preview is enough
-- Whether the admin can trigger a site's agent self-update, or updates remain a deliberate per-site operator action
-- ~~Whether the Phase 3 admin is single-tenant or multi-tenant~~ **Resolved: single-tenant for Phase 3.** The admin ships as originally scoped - one deployment, one operator's site registry, no customer/organisation entity, no billing - matching the "one instance total" framing and this project's own anti-overengineering stance against designing for a hypothetical requirement. `docs/commercialisation-brochure.md`'s hosted Pro/Enterprise tier is real multi-tenant SaaS (many paying customers, needing customer isolation and billing), but that work is deferred: when it becomes an actual build target, it gets its own scoped design session to add an Organisation/Customer layer on top of a working single-tenant admin, rather than being speculatively designed into Phase 3 now.
+All previously-listed items here are now resolved (see their inline `~~strikethrough~~` resolutions above: `node:sqlite` as default, checkpoint interval/branch, self-update, single-tenant Phase 3). One more resolved directly ahead of Phase 3 planning:
+
+- ~~Whether the preview overlay should support previewing a *set* of drafts as a batch (a "release" concept) or per-page preview is enough~~ **Resolved: per-page only for Phase 3.** One page, one draft, one publish button - a coordinated multi-page launch is still possible by publishing pages one at a time in quick succession. No new agent-side work is implied either way: `POST /v1/publish` already accepts multiple draft paths in one commit, and preview already overlays every current draft regardless of which single page is being viewed. A "pending changes" batch-publish screen is a cheap, natural follow-up if real usage asks for it, not built speculatively now.
+
+No open items remain blocking Phase 3. See `docs/phase-3-checklist.md` for the phase's own group breakdown and acceptance criteria.
 
 ## Definition of done for MVP
 
