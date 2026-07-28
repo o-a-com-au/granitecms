@@ -212,7 +212,7 @@ test('deleteRedirect rejects with not-found when from has no entry', async () =>
 test('createRedirect refuses a malformed redirects.json rather than silently overwriting it', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    writeJson(siteRoot, 'redirects.json', { schemaVersion: 1, entries: 'not-an-array' });
+    writeJson(siteRoot, 'content/redirects.json', { schemaVersion: 1, entries: 'not-an-array' });
     execFileSync('git', ['add', '-A'], { cwd: siteRoot });
     execFileSync('git', ['commit', '-m', 'seed malformed redirects.json'], { cwd: siteRoot });
     const config = loadSiteConfig(siteRoot);

@@ -22,7 +22,7 @@ function page(title: string): object {
 
 function buildGitTestServer() {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  writeJson(siteRoot, 'site.config.json', {
+  writeJson(siteRoot, 'vhost/site.config.json', {
     tokens: [{ hash: hashOf(CONTENT_TOKEN), scopes: ['content'] }],
   });
 

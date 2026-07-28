@@ -44,7 +44,7 @@ test('F1: the runner walks content and drafts, migrating any file below current 
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page(1, 'About')));
-    writeJson(siteRoot, 'drafts/pages/about-draft.json', page(1, 'Draft About'));
+    writeJson(siteRoot, 'content/drafts/pages/about-draft.json', page(1, 'Draft About'));
     const config = loadSiteConfig(siteRoot);
     const before = commitCount(siteRoot);
 
@@ -112,7 +112,7 @@ test('F1: when nothing is below current version the runner writes nothing and cr
 test('F1: a migrated draft file, never before committed, is included in the migration commit without error', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    writeJson(siteRoot, 'drafts/pages/new-draft.json', page(1, 'New draft'));
+    writeJson(siteRoot, 'content/drafts/pages/new-draft.json', page(1, 'New draft'));
     const config = loadSiteConfig(siteRoot);
 
     await runMigrations(config, themeSchemas, identityMigration, 2, author);

@@ -213,7 +213,7 @@ test('E5 (posts): publishing a new post at a URL that has a stale redirect entry
     // move.ts isn't extended to posts (see docs/phase-2-checklist.md's
     // Group L notes), so the stale redirect is seeded directly, rather
     // than via movePage as the pages test above does.
-    writeAndCommit(siteRoot, 'redirects.json', JSON.stringify({ '/blog/hello-world': '/blog/elsewhere' }));
+    writeAndCommit(siteRoot, 'content/redirects.json', JSON.stringify({ '/blog/hello-world': '/blog/elsewhere' }));
 
     await saveDraft(config, themeSchemas, 'posts/hello-world.json', post('Hello World'), NO_PRIOR_FILE_ETAG);
     const before = commitCount(siteRoot);
@@ -230,7 +230,7 @@ test('E5 (menus): publishing a menu never touches redirects.json (menus have no 
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     const config = loadSiteConfig(siteRoot);
-    writeAndCommit(siteRoot, 'redirects.json', JSON.stringify({ '/menus/main': '/somewhere' }));
+    writeAndCommit(siteRoot, 'content/redirects.json', JSON.stringify({ '/menus/main': '/somewhere' }));
 
     await saveDraft(config, themeSchemas, 'menus/main.json', { schemaVersion: 1, items: [] }, NO_PRIOR_FILE_ETAG);
     await publishDrafts(config, themeSchemas, ['menus/main.json'], 'publish main menu', author);

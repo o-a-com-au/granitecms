@@ -23,7 +23,7 @@ test('config derives pagesRoot under contentRoot/pages and redirectsPath at the 
   try {
     const config = loadSiteConfig(siteRoot);
     assert.equal(config.pagesRoot, join(config.contentRoot, 'pages'));
-    assert.equal(config.redirectsPath, join(siteRoot, 'redirects.json'));
+    assert.equal(config.redirectsPath, join(siteRoot, 'content', 'redirects.json'));
   } finally {
     cleanup();
   }
@@ -33,11 +33,12 @@ test('B1: a relative siteRoot is rejected rather than silently resolved against 
   assert.throws(() => loadSiteConfig('relative/site/root'));
 });
 
-test('config derives dataRoot at the site root and searchIndexPath under it', () => {
+test('config derives vhostRoot at the site root, dataRoot under it, and searchIndexPath under that', () => {
   const { siteRoot, cleanup } = createTmpSiteRoot();
   try {
     const config = loadSiteConfig(siteRoot);
-    assert.equal(config.dataRoot, join(siteRoot, 'data'));
+    assert.equal(config.vhostRoot, join(siteRoot, 'vhost'));
+    assert.equal(config.dataRoot, join(config.vhostRoot, 'data'));
     assert.equal(config.searchIndexPath, join(config.dataRoot, 'search-index.sqlite'));
   } finally {
     cleanup();

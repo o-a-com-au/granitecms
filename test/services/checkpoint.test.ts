@@ -61,8 +61,8 @@ test('H4: runCheckpoint commits a changed draft with the fixed checkpoint messag
 test('a deleted draft is also captured as a checkpoint commit, not silently missed', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    mkdirSync(join(siteRoot, 'drafts', 'pages'), { recursive: true });
-    writeFileSync(join(siteRoot, 'drafts', 'pages', 'about.json'), '{"draft":true}');
+    mkdirSync(join(siteRoot, 'content', 'drafts', 'pages'), { recursive: true });
+    writeFileSync(join(siteRoot, 'content', 'drafts', 'pages', 'about.json'), '{"draft":true}');
     writeAndCommit(siteRoot, 'content/pages/placeholder.json', '{}', 'seed');
     execFileSync('git', ['add', '-A'], { cwd: siteRoot });
     execFileSync('git', ['commit', '-m', 'seed draft'], {

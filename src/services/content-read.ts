@@ -76,8 +76,23 @@ function readSummary(fullPath: string): PageSummaryShape | null {
 // AND draft reads", and there is no separate "list drafts" endpoint
 // anywhere in the build plan - this is the only place a draft-only
 // page (never yet published) is discoverable at all.
+//
+// Deliberately three named walks (pages/posts/menus), not one broad
+// walk of contentRoot: since Group N nested draftsRoot and redirectsPath
+// inside contentRoot (content/drafts/, content/redirects.json), a
+// single broad contentRoot walk would descend into content/drafts/
+// too, double-listing draft files under two different relative-path
+// keys, and would pick up redirects.json as if it were a page. An
+// inclusion-based walk sidesteps both problems structurally, with no
+// exclusion list to maintain. base stays config.contentRoot for all
+// three (not each subroot) so the resulting relative paths ("pages/x.json")
+// line up with draftPaths below for the hasDraft/hasLive union logic.
 export function listContent(config: SiteConfig, filters: ContentListFilters): ContentListEntry[] {
-  const contentPaths = new Set(listFilesRecursively(config.contentRoot, config.contentRoot, '.json'));
+  const contentPaths = new Set([
+    ...listFilesRecursively(config.pagesRoot, config.contentRoot, '.json'),
+    ...listFilesRecursively(config.postsRoot, config.contentRoot, '.json'),
+    ...listFilesRecursively(config.menusRoot, config.contentRoot, '.json'),
+  ]);
   const draftPaths = new Set(listFilesRecursively(config.draftsRoot, config.draftsRoot, '.json'));
 
   const allPaths = new Set([...contentPaths, ...draftPaths]);

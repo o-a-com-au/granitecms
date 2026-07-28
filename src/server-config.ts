@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { VHOST_DIR_NAME } from './config.ts';
 import { StartupCheckError } from './services/startup-checks.ts';
 
 export type Scope = 'content' | 'theme' | 'media';
@@ -186,7 +187,7 @@ function parseCheckpointIntervalMs(value: unknown): number {
 // "agent upgrade = restart" story already established for schema
 // migrations, a deliberate decision, not an accident.
 export function loadServerConfig(siteRoot: string): ServerConfig {
-  const configPath = join(siteRoot, 'site.config.json');
+  const configPath = join(siteRoot, VHOST_DIR_NAME, 'site.config.json');
 
   let raw: string;
   try {

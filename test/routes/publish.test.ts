@@ -30,7 +30,7 @@ function commitCount(siteRoot: string): number {
 
 function buildPublishTestServer() {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  writeJson(siteRoot, 'site.config.json', {
+  writeJson(siteRoot, 'vhost/site.config.json', {
     tokens: [{ hash: hashOf(CONTENT_TOKEN), scopes: ['content'] }],
   });
 
@@ -46,7 +46,7 @@ test('F1: POST /v1/publish promotes a draft to live and creates one commit', asy
   try {
     const config = bootSite(siteRoot).config;
     writeAndCommit(siteRoot, 'README.md', 'seed');
-    writeJson(siteRoot, 'drafts/pages/about.json', page('About'));
+    writeJson(siteRoot, 'content/drafts/pages/about.json', page('About'));
     const before = commitCount(siteRoot);
 
     const response = await app.inject({
@@ -85,7 +85,7 @@ test('F1: POST /v1/publish rejects a malformed body with 400', async () => {
 test('F1: POST /v1/publish rejects an author with a control character', async () => {
   const { app, siteRoot, cleanup } = buildPublishTestServer();
   try {
-    writeJson(siteRoot, 'drafts/pages/about.json', page('About'));
+    writeJson(siteRoot, 'content/drafts/pages/about.json', page('About'));
     const response = await app.inject({
       method: 'POST',
       url: '/v1/publish',

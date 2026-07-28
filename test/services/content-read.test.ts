@@ -57,7 +57,7 @@ test('listContent returns the union of content and draft-only paths', () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
     writeJson(siteRoot, 'content/pages/live-only.json', page('Live Only', 'page'));
-    writeJson(siteRoot, 'drafts/pages/draft-only.json', page('Draft Only', 'page'));
+    writeJson(siteRoot, 'content/drafts/pages/draft-only.json', page('Draft Only', 'page'));
     const config = loadSiteConfig(siteRoot);
 
     const entries = listContent(config, {});
@@ -79,7 +79,7 @@ test('listContent prefers the live file on conflict but still reports hasDraft: 
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
     writeJson(siteRoot, 'content/pages/about.json', page('Live About', 'page'));
-    writeJson(siteRoot, 'drafts/pages/about.json', page('Draft About', 'page'));
+    writeJson(siteRoot, 'content/drafts/pages/about.json', page('Draft About', 'page'));
     const config = loadSiteConfig(siteRoot);
 
     const entries = listContent(config, {});
@@ -123,7 +123,7 @@ test('listContent filters by draft status', () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
     writeJson(siteRoot, 'content/pages/live-only.json', page('Live Only', 'page'));
-    writeJson(siteRoot, 'drafts/pages/draft-only.json', page('Draft Only', 'page'));
+    writeJson(siteRoot, 'content/drafts/pages/draft-only.json', page('Draft Only', 'page'));
     const config = loadSiteConfig(siteRoot);
 
     const hasDraft = listContent(config, { draftStatus: 'has-draft' });

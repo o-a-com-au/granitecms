@@ -88,16 +88,17 @@ test('J4: a real npm pack + npm install + node server.js boots a scaffolded site
     });
 
     const scaffoldDir = join(scratchParent, 'my-site');
+    const vhostDir = join(scaffoldDir, 'vhost');
     await t.test('the real compiled create-site CLI scaffolds a site', () => {
       execFileSync('node', [join(repoRoot, 'dist', 'create-site', 'cli.js'), scaffoldDir], {
         cwd: scratchParent,
       });
-      assert.ok(existsSync(join(scaffoldDir, 'server.js')));
+      assert.ok(existsSync(join(vhostDir, 'server.js')));
     });
 
     const port = 40000 + Math.floor(Math.random() * 10000);
     await t.test('patch the scaffold to depend on the real tarball, and pin a concrete port', () => {
-      const pkgPath = join(scaffoldDir, 'package.json');
+      const pkgPath = join(vhostDir, 'package.json');
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { dependencies: Record<string, string> };
       // The tarball PATH, never a directory path - a file: dependency
       // pointing at a directory symlinks into the source tree and
@@ -107,18 +108,18 @@ test('J4: a real npm pack + npm install + node server.js boots a scaffolded site
       pkg.dependencies['@oa/cms-agent'] = `file:${tarballPath}`;
       writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
 
-      const configPath = join(scaffoldDir, 'site.config.json');
+      const configPath = join(vhostDir, 'site.config.json');
       const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
       config.port = port;
       writeFileSync(configPath, JSON.stringify(config, null, 2));
     });
 
     await t.test('a real npm install resolves the packed tarball and its transitive dependencies', () => {
-      execFileSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: scaffoldDir, stdio: 'ignore' });
-      assert.ok(existsSync(join(scaffoldDir, 'node_modules', '@oa', 'cms-agent', 'dist', 'index.js')));
+      execFileSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: vhostDir, stdio: 'ignore' });
+      assert.ok(existsSync(join(vhostDir, 'node_modules', '@oa', 'cms-agent', 'dist', 'index.js')));
       // Proves the file: dependency really did resolve from the
       // tarball, not a leaked symlink into this repo's own source.
-      assert.ok(!existsSync(join(scaffoldDir, 'node_modules', '@oa', 'cms-agent', 'src')));
+      assert.ok(!existsSync(join(vhostDir, 'node_modules', '@oa', 'cms-agent', 'src')));
     });
 
     await t.test('node server.js boots as a real, separate OS process and serves a real HTTP response', async () => {
@@ -127,7 +128,7 @@ test('J4: a real npm pack + npm install + node server.js boots a scaffolded site
       // node server.js", matching test/server.test.ts's own A1
       // precedent of proving a real listener rather than trusting
       // .inject().
-      child = spawn('node', ['server.js'], { cwd: scaffoldDir, stdio: 'ignore' });
+      child = spawn('node', ['server.js'], { cwd: vhostDir, stdio: 'ignore' });
 
       // No stdout "ready" marker exists (the generated server.js never
       // configures a logger) - poll with a bounded real fetch retry

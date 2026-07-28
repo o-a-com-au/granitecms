@@ -123,7 +123,7 @@ test('A1: the server boots by calling bootSite and starts a Fastify instance lis
     // (H4) - harmless, since this fixture's drafts/ is untouched, a
     // cheap 'clean' short-circuit (one extra execFileSync call, no
     // commit), not a behaviour change to this test's own assertions.
-    writeJson(siteRoot, 'site.config.json', { port: 0 });
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
 
     const app = await startServer(siteRoot, { logger: false });
     try {
@@ -153,7 +153,7 @@ test('H3: an allowlisted IP reaches the API; a non-allowlisted IP gets 403 - rea
     // present a client as '::ffff:127.0.0.1', which .inject() would
     // never reproduce since it synthesizes request.ip rather than
     // exercising a real socket).
-    writeJson(siteRoot, 'site.config.json', { port: 0, ipAllowlist: ['127.0.0.1'] });
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 0, ipAllowlist: ['127.0.0.1'] });
 
     const app = await startServer(siteRoot, { logger: false });
     try {
@@ -174,7 +174,7 @@ test('H3: an allowlisted IP reaches the API; a non-allowlisted IP gets 403 - rea
   try {
     // An allowlist that deliberately excludes 127.0.0.1 - a real fetch
     // from this machine must be rejected.
-    writeJson(siteRoot2, 'site.config.json', { port: 0, ipAllowlist: ['203.0.113.99'] });
+    writeJson(siteRoot2, 'vhost/site.config.json', { port: 0, ipAllowlist: ['203.0.113.99'] });
 
     const app = await startServer(siteRoot2, { logger: false });
     try {
@@ -206,7 +206,7 @@ test('H3: an empty ipAllowlist (the default) is a no-op - any IP reaches the API
 test('H3: a disallowed IP still reaches the public website and static assets - the allowlist is scoped to /v1 only', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    writeJson(siteRoot, 'site.config.json', { port: 0, ipAllowlist: ['203.0.113.99'] });
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 0, ipAllowlist: ['203.0.113.99'] });
 
     const app = await startServer(siteRoot, { logger: false });
     try {
@@ -234,9 +234,9 @@ test('H3: a disallowed IP still reaches the public website and static assets - t
 test('H4: a real startServer instance runs a final draft checkpoint on graceful shutdown via app.close()', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    writeJson(siteRoot, 'site.config.json', { port: 0 });
-    mkdirSync(join(siteRoot, 'drafts', 'pages'), { recursive: true });
-    writeFileSync(join(siteRoot, 'drafts', 'pages', 'uncommitted.json'), '{"draft":true}');
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
+    mkdirSync(join(siteRoot, 'content', 'drafts', 'pages'), { recursive: true });
+    writeFileSync(join(siteRoot, 'content', 'drafts', 'pages', 'uncommitted.json'), '{"draft":true}');
 
     const app = await startServer(siteRoot, { logger: false });
     await app.close();
@@ -258,9 +258,9 @@ function sleep(ms: number): Promise<void> {
 test('H4: SIGTERM triggers the same graceful-shutdown checkpoint, not just a direct app.close() call', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    writeJson(siteRoot, 'site.config.json', { port: 0 });
-    mkdirSync(join(siteRoot, 'drafts', 'pages'), { recursive: true });
-    writeFileSync(join(siteRoot, 'drafts', 'pages', 'uncommitted.json'), '{"draft":true}');
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
+    mkdirSync(join(siteRoot, 'content', 'drafts', 'pages'), { recursive: true });
+    writeFileSync(join(siteRoot, 'content', 'drafts', 'pages', 'uncommitted.json'), '{"draft":true}');
 
     await startServer(siteRoot, { logger: false });
     // Exercises the real signal-listener function registered by

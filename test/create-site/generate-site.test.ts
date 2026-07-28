@@ -14,7 +14,7 @@ function tmpTargetDir(): { targetDir: string; cleanup: () => void } {
   return { targetDir, cleanup: () => rmSync(parent, { recursive: true, force: true }) };
 }
 
-test('J3: scaffoldSite produces content/, drafts/, theme/, site.config.json, package.json, server.js', () => {
+test('N: scaffoldSite produces content/(pages,menus,drafts,redirects.json), theme/, vhost/(site.config.json,package.json,server.js)', () => {
   const { targetDir, cleanup } = tmpTargetDir();
   try {
     scaffoldSite(targetDir);
@@ -22,20 +22,27 @@ test('J3: scaffoldSite produces content/, drafts/, theme/, site.config.json, pac
     assert.ok(existsSync(join(targetDir, 'content', 'pages', 'index.json')));
     assert.ok(existsSync(join(targetDir, 'content', 'pages', '404.json')));
     assert.ok(existsSync(join(targetDir, 'content', 'menus', 'main.json')));
-    assert.ok(existsSync(join(targetDir, 'drafts')));
+    assert.ok(existsSync(join(targetDir, 'content', 'drafts')));
+    assert.ok(existsSync(join(targetDir, 'content', 'redirects.json')));
     assert.ok(existsSync(join(targetDir, 'theme', 'layouts', 'theme.liquid')));
     assert.ok(existsSync(join(targetDir, 'theme', 'sections', 'hero', 'template.liquid')));
     assert.ok(existsSync(join(targetDir, 'theme', 'blocks', 'button', 'template.liquid')));
     assert.ok(existsSync(join(targetDir, 'theme', 'snippets', 'site-name.liquid')));
     assert.ok(existsSync(join(targetDir, 'theme', 'assets', 'style.css')));
-    assert.ok(existsSync(join(targetDir, 'redirects.json')));
-    assert.ok(existsSync(join(targetDir, 'site.config.json')));
-    assert.ok(existsSync(join(targetDir, 'package.json')));
-    assert.ok(existsSync(join(targetDir, 'server.js')));
+    assert.ok(existsSync(join(targetDir, 'vhost', 'site.config.json')));
+    assert.ok(existsSync(join(targetDir, 'vhost', 'package.json')));
+    assert.ok(existsSync(join(targetDir, 'vhost', 'server.js')));
     assert.ok(existsSync(join(targetDir, '.gitignore')));
     // The template's own "gitignore" (no dot) must never leak into the
     // scaffold verbatim - only the renamed .gitignore should exist.
     assert.equal(existsSync(join(targetDir, 'gitignore')), false);
+    // The old top-level locations must be genuinely gone, not just
+    // duplicated - proves the move, not an addition.
+    assert.equal(existsSync(join(targetDir, 'drafts')), false);
+    assert.equal(existsSync(join(targetDir, 'redirects.json')), false);
+    assert.equal(existsSync(join(targetDir, 'site.config.json')), false);
+    assert.equal(existsSync(join(targetDir, 'package.json')), false);
+    assert.equal(existsSync(join(targetDir, 'server.js')), false);
   } finally {
     cleanup();
   }
@@ -49,7 +56,7 @@ test('scaffoldSite generates a real starter token: a valid sha256 hash in site.c
     assert.equal(typeof raw, 'string');
     assert.equal(raw.length, 64);
 
-    const config = JSON.parse(readFileSync(join(targetDir, 'site.config.json'), 'utf-8')) as {
+    const config = JSON.parse(readFileSync(join(targetDir, 'vhost', 'site.config.json'), 'utf-8')) as {
       tokens: Array<{ hash: string; scopes: string[] }>;
     };
     assert.equal(config.tokens.length, 1);
@@ -64,7 +71,7 @@ test('scaffoldSite pins @oa/cms-agent to the exact installed version, and sets "
   const { targetDir, cleanup } = tmpTargetDir();
   try {
     scaffoldSite(targetDir);
-    const pkg = JSON.parse(readFileSync(join(targetDir, 'package.json'), 'utf-8')) as {
+    const pkg = JSON.parse(readFileSync(join(targetDir, 'vhost', 'package.json'), 'utf-8')) as {
       type: string;
       dependencies: Record<string, string>;
     };

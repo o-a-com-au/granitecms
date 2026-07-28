@@ -17,7 +17,7 @@ try {
   console.log(`  ${raw}`);
   console.log('');
   console.log('Next steps:');
-  console.log(`  cd ${targetArg}`);
+  console.log(`  cd ${targetArg}/vhost`);
   console.log('  npm install');
   console.log('  node server.js');
 } catch (error) {

@@ -15,7 +15,7 @@ function hashOf(token: string): string {
 
 function buildRedirectsTestServer() {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  writeJson(siteRoot, 'site.config.json', {
+  writeJson(siteRoot, 'vhost/site.config.json', {
     tokens: [{ hash: hashOf(CONTENT_TOKEN), scopes: ['content'] }],
   });
 
@@ -29,7 +29,7 @@ function buildRedirectsTestServer() {
 test('GET /v1/redirects lists all entries', async () => {
   const { app, siteRoot, cleanup } = buildRedirectsTestServer();
   try {
-    writeAndCommit(siteRoot, 'redirects.json', JSON.stringify({ '/old': '/new' }));
+    writeAndCommit(siteRoot, 'content/redirects.json', JSON.stringify({ '/old': '/new' }));
 
     const response = await app.inject({
       method: 'GET',

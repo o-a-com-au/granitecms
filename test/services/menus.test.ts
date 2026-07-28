@@ -39,7 +39,7 @@ test('loadMenus in preview mode overlays a draft menu over its live counterpart 
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
     writeJson(siteRoot, 'content/menus/main.json', { schemaVersion: 1, items: [{ label: 'Live', url: '/live' }] });
-    writeJson(siteRoot, 'drafts/menus/main.json', { schemaVersion: 1, items: [{ label: 'Draft', url: '/draft' }] });
+    writeJson(siteRoot, 'content/drafts/menus/main.json', { schemaVersion: 1, items: [{ label: 'Draft', url: '/draft' }] });
     const config = loadSiteConfig(siteRoot);
 
     const preview = loadMenus(config, 'preview');
@@ -55,7 +55,7 @@ test('loadMenus in preview mode overlays a draft menu over its live counterpart 
 test('loadMenus in preview mode includes a draft-only menu that has no live counterpart at all', () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
-    writeJson(siteRoot, 'drafts/menus/new-menu.json', { schemaVersion: 1, items: [{ label: 'New', url: '/new' }] });
+    writeJson(siteRoot, 'content/drafts/menus/new-menu.json', { schemaVersion: 1, items: [{ label: 'New', url: '/new' }] });
     const config = loadSiteConfig(siteRoot);
 
     const preview = loadMenus(config, 'preview');

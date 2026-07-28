@@ -88,7 +88,7 @@ test('preview mode overlays a draft menu over its live counterpart, matching the
     const config = loadSiteConfig(siteRoot);
     writeJson(siteRoot, 'content/about.json', page({ layout: 'nav' }));
     writeJson(siteRoot, 'content/menus/main.json', { schemaVersion: 1, items: [{ label: 'Live', url: '/live' }] });
-    writeJson(siteRoot, 'drafts/menus/main.json', { schemaVersion: 1, items: [{ label: 'Draft', url: '/draft' }] });
+    writeJson(siteRoot, 'content/drafts/menus/main.json', { schemaVersion: 1, items: [{ label: 'Draft', url: '/draft' }] });
 
     const layoutsWithNav = {
       ...layouts,

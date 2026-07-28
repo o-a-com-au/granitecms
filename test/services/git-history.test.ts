@@ -69,7 +69,7 @@ test('G2: a commit whose message is exactly "chore: draft checkpoint" is flagged
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     commitFile(siteRoot, 'content/pages/about.json', '{"a":1}', 'add about');
-    commitFile(siteRoot, 'drafts/pages/x.json', '{}', 'chore: draft checkpoint');
+    commitFile(siteRoot, 'content/drafts/pages/x.json', '{}', 'chore: draft checkpoint');
     const config = loadSiteConfig(siteRoot);
 
     const result = getCommitLog(config, {});

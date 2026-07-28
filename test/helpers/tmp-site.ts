@@ -35,7 +35,8 @@ export function createTmpSiteRoot(
     // content/drafts/theme must exist on disk before a test calls it
     // against config.contentRoot etc, or a raw ENOENT surfaces instead
     // of a clean PathSafetyError for reasons unrelated to the test.
-    for (const dir of ['content', 'content/pages', 'drafts', 'theme', 'theme/assets']) {
+    // drafts nests inside content/ (Group N), not a sibling of it.
+    for (const dir of ['content', 'content/pages', 'content/drafts', 'theme', 'theme/assets']) {
       mkdirSync(join(siteRoot, dir), { recursive: true });
     }
   }

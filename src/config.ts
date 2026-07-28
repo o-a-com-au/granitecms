@@ -1,5 +1,13 @@
 import { isAbsolute, join, resolve } from 'node:path';
 
+// Single source of truth for the runtime/serving folder's name, reused
+// by server-config.ts (site.config.json lives inside it) rather than a
+// second hardcoded literal. A real vhost, in hosting terms (Apache/
+// nginx/CyberPanel): the per-site serving configuration, not a
+// multi-tenancy concept - this folder holds exactly that (package.json,
+// server.js, site.config.json's access-control/serving parameters).
+export const VHOST_DIR_NAME = 'vhost';
+
 export interface SiteConfig {
   siteRoot: string;
   contentRoot: string;
@@ -10,6 +18,7 @@ export interface SiteConfig {
   postsRoot: string;
   menusRoot: string;
   redirectsPath: string;
+  vhostRoot: string;
   dataRoot: string;
   searchIndexPath: string;
 }
@@ -26,19 +35,27 @@ export function loadSiteConfig(siteRoot: string): SiteConfig {
   const normalisedRoot = resolve(siteRoot);
 
   const contentRoot = join(normalisedRoot, 'content');
-  const dataRoot = join(normalisedRoot, 'data');
   const themeRoot = join(normalisedRoot, 'theme');
+  const vhostRoot = join(normalisedRoot, VHOST_DIR_NAME);
+  const dataRoot = join(vhostRoot, 'data');
 
   return {
     siteRoot: normalisedRoot,
     contentRoot,
-    draftsRoot: join(normalisedRoot, 'drafts'),
+    // Nested inside contentRoot (content/drafts), not a sibling of it -
+    // marketing-manager-managed content lives entirely under content/.
+    // See content-read.ts/migration-runner.ts for the inclusion-based
+    // walk fix this requires, and checkpoint.ts for the derived (not
+    // hardcoded) pathspec fix.
+    draftsRoot: join(contentRoot, 'drafts'),
     themeRoot,
     assetsRoot: join(themeRoot, 'assets'),
     pagesRoot: join(contentRoot, 'pages'),
     postsRoot: join(contentRoot, 'posts'),
     menusRoot: join(contentRoot, 'menus'),
-    redirectsPath: join(normalisedRoot, 'redirects.json'),
+    // Also nested inside contentRoot, for the same reason.
+    redirectsPath: join(contentRoot, 'redirects.json'),
+    vhostRoot,
     dataRoot,
     searchIndexPath: join(dataRoot, 'search-index.sqlite'),
   };

@@ -18,7 +18,7 @@ function page(title: string, type: string, published = true): object {
 
 function buildDraftsTestServer() {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  writeJson(siteRoot, 'site.config.json', {
+  writeJson(siteRoot, 'vhost/site.config.json', {
     tokens: [{ hash: hashOf(CONTENT_TOKEN), scopes: ['content'] }],
   });
 
@@ -32,7 +32,7 @@ function buildDraftsTestServer() {
 test('D2: GET /v1/drafts/:path returns the draft file content and an ETag header', async () => {
   const { app, siteRoot, cleanup } = buildDraftsTestServer();
   try {
-    writeJson(siteRoot, 'drafts/pages/about.json', page('Draft About', 'page'));
+    writeJson(siteRoot, 'content/drafts/pages/about.json', page('Draft About', 'page'));
 
     const response = await app.inject({
       method: 'GET',
@@ -83,7 +83,7 @@ test('a path traversal attempt against GET /v1/drafts/:path fails safely, never 
 test('GET /v1/drafts/:path with no token is rejected with 401', async () => {
   const { app, siteRoot, cleanup } = buildDraftsTestServer();
   try {
-    writeJson(siteRoot, 'drafts/pages/about.json', page('Draft About', 'page'));
+    writeJson(siteRoot, 'content/drafts/pages/about.json', page('Draft About', 'page'));
     const response = await app.inject({ method: 'GET', url: '/v1/drafts/pages/about.json' });
     assert.equal(response.statusCode, 401);
   } finally {
@@ -190,7 +190,7 @@ test('a path traversal attempt against PUT /v1/drafts/:path fails safely, never 
 test('E5: DELETE /v1/drafts/:path discards the draft', async () => {
   const { app, siteRoot, cleanup } = buildDraftsTestServer();
   try {
-    writeJson(siteRoot, 'drafts/pages/about.json', page('Draft About', 'page'));
+    writeJson(siteRoot, 'content/drafts/pages/about.json', page('Draft About', 'page'));
 
     const response = await app.inject({
       method: 'DELETE',

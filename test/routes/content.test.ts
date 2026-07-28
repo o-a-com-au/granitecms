@@ -22,7 +22,7 @@ function page(title: string, type: string, published = true): object {
 // No theme needed: D1/D3/D4 never render anything, just read raw JSON.
 function buildContentTestServer() {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  writeJson(siteRoot, 'site.config.json', {
+  writeJson(siteRoot, 'vhost/site.config.json', {
     tokens: [{ hash: hashOf(CONTENT_TOKEN), scopes: ['content'] }],
   });
 
@@ -147,7 +147,7 @@ test('D3: GET /v1/content lists content, including a draft-only page', async () 
   const { app, siteRoot, cleanup } = buildContentTestServer();
   try {
     writeJson(siteRoot, 'content/pages/about.json', page('About', 'page'));
-    writeJson(siteRoot, 'drafts/pages/draft-only.json', page('Draft Only', 'page'));
+    writeJson(siteRoot, 'content/drafts/pages/draft-only.json', page('Draft Only', 'page'));
 
     const response = await app.inject({
       method: 'GET',
@@ -170,7 +170,7 @@ test('D3: GET /v1/content filters by type, prefix, and draftStatus', async () =>
   try {
     writeJson(siteRoot, 'content/pages/about.json', page('About', 'page'));
     writeJson(siteRoot, 'content/pages/blog-post.json', page('A Post', 'article'));
-    writeJson(siteRoot, 'drafts/pages/draft-only.json', page('Draft Only', 'page'));
+    writeJson(siteRoot, 'content/drafts/pages/draft-only.json', page('Draft Only', 'page'));
 
     const byType = await app.inject({
       method: 'GET',
@@ -241,7 +241,7 @@ test('F3: DELETE /v1/content/:path with redirectTo records a redirect', async ()
     });
 
     assert.equal(response.statusCode, 204);
-    const redirects = JSON.parse(readFileSync(join(siteRoot, 'redirects.json'), 'utf-8')) as {
+    const redirects = JSON.parse(readFileSync(join(siteRoot, 'content', 'redirects.json'), 'utf-8')) as {
       entries: Array<{ from: string; to: string }>;
     };
     assert.equal(redirects.entries.find((entry) => entry.from === '/about')?.to, '/company');

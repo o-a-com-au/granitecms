@@ -14,7 +14,7 @@ function hashOf(token: string): string {
 
 function buildRateLimitTestServer(rateLimit: { max: number; windowMs: number }) {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  writeJson(siteRoot, 'site.config.json', {
+  writeJson(siteRoot, 'vhost/site.config.json', {
     tokens: [{ hash: hashOf(CONTENT_TOKEN), scopes: ['content'] }],
     rateLimit,
   });

@@ -188,7 +188,7 @@ test('the root URL / serves content/pages/index.json', async () => {
 test('C3: a URL with a redirects.json entry and no live page returns a 301 to the target', async () => {
   const { app, siteRoot, cleanup } = buildPublicTestServer();
   try {
-    writeJson(siteRoot, 'redirects.json', { '/old-page': '/about' });
+    writeJson(siteRoot, 'content/redirects.json', { '/old-page': '/about' });
     const response = await app.inject({ method: 'GET', url: '/old-page' });
     assert.equal(response.statusCode, 301);
     assert.equal(response.headers.location, '/about');
@@ -204,7 +204,7 @@ test('C4: a live page always wins over a redirect recorded at the same URL, at t
     // /about is a real, live, published page - a redirect entry
     // colliding with it must never be served (extends Phase 1's E6
     // renderer-level proof to the HTTP layer).
-    writeJson(siteRoot, 'redirects.json', { '/about': '/somewhere-else' });
+    writeJson(siteRoot, 'content/redirects.json', { '/about': '/somewhere-else' });
     const response = await app.inject({ method: 'GET', url: '/about' });
     assert.equal(response.statusCode, 200);
     assert.ok(response.body.includes('About Us'));

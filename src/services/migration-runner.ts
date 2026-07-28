@@ -100,8 +100,22 @@ async function runMigrationsJob(
   currentVersion: number,
   author: CommitAuthor,
 ): Promise<void> {
+  // Three named walks (pages/posts/menus), not one broad walk of
+  // contentRoot - see content-read.ts's listContent for the identical
+  // reasoning (Group N nested draftsRoot/redirectsPath inside
+  // contentRoot; a broad walk would double-migrate drafts and try to
+  // validate redirects.json as a page). base stays config.contentRoot
+  // for all three so relativePath matches what validateContent expects.
   const files = [
-    ...listFilesRecursively(config.contentRoot, config.contentRoot, '.json').map((rel) => ({
+    ...listFilesRecursively(config.pagesRoot, config.contentRoot, '.json').map((rel) => ({
+      path: join(config.contentRoot, rel),
+      relativePath: rel,
+    })),
+    ...listFilesRecursively(config.postsRoot, config.contentRoot, '.json').map((rel) => ({
+      path: join(config.contentRoot, rel),
+      relativePath: rel,
+    })),
+    ...listFilesRecursively(config.menusRoot, config.contentRoot, '.json').map((rel) => ({
       path: join(config.contentRoot, rel),
       relativePath: rel,
     })),

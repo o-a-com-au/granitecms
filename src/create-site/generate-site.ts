@@ -32,9 +32,15 @@ function generateToken(): { raw: string; hash: string } {
   return { raw, hash };
 }
 
+// server.js lives in vhost/, one level below the real site root - it
+// states its own fixed, known relationship to its sibling directory
+// rather than the agent inferring anything (constraint 2 stays intact:
+// the site root is always explicit, never assumed from the agent's own
+// location).
 const SERVER_JS = `import { startServer } from '@oa/cms-agent';
+import { join } from 'node:path';
 
-await startServer(import.meta.dirname);
+await startServer(join(import.meta.dirname, '..'));
 `;
 
 export class ScaffoldError extends Error {}
@@ -59,10 +65,17 @@ export function scaffoldSite(targetDir: string): { raw: string } {
   });
   cpSync(join(TEMPLATE_ROOT, 'gitignore'), join(targetDir, '.gitignore'));
 
-  // drafts/ starts empty - not part of the static template (nothing to
-  // copy), created directly so a fresh site has somewhere to write its
-  // first draft immediately.
-  mkdirSync(join(targetDir, 'drafts'), { recursive: true });
+  // content/drafts/ starts empty - not part of the static template
+  // (nothing to copy), created directly so a fresh site has somewhere
+  // to write its first draft immediately. Nested inside content/, not
+  // a sibling of it - see config.ts's own comment for why.
+  mkdirSync(join(targetDir, 'content', 'drafts'), { recursive: true });
+
+  // vhost/: the site's own serving configuration (package.json,
+  // server.js, site.config.json), matching a real vhost's own scope in
+  // hosting terms - never a sibling of content/theme.
+  const vhostDir = join(targetDir, 'vhost');
+  mkdirSync(vhostDir, { recursive: true });
 
   // A zero-token site fails closed on every write route (401) - not
   // usable for editing at all. Generated fresh per scaffold, printed
@@ -71,7 +84,7 @@ export function scaffoldSite(targetDir: string): { raw: string } {
   // could lose or that leaks into version control.
   const token = generateToken();
   writeFileSync(
-    join(targetDir, 'site.config.json'),
+    join(vhostDir, 'site.config.json'),
     JSON.stringify(
       {
         tokens: [{ hash: token.hash, scopes: ['content', 'theme', 'media'] }],
@@ -83,7 +96,7 @@ export function scaffoldSite(targetDir: string): { raw: string } {
 
   const packageName = sanitisePackageName(basename(targetDir));
   writeFileSync(
-    join(targetDir, 'package.json'),
+    join(vhostDir, 'package.json'),
     JSON.stringify(
       {
         name: packageName,
@@ -101,14 +114,14 @@ export function scaffoldSite(targetDir: string): { raw: string } {
     ),
   );
 
-  writeFileSync(join(targetDir, 'server.js'), SERVER_JS);
+  writeFileSync(join(vhostDir, 'server.js'), SERVER_JS);
 
   // runStartupChecks hard-fails not-a-git-repo otherwise - a scaffold
   // without a real git repo cannot boot at all.
   execFileSync('git', ['init', '--quiet'], { cwd: targetDir });
   commitPaths(
     targetDir,
-    ['theme', 'content', 'redirects.json', 'site.config.json', 'package.json', 'server.js', '.gitignore'],
+    ['theme', 'content', 'vhost', '.gitignore'],
     'chore: initial scaffold',
     CHECKPOINT_AUTHOR,
   );

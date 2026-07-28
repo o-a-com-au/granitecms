@@ -66,7 +66,7 @@ test('G3: unpublished pages and drafts are absent from the index', async () => {
       'content/pages/hidden.json',
       page({ title: 'Hidden', published: false, heading: 'unpublishedterm' }),
     );
-    writeJson(siteRoot, 'drafts/pages/draft-only.json', page({ title: 'Draft', heading: 'draftonlyterm' }));
+    writeJson(siteRoot, 'content/drafts/pages/draft-only.json', page({ title: 'Draft', heading: 'draftonlyterm' }));
     const config = loadSiteConfig(siteRoot);
 
     await rebuildIndex(config);

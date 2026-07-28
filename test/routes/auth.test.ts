@@ -21,7 +21,7 @@ const THEME_TOKEN = 'test-theme-token';
 // A's own A5 test used for its throwaway /v1/__throws route.
 function buildAuthTestServer() {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
-  writeJson(siteRoot, 'site.config.json', {
+  writeJson(siteRoot, 'vhost/site.config.json', {
     tokens: [
       { hash: hashOf(CONTENT_TOKEN), scopes: ['content'] },
       { hash: hashOf(THEME_TOKEN), scopes: ['theme'] },

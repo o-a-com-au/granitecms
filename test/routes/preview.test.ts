@@ -26,7 +26,7 @@ function buildPreviewTestServer() {
   const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-preview-test-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   execFileSync('git', ['init', '--quiet'], { cwd: siteRoot });
-  writeJson(siteRoot, 'site.config.json', {
+  writeJson(siteRoot, 'vhost/site.config.json', {
     tokens: [{ hash: hashOf(CONTENT_TOKEN), scopes: ['content'] }],
   });
 
@@ -40,7 +40,7 @@ function buildPreviewTestServer() {
 test('C5: previewing a page that only exists as a draft renders the draft', async () => {
   const { app, siteRoot, cleanup } = buildPreviewTestServer();
   try {
-    writeJson(siteRoot, 'drafts/pages/draft-only-page.json', {
+    writeJson(siteRoot, 'content/drafts/pages/draft-only-page.json', {
       schemaVersion: 1,
       title: 'Draft Only',
       published: true,
@@ -63,7 +63,7 @@ test('C5: previewing a page that only exists as a draft renders the draft', asyn
 test('C5: previewing a page with a draft overlays the draft over the live version', async () => {
   const { app, siteRoot, cleanup } = buildPreviewTestServer();
   try {
-    writeJson(siteRoot, 'drafts/pages/about.json', {
+    writeJson(siteRoot, 'content/drafts/pages/about.json', {
       schemaVersion: 1,
       title: 'About',
       published: true,
@@ -103,7 +103,7 @@ test('C5: previewing a page with no draft falls back to the live version', async
 test('previewing a draft-only post at /v1/preview/blog/<slug> renders it', async () => {
   const { app, siteRoot, cleanup } = buildPreviewTestServer();
   try {
-    writeJson(siteRoot, 'drafts/posts/hello-world.json', {
+    writeJson(siteRoot, 'content/drafts/posts/hello-world.json', {
       schemaVersion: 4,
       title: 'Hello World',
       type: 'post',

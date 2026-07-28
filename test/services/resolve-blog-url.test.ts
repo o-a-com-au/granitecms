@@ -37,7 +37,7 @@ test('a live post resolves by its flat slug', async () => {
 test('a redirect is served when no live post exists at that /blog/ URL', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
-    writeJson(siteRoot, 'redirects.json', { '/blog/old-slug': '/blog/new-slug' });
+    writeJson(siteRoot, 'content/redirects.json', { '/blog/old-slug': '/blog/new-slug' });
     const config = loadSiteConfig(siteRoot);
 
     assert.deepEqual(resolveBlogUrl(config, '/blog/old-slug'), { kind: 'redirect', to: '/blog/new-slug' });
@@ -50,7 +50,7 @@ test('a live post always wins over a redirect recorded at the same URL', async (
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
     writeJson(siteRoot, 'content/posts/hello-world.json', JSON.parse(post('Hello World')));
-    writeJson(siteRoot, 'redirects.json', { '/blog/hello-world': '/somewhere-else' });
+    writeJson(siteRoot, 'content/redirects.json', { '/blog/hello-world': '/somewhere-else' });
     const config = loadSiteConfig(siteRoot);
 
     assert.deepEqual(resolveBlogUrl(config, '/blog/hello-world'), {

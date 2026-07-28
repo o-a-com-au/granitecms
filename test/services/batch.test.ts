@@ -284,7 +284,7 @@ test('a draft-discard operation is included and rolled back correctly alongside 
     writeAndCommit(siteRoot, 'README.md', 'seed');
     const config = loadSiteConfig(siteRoot);
     const draftContent = page('Draft To Discard');
-    writeJson(siteRoot, 'drafts/pages/discard-me.json', draftContent);
+    writeJson(siteRoot, 'content/drafts/pages/discard-me.json', draftContent);
     const before = commitCount(siteRoot);
 
     await assert.rejects(

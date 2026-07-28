@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
@@ -96,6 +96,9 @@ test('isValidRedirectTarget accepts an internal path and rejects external/protoc
 
 function makeSite(): { siteRoot: string; cleanup: () => void } {
   const siteRoot = mkdtempSync(join(tmpdir(), 'cms-redirects-test-'));
+  // redirectsPath lives under content/ (Group N) - must exist before a
+  // test writes directly to it.
+  mkdirSync(join(siteRoot, 'content'), { recursive: true });
   return { siteRoot, cleanup: () => rmSync(siteRoot, { recursive: true, force: true }) };
 }
 

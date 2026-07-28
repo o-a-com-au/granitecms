@@ -170,7 +170,7 @@ test('D5: public mode renders /content/ only; a page existing only as a draft is
     const config = loadSiteConfig(siteRoot);
     writeJson(
       siteRoot,
-      'drafts/about.json',
+      'content/drafts/about.json',
       page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Draft only' } }]),
     );
 
@@ -230,7 +230,7 @@ test('D6: preview mode renders the draft version when a draft exists', async () 
     );
     writeJson(
       siteRoot,
-      'drafts/about.json',
+      'content/drafts/about.json',
       page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Draft version' } }]),
     );
 

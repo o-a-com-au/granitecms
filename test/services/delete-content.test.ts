@@ -181,7 +181,7 @@ test('redirect-cycle: a redirectTo that would create a cycle is rejected, the pa
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     writeAndCommit(siteRoot, 'content/pages/about.json', pageJson('About'));
-    writeJson(siteRoot, 'redirects.json', { '/company': '/about' });
+    writeJson(siteRoot, 'content/redirects.json', { '/company': '/about' });
     execFileSync('git', ['add', '-A'], { cwd: siteRoot });
     execFileSync('git', ['commit', '-m', 'seed redirect'], {
       cwd: siteRoot,
@@ -209,7 +209,7 @@ test('deleting a live page never touches a draft at the same path', async () => 
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     writeAndCommit(siteRoot, 'content/pages/about.json', pageJson('About'));
-    writeJson(siteRoot, 'drafts/pages/about.json', { schemaVersion: 1, title: 'Draft', type: 'page', published: true, sections: [] });
+    writeJson(siteRoot, 'content/drafts/pages/about.json', { schemaVersion: 1, title: 'Draft', type: 'page', published: true, sections: [] });
     const config = loadSiteConfig(siteRoot);
     const draftBefore = readFileSync(join(config.draftsRoot, 'pages', 'about.json'));
 
