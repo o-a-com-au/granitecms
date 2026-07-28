@@ -167,6 +167,7 @@ The site agent is the only thing a site exposes to the outside world. Deliberate
 - `DELETE /v1/content/:path` – delete a live page (commits, and records a redirect if a target is supplied).
 - `POST /v1/content/move` – move or rename a page or subtree; moves files, rewrites child paths, appends to `redirects.json`, commits as one unit.
 - `GET /v1/content` – list content, optionally filtered by type, path prefix, or draft status.
+- `GET/POST/PUT/DELETE /v1/redirects` – direct redirect management, resolved during Phase 2's Group M: `redirects.json` is schema-validated content (`{schemaVersion, entries: [{from, to, note?}]}`), targets restricted to internal paths, with no draft step of its own (every write commits immediately, same as the automatic redirect bookkeeping above already did). See `docs/phase-2-checklist.md` Group M for detail.
 
 ### Batch writes
 
@@ -267,7 +268,6 @@ Built inside the agent repo from the start, against a local test site scaffold, 
 
 - `node:sqlite` FTS5 adequacy on Node 22 LTS versus defaulting to better-sqlite3 (Phase 1 spike, low risk either way given the driver interface)
 - Draft checkpoint mechanics: interval, and main branch versus a dedicated drafts branch
-- Whether `redirects.json` should be schema-validated content with its own editor surface, or stay machine-written plumbing
 - Whether the preview overlay should support previewing a *set* of drafts as a batch (a "release" concept) or per-page preview is enough
 - Whether the admin can trigger a site's agent self-update, or updates remain a deliberate per-site operator action
 - Whether the Phase 3 admin is single-tenant (one deployment per hosting customer) or multi-tenant (one shared admin serving many paying customers, needing customer isolation and billing built in). The "one instance total" framing above assumed a single internal or agency-run deployment; the hosted-admin commercialisation strategy in `docs/commercialisation-brochure.md` needs this decided before Phase 3 starts, since it changes the registry and auth model rather than being a later add-on

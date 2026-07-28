@@ -98,6 +98,22 @@ test('deleting a menu with a redirectTo records no redirect (menus have no publi
   }
 });
 
+test('deleting a page with an external redirectTo is rejected with invalid-redirect-target, not silently accepted', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', pageJson('About'));
+    const config = loadSiteConfig(siteRoot);
+
+    await assert.rejects(
+      deleteContent(config, 'pages/about.json', 'https://example.com', 'delete about', author),
+      (error: unknown) => error instanceof DeleteContentError && error.reason === 'invalid-redirect-target',
+    );
+    assert.ok(existsSync(join(config.pagesRoot, 'about.json')), 'the page must not be deleted when redirectTo is rejected');
+  } finally {
+    cleanup();
+  }
+});
+
 test('deleting a page with no redirectTo records no redirect', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {

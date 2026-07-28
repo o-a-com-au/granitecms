@@ -251,6 +251,25 @@ test('F3: DELETE /v1/content/:path with redirectTo records a redirect', async ()
   }
 });
 
+test('F3: DELETE /v1/content/:path with an external redirectTo returns 400, not silently accepted', async () => {
+  const { app, siteRoot, cleanup } = buildContentTestServer();
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About', 'page')));
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/v1/content/pages/about.json',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { redirectTo: 'https://example.com', message: 'delete about', author },
+    });
+
+    assert.equal(response.statusCode, 400);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
 test('F3: DELETE /v1/content/:path returns 409 when the page has a real child page', async () => {
   const { app, siteRoot, cleanup } = buildContentTestServer();
   try {
