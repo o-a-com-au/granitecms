@@ -4,6 +4,8 @@ import type { SiteConfig } from '../config.ts';
 import { computeEtag } from './etag.ts';
 import { listFilesRecursively } from './fs-walk.ts';
 import { sanitisePath } from './path-safety.ts';
+import { pagePathToUrl } from './urls.ts';
+import { postPathToUrl } from './post-urls.ts';
 
 export type ContentReadReason = 'not-found';
 
@@ -50,12 +52,28 @@ export interface ContentListEntry {
   type: string;
   published: boolean;
   hasDraft: boolean;
+  url: string | null;
 }
 
 interface PageSummaryShape {
   title?: unknown;
   type?: unknown;
   published?: unknown;
+}
+
+// Both contentRoot-relative live paths and draftsRoot-relative draft
+// paths share the identical pages/posts/menus subroot prefix shape
+// (content/drafts/ mirrors content/'s own layout), so one function
+// handles both with no branching on which root an entry came from.
+// Menus have no public URL - there is no preview route for them.
+function computeContentUrl(relativePath: string): string | null {
+  if (relativePath.startsWith('pages/')) {
+    return pagePathToUrl(relativePath.slice('pages/'.length));
+  }
+  if (relativePath.startsWith('posts/')) {
+    return postPathToUrl(relativePath.slice('posts/'.length));
+  }
+  return null;
 }
 
 // Defensive, not the strict PageContent shape from render-page.ts:
@@ -119,6 +137,7 @@ export function listContent(config: SiteConfig, filters: ContentListFilters): Co
       type: typeof summary.type === 'string' ? summary.type : '',
       published: summary.published === true,
       hasDraft,
+      url: computeContentUrl(relativePath),
     };
 
     if (filters.type !== undefined && entry.type !== filters.type) {

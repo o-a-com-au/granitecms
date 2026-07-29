@@ -156,9 +156,12 @@ test('D3: GET /v1/content lists content, including a draft-only page', async () 
     });
 
     assert.equal(response.statusCode, 200);
-    const body = response.json() as Array<{ path: string; hasDraft: boolean }>;
+    const body = response.json() as Array<{ path: string; hasDraft: boolean; url: string | null }>;
     const paths = body.map((e) => e.path).sort();
     assert.deepEqual(paths, ['pages/about.json', 'pages/draft-only.json']);
+
+    const about = body.find((e) => e.path === 'pages/about.json');
+    assert.equal(about?.url, '/about');
   } finally {
     await app.close();
     cleanup();

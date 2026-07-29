@@ -136,6 +136,28 @@ test('listContent filters by draft status', () => {
   }
 });
 
+test('listContent computes a url for pages, the index page, posts, and null for menus', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    writeJson(siteRoot, 'content/pages/index.json', page('Home', 'page'));
+    writeJson(siteRoot, 'content/pages/about/team.json', page('Team', 'page'));
+    writeJson(siteRoot, 'content/posts/my-slug.json', page('A Post', 'article'));
+    writeJson(siteRoot, 'content/menus/main.json', { schemaVersion: 1, items: [] });
+    const config = loadSiteConfig(siteRoot);
+
+    const entries = listContent(config, {});
+    const byPath = (path: string): (typeof entries)[number] | undefined =>
+      entries.find((e) => e.path === path);
+
+    assert.equal(byPath('pages/index.json')?.url, '/');
+    assert.equal(byPath('pages/about/team.json')?.url, '/about/team');
+    assert.equal(byPath('posts/my-slug.json')?.url, '/blog/my-slug');
+    assert.equal(byPath('menus/main.json')?.url, null);
+  } finally {
+    cleanup();
+  }
+});
+
 test('listContent does not crash on a real unmigrated (type-less) file', () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
