@@ -5,7 +5,7 @@ import { ContentReadError, readContentFile } from './content-read.ts';
 import { computeEtag } from './etag.ts';
 import { sanitisePath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
-import type { ThemeSchemas } from './validation.ts';
+import type { ThemeSchemas, ValidationError } from './validation.ts';
 import { validateContent } from './validation.ts';
 import { enqueue } from './write-queue.ts';
 
@@ -13,11 +13,16 @@ export type DraftReason = 'validation-failed' | 'conflict';
 
 export class DraftError extends Error {
   readonly reason: DraftReason;
+  // Group I: the real ajv errors (already field-pointing, e.g.
+  // /sections/0/settings/columns) - previously only available
+  // stringified inside .message. Always [] for the 'conflict' reason.
+  readonly errors: ValidationError[];
 
-  constructor(reason: DraftReason, message: string) {
+  constructor(reason: DraftReason, message: string, errors: ValidationError[] = []) {
     super(message);
     this.name = 'DraftError';
     this.reason = reason;
+    this.errors = errors;
   }
 }
 
@@ -86,6 +91,7 @@ async function saveDraftJob(
     throw new DraftError(
       'validation-failed',
       `Draft at "${relativePath}" failed validation: ${JSON.stringify(result.errors)}`,
+      result.errors,
     );
   }
 

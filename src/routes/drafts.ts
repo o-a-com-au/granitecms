@@ -67,7 +67,7 @@ async function handleSaveDraft(
       return;
     }
     if (error instanceof DraftError && error.reason === 'validation-failed') {
-      reply.code(400).send({ statusCode: 400, error: 'Bad Request', message: error.message });
+      reply.code(400).send({ statusCode: 400, error: 'Bad Request', message: error.message, errors: error.errors });
       return;
     }
     throw error;

@@ -73,6 +73,43 @@ test('C3: saving a draft that fails schema validation writes nothing to disk', a
   }
 });
 
+// Group I: the real ajv errors reach the caller as a structured field
+// (already field-pointing, e.g. /sections/0/settings/heading), not
+// only stringified inside .message - what makes I5 (surfacing an
+// invalid value against the specific field) achievable at all.
+test('Group I: a validation-failed DraftError carries the real structured errors, pointing at the specific field', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    const heroSchemas: ThemeSchemas = {
+      sections: { hero: { type: 'object', required: ['heading'], properties: { heading: { type: 'string', minLength: 1 } } } },
+      blocks: {},
+      acceptsBlocks: { sections: { hero: false }, blocks: {} },
+    };
+    const invalidPage = {
+      schemaVersion: 1,
+      title: 'About',
+      type: 'page',
+      layout: 'theme',
+      published: true,
+      sections: [{ id: 'sec-1', type: 'hero', settings: {} }], // missing required "heading"
+    };
+
+    await assert.rejects(
+      saveDraft(config, heroSchemas, 'about.json', invalidPage, NO_PRIOR_FILE_ETAG),
+      (error: unknown) => {
+        assert.ok(error instanceof DraftError && error.reason === 'validation-failed');
+        assert.equal(error.errors.length, 1);
+        assert.equal(error.errors[0]?.path, '/sections/0/settings/heading');
+        assert.equal(error.errors[0]?.keyword, 'required');
+        return true;
+      },
+    );
+  } finally {
+    cleanup();
+  }
+});
+
 test('C7: discarding a draft deletes only the draft; the live file is byte-identical before and after', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {

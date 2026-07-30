@@ -167,6 +167,37 @@ test('E2 (route wiring): PUT /v1/drafts/:path with a stale If-Match returns 409'
   }
 });
 
+test('Group I: PUT /v1/drafts/:path with invalid section content returns 400 with structured errors', async () => {
+  const { app, cleanup } = buildDraftsTestServer();
+  try {
+    const response = await app.inject({
+      method: 'PUT',
+      url: '/v1/drafts/pages/about.json',
+      headers: {
+        authorization: `Bearer ${CONTENT_TOKEN}`,
+        'content-type': 'application/json',
+        'if-match': 'no-prior-file',
+      },
+      // No theme sections are registered in this test's empty theme
+      // dir, so any section type is "unknown" - a real, genuine
+      // validation failure, not a synthetic one.
+      payload: {
+        ...page('About', 'page'),
+        sections: [{ id: 'sec-1', type: 'hero', settings: {} }],
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    const body = response.json() as { errors: Array<{ path: string; keyword: string }> };
+    assert.equal(body.errors.length, 1);
+    assert.equal(body.errors[0]?.path, '/sections/0/type');
+    assert.equal(body.errors[0]?.keyword, 'unknownType');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
 test('a path traversal attempt against PUT /v1/drafts/:path fails safely, never a 500', async () => {
   const { app, cleanup } = buildDraftsTestServer();
   try {
