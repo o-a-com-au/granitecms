@@ -3,6 +3,11 @@ import { join } from 'node:path';
 import { parseThemeComponentFile } from './theme-component-file.ts';
 import type { ThemeSchemas } from './validation.ts';
 
+interface TypeSchemas {
+  schemas: Record<string, object>;
+  acceptsBlocks: Record<string, boolean>;
+}
+
 // themeRoot is agent configuration (the configured site's theme
 // directory), not a request-supplied :path parameter. This walk is
 // deliberately NOT the Group B path-sanitisation helper and must
@@ -13,8 +18,9 @@ import type { ThemeSchemas } from './validation.ts';
 // loadFlatTemplates walk exactly (already established for snippets/
 // layouts), extended to extract the embedded {% schema %} block instead
 // of returning the raw file contents.
-function loadTypeSchemas(typesDir: string): Record<string, object> {
+function loadTypeSchemas(typesDir: string): TypeSchemas {
   const schemas: Record<string, object> = {};
+  const acceptsBlocks: Record<string, boolean> = {};
 
   let entries: string[];
   try {
@@ -22,7 +28,7 @@ function loadTypeSchemas(typesDir: string): Record<string, object> {
       .filter((entry) => entry.isFile() && entry.name.endsWith('.liquid'))
       .map((entry) => entry.name);
   } catch {
-    return schemas;
+    return { schemas, acceptsBlocks };
   }
 
   for (const fileName of entries) {
@@ -38,14 +44,21 @@ function loadTypeSchemas(typesDir: string): Record<string, object> {
       continue;
     }
     schemas[type] = parsed.schema;
+    // The only place "does this type support nested blocks" is ever
+    // expressed - a markup convention (does the template loop
+    // blocksHtml), not a schema field (theme-authoring-guide.md).
+    acceptsBlocks[type] = parsed.markup.includes('blocksHtml');
   }
 
-  return schemas;
+  return { schemas, acceptsBlocks };
 }
 
 export function loadThemeSchemas(themeRoot: string): ThemeSchemas {
+  const sections = loadTypeSchemas(join(themeRoot, 'sections'));
+  const blocks = loadTypeSchemas(join(themeRoot, 'blocks'));
   return {
-    sections: loadTypeSchemas(join(themeRoot, 'sections')),
-    blocks: loadTypeSchemas(join(themeRoot, 'blocks')),
+    sections: sections.schemas,
+    blocks: blocks.schemas,
+    acceptsBlocks: { sections: sections.acceptsBlocks, blocks: blocks.acceptsBlocks },
   };
 }

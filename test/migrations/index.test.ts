@@ -4,7 +4,7 @@ import { CURRENT_SCHEMA_VERSION, migrations } from '../../src/migrations/index.t
 import { validatePage } from '../../src/services/validation.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 
-const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
+const themeSchemas: ThemeSchemas = { sections: {}, blocks: {}, acceptsBlocks: { sections: {}, blocks: {} } };
 
 const migrateV1ToV2 = migrations[1];
 assert.ok(migrateV1ToV2, 'expected a migration registered for schemaVersion 1');

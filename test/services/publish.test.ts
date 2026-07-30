@@ -11,7 +11,7 @@ import { PublishError, publishDrafts, unpublishPage } from '../../src/services/p
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 import { createTmpSiteRoot, redirectTargetFor, writeAndCommit } from '../helpers/tmp-site.ts';
 
-const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
+const themeSchemas: ThemeSchemas = { sections: {}, blocks: {}, acceptsBlocks: { sections: {}, blocks: {} } };
 const author = { name: 'Jane Editor', email: 'jane@example.com' };
 
 // Neither a draft nor a live file exists yet at some tests' target

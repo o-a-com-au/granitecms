@@ -15,7 +15,7 @@ import { computeEtag } from '../../src/services/etag.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 import { createTmpSiteRoot, writeAndCommit } from '../helpers/tmp-site.ts';
 
-const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
+const themeSchemas: ThemeSchemas = { sections: {}, blocks: {}, acceptsBlocks: { sections: {}, blocks: {} } };
 
 const validPage = {
   schemaVersion: 1,

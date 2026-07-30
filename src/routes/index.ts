@@ -14,6 +14,7 @@ import { previewRoutes } from './preview.ts';
 import { publishRoutes } from './publish.ts';
 import { redirectsRoutes } from './redirects.ts';
 import { searchRoutes } from './search.ts';
+import { themeRoutes } from './theme.ts';
 import { ipAllowlistGuard } from '../services/ip-allowlist.ts';
 
 export interface V1RouteOptions {
@@ -92,4 +93,5 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   fastify.register(searchRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(redirectsRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(menusRoutes, { config: opts.config, tokens: opts.tokens });
+  fastify.register(themeRoutes, { themeSchemas: opts.themeSchemas, tokens: opts.tokens });
 };

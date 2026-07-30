@@ -17,6 +17,11 @@ export interface ValidationResult {
 export interface ThemeSchemas {
   sections: Record<string, object>;
   blocks: Record<string, object>;
+  // Whether each type's own Liquid markup actually loops blocksHtml -
+  // the only place "does this type support nested blocks" is ever
+  // expressed (there is no schema field for it - instance.schema.json's
+  // own blocks property is fully generic, deliberately unrestricted).
+  acceptsBlocks: { sections: Record<string, boolean>; blocks: Record<string, boolean> };
 }
 
 // strict: false because theme schema.json files are authored by theme

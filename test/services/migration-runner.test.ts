@@ -9,7 +9,7 @@ import type { MigrationMap } from '../../src/services/migration-runner.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 import { createTmpSiteRoot, writeAndCommit, writeJson } from '../helpers/tmp-site.ts';
 
-const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
+const themeSchemas: ThemeSchemas = { sections: {}, blocks: {}, acceptsBlocks: { sections: {}, blocks: {} } };
 const author = { name: 'Jane Editor', email: 'jane@example.com' };
 
 function page(schemaVersion: number, title: string): object {

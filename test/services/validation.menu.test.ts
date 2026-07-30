@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { validateContent, validateMenu } from '../../src/services/validation.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 
-const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
+const themeSchemas: ThemeSchemas = { sections: {}, blocks: {}, acceptsBlocks: { sections: {}, blocks: {} } };
 
 test('a menu with a valid items list validates successfully', () => {
   const menu = {

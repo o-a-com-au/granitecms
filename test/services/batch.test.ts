@@ -8,7 +8,7 @@ import { BatchError, runBatch } from '../../src/services/batch.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 import { createTmpSiteRoot, redirectTargetFor, writeAndCommit, writeJson } from '../helpers/tmp-site.ts';
 
-const themeSchemas: ThemeSchemas = { sections: {}, blocks: {} };
+const themeSchemas: ThemeSchemas = { sections: {}, blocks: {}, acceptsBlocks: { sections: {}, blocks: {} } };
 const author = { name: 'Jane Editor', email: 'jane@example.com' };
 const NO_PRIOR_FILE_ETAG = 'no-prior-file';
 

@@ -31,6 +31,7 @@ const themeSchemas: ThemeSchemas = {
       },
     },
   },
+  acceptsBlocks: { sections: {}, blocks: {} },
 };
 
 function validPost(overrides: Record<string, unknown> = {}): object {

@@ -39,6 +39,7 @@ const themeSchemas: ThemeSchemas = {
       },
     },
   },
+  acceptsBlocks: { sections: {}, blocks: {} },
 };
 
 test('A1: a page with all required fields (including schemaVersion and published) validates successfully', () => {
