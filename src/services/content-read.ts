@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { SiteConfig } from '../config.ts';
 import { computeEtag } from './etag.ts';
@@ -48,14 +48,17 @@ export interface ContentListFilters {
 
 export interface ContentListEntry {
   path: string;
+  name: string;
   title: string;
   type: string;
   published: boolean;
   hasDraft: boolean;
   url: string | null;
+  changedAt: string | null;
 }
 
 interface PageSummaryShape {
+  name?: unknown;
   title?: unknown;
   type?: unknown;
   published?: unknown;
@@ -74,6 +77,32 @@ function computeContentUrl(relativePath: string): string | null {
     return postPathToUrl(relativePath.slice('posts/'.length));
   }
   return null;
+}
+
+// The later of the live file's and the draft's own mtime, whichever
+// exist - a page with a pending draft edit should show that edit's
+// recency, not just whichever file readSummary happened to prefer.
+// File mtime, not a git commit date: a per-path git-log call for
+// every entry in a listing that can run to hundreds of pages isn't
+// viable, and mtime is a reasonable proxy for "last touched" - a
+// known, accepted imprecision (e.g. a fresh git clone/checkout can
+// reset it), not a claim of exact publish history (that's what the
+// page history view's own real git log is for).
+function latestMtime(candidatePaths: string[]): string | null {
+  let latest: Date | null = null;
+  for (const fullPath of candidatePaths) {
+    try {
+      const { mtime } = statSync(fullPath);
+      if (latest === null || mtime > latest) {
+        latest = mtime;
+      }
+    } catch {
+      // A path that vanished between the directory walk and this stat
+      // (e.g. a concurrent delete) just doesn't contribute - not fatal
+      // to the rest of the listing.
+    }
+  }
+  return latest ? latest.toISOString() : null;
 }
 
 // Defensive, not the strict PageContent shape from render-page.ts:
@@ -131,13 +160,23 @@ export function listContent(config: SiteConfig, filters: ContentListFilters): Co
       continue;
     }
 
+    const title = typeof summary.title === 'string' ? summary.title : '';
     const entry: ContentListEntry = {
       path: relativePath,
-      title: typeof summary.title === 'string' ? summary.title : '',
+      // Falls back to title, not '', for content written before "name"
+      // existed and not yet migrated (migrations aren't wired to run
+      // automatically) - the same default migrateV4ToV5 itself writes,
+      // just applied defensively at read time too.
+      name: typeof summary.name === 'string' ? summary.name : title,
+      title,
       type: typeof summary.type === 'string' ? summary.type : '',
       published: summary.published === true,
       hasDraft,
       url: computeContentUrl(relativePath),
+      changedAt: latestMtime([
+        ...(hasLive ? [join(config.contentRoot, relativePath)] : []),
+        ...(hasDraft ? [join(config.draftsRoot, relativePath)] : []),
+      ]),
     };
 
     if (filters.type !== undefined && entry.type !== filters.type) {

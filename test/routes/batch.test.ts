@@ -18,7 +18,7 @@ function hashOf(token: string): string {
 }
 
 function page(title: string, published = true): object {
-  return { schemaVersion: 4, title, type: 'page', layout: 'theme', published, sections: [] };
+  return { schemaVersion: 4, name: title, title, type: 'page', layout: 'theme', published, sections: [] };
 }
 
 function commitCount(siteRoot: string): number {

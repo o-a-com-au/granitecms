@@ -42,7 +42,21 @@ interface AffectedPage {
 // write-phase failure is caught and rolled back here, inside prepare
 // itself, so prepare either fully succeeds or fully undoes itself
 // before throwing.
-export function prepareMovePage(config: SiteConfig, fromUrl: string, toUrl: string): PreparedOperation {
+//
+// options.createRedirect defaults true - existing callers (and
+// batch.ts) keep today's behaviour unchanged. false skips only
+// addRedirect (the "old URL now redirects to the new one" step);
+// removeRedirectForPath still always runs regardless, since that's a
+// correctness cleanup (the destination URL can't stay claimed by a
+// stale redirect once a real page exists there), not a new redirect
+// being created.
+export function prepareMovePage(
+  config: SiteConfig,
+  fromUrl: string,
+  toUrl: string,
+  options: { createRedirect?: boolean } = {},
+): PreparedOperation {
+  const createRedirect = options.createRedirect ?? true;
   const fromRelative = urlToPagePath(fromUrl);
   const toRelative = urlToPagePath(toUrl);
 
@@ -149,7 +163,9 @@ export function prepareMovePage(config: SiteConfig, fromUrl: string, toUrl: stri
       // legitimate hop and silently collapse straight through it,
       // rather than the new page superseding it.
       entries = removeRedirectForPath(entries, page.newUrl);
-      entries = addRedirect(entries, page.oldUrl, page.newUrl).entries;
+      if (createRedirect) {
+        entries = addRedirect(entries, page.oldUrl, page.newUrl).entries;
+      }
     }
 
     const redirectsAfter = serialiseRedirects(entries);
@@ -191,8 +207,9 @@ async function movePageJob(
   toUrl: string,
   message: string,
   author: CommitAuthor,
+  options: { createRedirect?: boolean } = {},
 ): Promise<void> {
-  const { paths, undo } = prepareMovePage(config, fromUrl, toUrl);
+  const { paths, undo } = prepareMovePage(config, fromUrl, toUrl, options);
   try {
     commitPaths(config.siteRoot, paths, message, author);
   } catch (error) {
@@ -218,6 +235,7 @@ export function movePage(
   toUrl: string,
   message: string,
   author: CommitAuthor,
+  options: { createRedirect?: boolean } = {},
 ): Promise<void> {
-  return enqueue(() => movePageJob(config, fromUrl, toUrl, message, author));
+  return enqueue(() => movePageJob(config, fromUrl, toUrl, message, author, options));
 }

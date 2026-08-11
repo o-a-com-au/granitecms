@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
 import { ContentReadError, listContent, readContentFile } from '../../src/services/content-read.ts';
@@ -86,6 +86,44 @@ test('listContent prefers the live file on conflict but still reports hasDraft: 
     const about = entries.find((e) => e.path === 'pages/about.json');
     assert.equal(about?.title, 'Live About');
     assert.equal(about?.hasDraft, true);
+  } finally {
+    cleanup();
+  }
+});
+
+test('listContent reports changedAt from the file\'s own mtime, and null for a listing that somehow found neither file', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    writeJson(siteRoot, 'content/pages/about.json', page('About', 'page'));
+    const config = loadSiteConfig(siteRoot);
+
+    const entries = listContent(config, {});
+    const about = entries.find((e) => e.path === 'pages/about.json');
+    assert.ok(about?.changedAt !== null, 'expected a real changedAt timestamp');
+    assert.ok(!Number.isNaN(Date.parse(about?.changedAt as string)), 'expected changedAt to be a valid ISO date');
+  } finally {
+    cleanup();
+  }
+});
+
+test("listContent's changedAt reflects the more recent of live and draft when both exist", async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    writeJson(siteRoot, 'content/pages/about.json', page('Live About', 'page'));
+    // A real, later mtime on the draft - writeJson calls aren't
+    // guaranteed to land in different filesystem-resolution ticks
+    // back to back, so this waits long enough to force a genuine
+    // ordering rather than asserting on a coincidence.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    writeJson(siteRoot, 'content/drafts/pages/about.json', page('Draft About', 'page'));
+    const config = loadSiteConfig(siteRoot);
+
+    const entries = listContent(config, {});
+    const about = entries.find((e) => e.path === 'pages/about.json');
+    const liveStat = statSync(join(config.contentRoot, 'pages/about.json'));
+    const draftStat = statSync(join(config.draftsRoot, 'pages/about.json'));
+    assert.ok(draftStat.mtime >= liveStat.mtime, 'test setup expected the draft to be written after the live file');
+    assert.equal(about?.changedAt, draftStat.mtime.toISOString());
   } finally {
     cleanup();
   }
@@ -184,6 +222,54 @@ test('listContent does not crash on a real unmigrated (type-less) file', () => {
       filtered.some((e) => e.path === 'pages/legacy.json'),
       false,
     );
+  } finally {
+    cleanup();
+  }
+});
+
+test('listContent reports a page\'s own "name" distinct from its "title"', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    writeJson(siteRoot, 'content/pages/about.json', {
+      schemaVersion: 5,
+      name: 'Home Page',
+      title: 'Welcome — Acme Co',
+      type: 'page',
+      layout: 'theme',
+      published: true,
+      sections: [],
+    });
+    const config = loadSiteConfig(siteRoot);
+
+    const entries = listContent(config, {});
+    const about = entries.find((e) => e.path === 'pages/about.json');
+    assert.equal(about?.name, 'Home Page');
+    assert.equal(about?.title, 'Welcome — Acme Co');
+  } finally {
+    cleanup();
+  }
+});
+
+test('listContent falls back to "title" for "name" on a page written before the name field existed', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    // No "name" field at all - the real, persistent scenario every
+    // page authored before schemaVersion 5 is in, since migrations
+    // aren't wired to run automatically (same precedent as the
+    // type-less-legacy-file test above).
+    writeJson(siteRoot, 'content/pages/legacy.json', {
+      schemaVersion: 4,
+      title: 'Legacy Page',
+      type: 'page',
+      layout: 'theme',
+      published: true,
+      sections: [],
+    });
+    const config = loadSiteConfig(siteRoot);
+
+    const entries = listContent(config, {});
+    const legacy = entries.find((e) => e.path === 'pages/legacy.json');
+    assert.equal(legacy?.name, 'Legacy Page');
   } finally {
     cleanup();
   }

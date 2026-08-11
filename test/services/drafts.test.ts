@@ -19,6 +19,7 @@ const themeSchemas: ThemeSchemas = { sections: {}, blocks: {}, acceptsBlocks: { 
 
 const validPage = {
   schemaVersion: 1,
+  name: 'About',
   title: 'About',
   type: 'page',
   layout: 'theme',
@@ -88,6 +89,7 @@ test('Group I: a validation-failed DraftError carries the real structured errors
     };
     const invalidPage = {
       schemaVersion: 1,
+      name: 'About',
       title: 'About',
       type: 'page',
       layout: 'theme',

@@ -381,6 +381,53 @@ test('F4: POST /v1/content/move moves a page', async () => {
   }
 });
 
+test('F4: POST /v1/content/move honours createRedirect: false - no entry recorded for the old URL', async () => {
+  const { app, siteRoot, cleanup } = buildContentTestServer();
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About', 'page')));
+    const config = bootSite(siteRoot).config;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/content/move',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { from: '/about', to: '/company', message: 'move about', author, createRedirect: false },
+    });
+
+    assert.equal(response.statusCode, 200);
+    // redirects.json can still exist (prepareMovePage writes it even
+    // for a no-op change on a fresh site, a pre-existing quirk
+    // unrelated to this flag) - what createRedirect: false actually
+    // promises is that it has no entry for the old URL.
+    const redirects = JSON.parse(readFileSync(config.redirectsPath, 'utf-8')) as {
+      entries: Array<{ from: string; to: string }>;
+    };
+    assert.equal(
+      redirects.entries.some((entry) => entry.from === '/about'),
+      false,
+    );
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('F4: POST /v1/content/move rejects a non-boolean createRedirect with 400', async () => {
+  const { app, cleanup } = buildContentTestServer();
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/content/move',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { from: '/about', to: '/company', message: 'move', author, createRedirect: 'no' },
+    });
+    assert.equal(response.statusCode, 400);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
 test('F4: POST /v1/content/move returns 404 when the source page does not exist', async () => {
   const { app, cleanup } = buildContentTestServer();
   try {

@@ -129,20 +129,24 @@ interface MoveContentBody {
   to: string;
   message: string;
   author: { name: string; email: string };
+  createRedirect?: boolean;
 }
 
 function parseMoveContentBody(body: unknown): MoveContentBody | null {
   if (typeof body !== 'object' || body === null) {
     return null;
   }
-  const { from, to, message, author } = body as Record<string, unknown>;
+  const { from, to, message, author, createRedirect } = body as Record<string, unknown>;
   if (!isNonEmptyString(from) || !isNonEmptyString(to)) {
     return null;
   }
   if (!isNonEmptyString(message) || !isValidCommitAuthor(author)) {
     return null;
   }
-  return { from, to, message, author };
+  if (createRedirect !== undefined && typeof createRedirect !== 'boolean') {
+    return null;
+  }
+  return { from, to, message, author, createRedirect };
 }
 
 async function handleMoveContent(request: FastifyRequest, reply: FastifyReply, config: SiteConfig): Promise<void> {
@@ -157,7 +161,9 @@ async function handleMoveContent(request: FastifyRequest, reply: FastifyReply, c
   }
 
   try {
-    await movePage(config, parsed.from, parsed.to, parsed.message, parsed.author);
+    await movePage(config, parsed.from, parsed.to, parsed.message, parsed.author, {
+      createRedirect: parsed.createRedirect,
+    });
     reply.send({ ok: true });
   } catch (error) {
     if (error instanceof PathSafetyError) {

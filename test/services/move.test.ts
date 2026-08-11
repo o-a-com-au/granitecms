@@ -75,6 +75,66 @@ test('E2/critical fix: the move commit stages both the old path (deleted) and th
   }
 });
 
+test('createRedirect: false skips writing a redirect entry, without affecting the move itself', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', pageJson('About'));
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+
+    await movePage(config, '/about', '/company', 'move about to company', author, { createRedirect: false });
+
+    assert.equal(existsSync(join(config.pagesRoot, 'about.json')), false);
+    assert.ok(existsSync(join(config.pagesRoot, 'company.json')));
+    assert.equal(commitCount(siteRoot), before + 1);
+    assert.equal(redirectTargetFor(config, '/about'), undefined);
+  } finally {
+    cleanup();
+  }
+});
+
+test('createRedirect defaults to true when the option is omitted entirely, not just when explicitly true', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', pageJson('About'));
+    const config = loadSiteConfig(siteRoot);
+
+    await movePage(config, '/about', '/company', 'move about to company', author);
+
+    assert.equal(redirectTargetFor(config, '/about'), '/company');
+  } finally {
+    cleanup();
+  }
+});
+
+test('createRedirect: false still removes a stale redirect that already pointed at the destination', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/pages/original.json', pageJson('Original'));
+    const config = loadSiteConfig(siteRoot);
+    // Two prior moves leave a redirect FROM "/destination" (see E5's
+    // own removeRedirectForPath-runs-before-addRedirect ordering):
+    // original->destination records /original->/destination, then
+    // destination->original removes that entry (its "from" is the new
+    // url, /original) and records /destination->/original instead.
+    await movePage(config, '/original', '/destination', 'first move', author);
+    await movePage(config, '/destination', '/original', 'move back', author);
+    assert.equal(redirectTargetFor(config, '/destination'), '/original');
+
+    await movePage(config, '/original', '/destination', 'second move', author, { createRedirect: false });
+
+    // No new redirect was created (createRedirect: false)...
+    assert.equal(redirectTargetFor(config, '/original'), undefined);
+    // ...and the stale "/destination" redirect from the move-back is
+    // still cleared, even though no new redirect was requested - that
+    // cleanup isn't "creating a redirect", it's preventing a real page
+    // and a redirect entry from both claiming the same URL.
+    assert.equal(redirectTargetFor(config, '/destination'), undefined);
+  } finally {
+    cleanup();
+  }
+});
+
 test('E3: moving a subtree moves every descendant, writes one redirect entry per affected page, and is one commit', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
