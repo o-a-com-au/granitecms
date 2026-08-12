@@ -28,6 +28,19 @@ Each file has two parts:
 1. **Markup** - ordinary Liquid/HTML, using the variables described below.
 2. **A settings schema**, embedded in a `{% schema %} ... {% endschema %}` block. This is never a live Liquid tag - it is stripped out by the CMS before the file is rendered, so it can be placed anywhere in the file (convention: at the end). The content inside must be a single valid JSON object: a plain [JSON Schema draft-07](https://json-schema.org/draft-07) document describing the shape of that component's `settings`. Follow the existing convention exactly: `"type": "object"`, `"additionalProperties": false`, an explicit `"required"` array, and a `"properties"` object with a JSON Schema type for each setting (`string`, `integer`, `boolean`, `array`, etc., with constraints like `minLength`/`minimum`/`maximum`/`enum` as appropriate). There is no separate "settings type" system (no `color`, `image_picker`, `select` special types) - it is real JSON Schema, validated with Ajv.
 
+**Every property listed in `"required"` must also declare a `"default"`**, and that default must itself satisfy the property's own constraints (a `"default": ""` against `"minLength": 1` does not count). This is what lets the admin pre-fill a newly-added section/block so it starts valid instead of empty. A type that violates this is silently excluded from the theme's registered schemas - the same way a malformed `{% schema %}` block already is - so it simply won't appear as an option in the admin until fixed. For example:
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["heading"],
+  "properties": {
+    "heading": { "type": "string", "minLength": 1, "default": "New Section" }
+  }
+}
+```
+
 ### Section markup - available variables
 
 ```liquid
@@ -37,6 +50,24 @@ Each file has two parts:
 ```
 
 `blocksHtml` is an array of already-rendered HTML strings (each block was rendered separately, recursively, before the section itself). It is **not** raw block data - a section template never loops over raw block settings directly, it only receives finished HTML per block and must output it with `| raw` (the engine auto-escapes `{{ }}` by default; `| raw` is the explicit, required opt-out for content that is already safe HTML). If a section doesn't use blocks, it can ignore `blocksHtml` entirely.
+
+### Restricting which block types are allowed
+
+By default, any block type in the theme can be added under any section or block that renders `blocksHtml`. To restrict a section or block to a specific set of child block types, add an optional `"allowedBlocks"` array to its own schema, alongside `"properties"`:
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["heading"],
+  "properties": {
+    "heading": { "type": "string", "minLength": 1 }
+  },
+  "allowedBlocks": ["button"]
+}
+```
+
+Each entry is a child block type's identifier (its filename without `.liquid`). Omit `"allowedBlocks"` entirely for no restriction - this is the existing, unchanged default. A saved instance whose `blocks` array contains a type not listed here is rejected with a structured validation error, the same way an invalid setting value is.
 
 ### Block markup - available variables
 
