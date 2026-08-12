@@ -1,0 +1,8 @@
+{
+  "id": "sec-1",
+  "type": "hero",
+  "settings": { "heading": "Welcome" },
+  "blocks": [
+    { "id": "blk-1", "type": "group", "settings": {} }
+  ]
+}

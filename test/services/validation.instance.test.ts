@@ -63,3 +63,28 @@ test('A3: a block instance validates against its block type\'s schema.json from 
   assert.equal(result.valid, true);
   assert.deepEqual(result.errors, []);
 });
+
+test('K2: a block type declared in its parent\'s allowedBlocks passes', () => {
+  const instance = readInstance('hero-allowed-block.json');
+  const result = validateInstance(instance, 'section', themeSchemas);
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.errors, []);
+});
+
+test('K2: a block type not declared in its parent\'s allowedBlocks fails with a structured error', () => {
+  const instance = readInstance('hero-disallowed-block.json');
+  const result = validateInstance(instance, 'section', themeSchemas);
+  assert.equal(result.valid, false);
+  const error = result.errors.find((e) => e.keyword === 'disallowedBlockType');
+  assert.ok(error, 'expected a disallowedBlockType error');
+  assert.equal(error?.path, '/blocks/0/type');
+});
+
+test('K2: a parent type with no allowedBlocks stays unrestricted (regression)', () => {
+  // group.liquid accepts nested blocks and declares no allowedBlocks -
+  // any block type must still be allowed underneath it.
+  const instance = { id: 'blk-1', type: 'group', settings: {}, blocks: [{ id: 'blk-2', type: 'button', settings: { label: 'Learn more', url: '/about' } }] };
+  const result = validateInstance(instance, 'block', themeSchemas);
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.errors, []);
+});

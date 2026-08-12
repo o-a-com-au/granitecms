@@ -24,11 +24,11 @@ function buildThemeTestServer() {
   mkdirSync(join(siteRoot, 'theme', 'blocks'), { recursive: true });
   writeFileSync(
     join(siteRoot, 'theme', 'sections', 'hero.liquid'),
-    '<h1>{{ section.settings.heading }}</h1>{% for html in blocksHtml %}{{ html | raw }}{% endfor %}\n{% schema %}\n{"type":"object","required":["heading"],"properties":{"heading":{"type":"string","minLength":1}}}\n{% endschema %}\n',
+    '<h1>{{ section.settings.heading }}</h1>{% for html in blocksHtml %}{{ html | raw }}{% endfor %}\n{% schema %}\n{"type":"object","required":["heading"],"properties":{"heading":{"type":"string","minLength":1,"default":"New Section"}},"allowedBlocks":["button"]}\n{% endschema %}\n',
   );
   writeFileSync(
     join(siteRoot, 'theme', 'blocks', 'button.liquid'),
-    '<a href="{{ block.settings.url }}">{{ block.settings.label }}</a>\n{% schema %}\n{"type":"object","required":["label","url"],"properties":{"label":{"type":"string"},"url":{"type":"string"}}}\n{% endschema %}\n',
+    '<a href="{{ block.settings.url }}">{{ block.settings.label }}</a>\n{% schema %}\n{"type":"object","required":["label","url"],"properties":{"label":{"type":"string","default":"Learn more"},"url":{"type":"string","default":"#"}}}\n{% endschema %}\n',
   );
 
   const booted = bootSite(siteRoot);
@@ -57,6 +57,26 @@ test('I2: GET /v1/theme/schemas returns the real theme schemas and acceptsBlocks
     assert.ok(body.blocks.button);
     assert.equal(body.acceptsBlocks.sections.hero, true);
     assert.equal(body.acceptsBlocks.blocks.button, false);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('K3: GET /v1/theme/schemas round-trips a section\'s allowedBlocks key unmolested', async () => {
+  const { app, cleanup } = buildThemeTestServer();
+  try {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/theme/schemas',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = response.json() as { sections: Record<string, { allowedBlocks?: unknown }> };
+    const hero = body.sections.hero;
+    assert.ok(hero, 'expected the hero section schema to be present');
+    assert.deepEqual(hero.allowedBlocks, ['button']);
   } finally {
     await app.close();
     cleanup();

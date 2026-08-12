@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseThemeComponentFile } from './theme-component-file.ts';
-import type { ThemeSchemas } from './validation.ts';
+import { requiredFieldsHaveValidDefaults, type ThemeSchemas } from './validation.ts';
 
 interface TypeSchemas {
   schemas: Record<string, object>;
@@ -41,6 +41,13 @@ function loadTypeSchemas(typesDir: string): TypeSchemas {
     }
     const parsed = parseThemeComponentFile(source);
     if (!parsed) {
+      continue;
+    }
+    // A type whose required settings fields lack usable defaults is
+    // skipped the same way a malformed schema block already is -
+    // never a boot failure, just excluded from what gets registered
+    // (theme-authoring-guide.md, Group L).
+    if (!requiredFieldsHaveValidDefaults(parsed.schema)) {
       continue;
     }
     schemas[type] = parsed.schema;

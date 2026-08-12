@@ -69,6 +69,42 @@ function prefixErrors(errors: ValidationError[], prefix: string): ValidationErro
   return errors.map((error) => ({ ...error, path: `${prefix}${error.path}` }));
 }
 
+// The theme-authored schema JSON is passed through verbatim end to end
+// (see theme-schemas.ts), so an optional allowedBlocks array rides
+// through the whole pipeline for free, exactly like the "title" keyword
+// already does - never a real Ajv keyword, just a plain top-level
+// annotation read directly off the object. Absent/malformed means
+// unrestricted, matching every theme file written before this existed.
+function allowedBlockTypesOf(schema: object | undefined): string[] | undefined {
+  const value = (schema as { allowedBlocks?: unknown } | undefined)?.allowedBlocks;
+  return Array.isArray(value) && value.every((entry) => typeof entry === 'string') ? value : undefined;
+}
+
+// A theme author's own settings schema must declare a "default" for
+// every property it lists as required, and that default must itself
+// satisfy the property's own sub-schema - a bare "default": "" against
+// a minLength: 1 field would technically have a default but still
+// leave a pre-filled instance invalid, defeating the reason this
+// exists (see theme-schemas.ts, which skips a type failing this check
+// exactly like it already skips a malformed {% schema %} block).
+export function requiredFieldsHaveValidDefaults(schema: object): boolean {
+  const { required, properties } = schema as { required?: unknown; properties?: unknown };
+  if (!Array.isArray(required)) {
+    return true;
+  }
+  const propertyMap = (properties && typeof properties === 'object' ? properties : {}) as Record<string, unknown>;
+  return required.every((name) => {
+    if (typeof name !== 'string') {
+      return false;
+    }
+    const propertySchema = propertyMap[name];
+    if (typeof propertySchema !== 'object' || propertySchema === null || !('default' in propertySchema)) {
+      return false;
+    }
+    return ajv.validate(propertySchema, (propertySchema as { default: unknown }).default) === true;
+  });
+}
+
 interface SectionedContentShape {
   sections: unknown[];
 }
@@ -108,7 +144,16 @@ export function validateInstance(
   }
 
   if (typed.blocks) {
+    const allowedBlocks = allowedBlockTypesOf(typeSchema);
     typed.blocks.forEach((block, index) => {
+      const blockType = (block as { type?: unknown } | null)?.type;
+      if (allowedBlocks && typeof blockType === 'string' && !allowedBlocks.includes(blockType)) {
+        errors.push({
+          path: `/blocks/${index}/type`,
+          message: `Block type "${blockType}" is not allowed here`,
+          keyword: 'disallowedBlockType',
+        });
+      }
       const blockResult = validateInstance(block, 'block', themeSchemas);
       errors.push(...prefixErrors(blockResult.errors, `/blocks/${index}`));
     });

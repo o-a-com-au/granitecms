@@ -65,10 +65,11 @@ test('a real fixture .liquid file is loaded, keyed by filename, with the schema 
     additionalProperties: false,
     required: ['heading'],
     properties: {
-      heading: { type: 'string', minLength: 1 },
+      heading: { type: 'string', minLength: 1, default: 'New Section' },
       subheading: { type: 'string' },
       columns: { type: 'integer', minimum: 1, maximum: 4 },
     },
+    allowedBlocks: ['button'],
   });
 });
 
