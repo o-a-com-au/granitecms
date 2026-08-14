@@ -11,7 +11,7 @@ Build a lightweight CMS with a Shopify-style sections and blocks content model, 
 ## Non-negotiable constraints
 
 1. Content is stored as JSON files on disk, git-tracked. No database is the source of truth for content.
-2. A whole site's content, theme, and configuration must be portable by `git clone` alone, onto any server running the stack. **Known exceptions:** media binaries live in S3-compatible object storage and are not in the repo (media references in content JSON are relative or config-driven so a cloned site can be repointed at a different bucket), and the agent itself is restored by `npm install` from the lockfile rather than being vendored in the repo. The repo plus a lockfile is portable; the bucket and the npm registry are documented external dependencies.
+2. A whole site's content, theme, and configuration must be portable by `git clone` alone, onto any server running the stack. **Known exceptions:** `/media/` is deliberately not git-tracked regardless of which storage driver is active (binary uploads committed forever is unbounded repo bloat with no diffing or expiry benefit) - for the default local-filesystem driver this means `git clone` alone does not restore uploaded media, and moving a site to a new server means separately copying `/media/` (rsync, tar, a backup tool) alongside the clone; for the config-driven object storage driver, media is repointed by bucket configuration instead, same as before. The agent itself is restored by `npm install` from the lockfile rather than being vendored in the repo. The repo plus a lockfile is portable; `/media/` and the npm registry are documented external-to-git dependencies.
 3. The admin application and the site are two separate codebases with two separate deploy cycles. The only connection between them is a versioned HTTP API.
 4. Search and any future AI enhancement live in a derived, disposable index that can be fully rebuilt by walking the content files. It is never a second source of truth.
 5. AI features are out of scope for the first build. The system must work fully with a human editor only. AI is added later as just another writer that goes through the same validation path a human does.
@@ -24,7 +24,7 @@ Build a lightweight CMS with a Shopify-style sections and blocks content model, 
 
 The server is developed in its own repository and published as a scoped npm package (working name `@oa/cms-agent`). What ships is compiled JavaScript in `dist/` plus type declarations; TypeScript source never leaves the agent repo. A site depends on a semver-pinned version of the agent via its `package.json` and lockfile.
 
-A site is therefore a thin scaffold, restructured during Phase 2 (Group N) to exactly three top-level folders - everything a marketing manager touches lives under `content/`, everything a web designer touches lives under `theme/`, and the site's own serving configuration lives under `vhost/` (a real vhost's own scope in hosting terms - Apache/nginx/CyberPanel - the per-site serving configuration, not a multi-tenancy concept):
+A site is therefore a thin scaffold, restructured during Phase 2 (Group N) to four top-level folders - everything a marketing manager touches lives under `content/`, everything a web designer touches lives under `theme/`, uploaded media lives under `media/`, and the site's own serving configuration lives under `vhost/` (a real vhost's own scope in hosting terms - Apache/nginx/CyberPanel - the per-site serving configuration, not a multi-tenancy concept). `media/` is its own top-level folder rather than nesting inside `content/` specifically so its git-ignored status is a single, unambiguous `.gitignore` line at the site root - not a partial exception carved out of a folder every other line in this document describes as always git-tracked:
 
 ```
 my-site/
@@ -34,8 +34,9 @@ my-site/
     /menus/           direct-write, no draft state - see below
     redirects.json    direct-write, no draft state
   /theme/             section and block templates plus schemas
+  /media/             uploaded assets, served at /media/... - gitignored, see constraint 2
   /vhost/
-    site.config.json  config holds ports, tokens hash, media bucket, preview settings
+    site.config.json  config holds ports, tokens hash, media driver settings, preview settings
     package.json      depends on @oa/cms-agent at a pinned version
     package-lock.json
     server.js         imports the agent, points it one directory up (the real site root), starts
@@ -51,8 +52,8 @@ The agent hard-checks its environment on boot and exits with a clear message if 
 
 - Node 22 LTS or later
 - git 2.x available on PATH, and the site root is a git repository with a usable identity config
-- Write access to the site root
-- If media is configured: reachable object storage credentials
+- Write access to the site root, and to `/media/` specifically for the default local-filesystem storage driver
+- If the object storage driver is configured instead: reachable bucket credentials
 
 git stays a shelled-out dependency on the real binary. isomorphic-git is explicitly rejected: it is slower and diverges from real git behaviour in ways that would undermine the history and revert features, which are first-class in this design.
 
@@ -82,8 +83,8 @@ The commercial context did change during Phase 2: a source-available, open-core 
 - Templating for sections and blocks: LiquidJS (sandboxed, plain text, git-diffable, render timeouts enforced, no dynamically registered tags or filters ever)
 - Search index: SQLite via a swappable driver interface, `node:sqlite` default, better-sqlite3 optional, FTS5, rebuilt from content files on demand. No vector planning now; because the index is disposable, adding sqlite-vec later is a rebuild, not a migration.
 - Admin frontend: React with Vite, its own separate project and package.json
-- Media storage: S3-compatible object storage (Backblaze B2 or Cloudflare R2)
-- Media resizing: self-hosted imgproxy as its own service in front of the object storage; a documented external service, not part of the Node package
+- Media storage: behind a driver interface (mirroring the SQLite driver pattern) - local filesystem (`/media/`, gitignored) is the default, config-driven S3-compatible object storage (Backblaze B2 or Cloudflare R2) is an optional alternative driver
+- Media resizing: deferred past MVP - the default is a plain passthrough (original file served as-is, no image-processing dependency of any kind). A later transform driver (self-hosted imgproxy, or an in-process resizer) is a separately-scoped addition behind the same interface, not decided yet
 - Version control: git binary on the host, one repo per site
 
 ## Draft and publish model
@@ -143,7 +144,7 @@ Three repositories now, not two:
 
 ### Site scaffold (per client, thin, content only)
 
-As shown under Distribution model: content, drafts, theme, redirects, config, a lockfile, and a three-line entry point. The gitignored `/data/search-index.sqlite` lives here at runtime, rebuilt on demand, never committed.
+As shown under Distribution model: content, drafts, theme, media, redirects, config, a lockfile, and a three-line entry point. The gitignored `/data/search-index.sqlite` lives here at runtime, rebuilt on demand, never committed - `/media/` is gitignored for a different reason (constraint 2), not because it's disposable the way the index is.
 
 ### Admin (control plane, one instance total)
 
@@ -188,8 +189,8 @@ The site agent is the only thing a site exposes to the outside world. Deliberate
 ### Everything else
 
 - `POST /v1/search/rebuild` – rebuild the SQLite index from content files. The index covers live content; draft search is an admin-side concern, out of MVP scope.
-- `GET /v1/media`, `POST /v1/media` – list and upload media. Uploads are validated by type; SVG uploads are sanitised or rejected because an SVG served from a trusted origin is stored XSS.
-- `GET /v1/capabilities` – returns agent package version, content schema version, active SQLite driver, and a manifest of optional features, so the admin can hide or disable features a given site does not support.
+- `GET /v1/media`, `POST /v1/media`, `DELETE /v1/media/:path` – list, upload, and delete media. Uploads are content-addressed (named by a hash of their own bytes - no collisions, identical re-uploads dedupe for free). SVG uploads are rejected outright, not sanitised (an SVG served from a trusted origin is stored XSS; sanitisation is a possible later addition, not MVP). Upload size is capped at the HTTP/multipart layer itself (`@fastify/multipart`'s own `limits.fileSize`, which aborts the stream once exceeded rather than buffering an oversized body into memory first) - `413` on rejection, limit configurable per site in `site.config.json`. `DELETE` is permanent: `/media/` carries no git history the way `/content/` does, so there is no revert for a deleted or overwritten file - a broken image on a live page referencing it is an accepted consequence, not a bug to guard against with a trash/soft-delete layer.
+- `GET /v1/capabilities` – returns agent package version, content schema version, active SQLite driver, the configured max media upload size, and a manifest of optional features, so the admin can hide or disable features a given site does not support, and can validate an upload client-side against the same limit the server will actually enforce.
 
 Page duplication and template swaps need no dedicated endpoints; they are GET plus PUT (or a batch job) from the admin side.
 
@@ -215,7 +216,7 @@ The `/v1/` prefix plus the capabilities manifest handles admin-to-site compatibi
 - **Commit authorship.** The admin passes the authenticated editor's identity with each request; the agent sets it as git author on resulting commits.
 - **Rate limiting** on all write endpoints.
 - **IP allowlisting is optional, not the backbone.** Available per site for locked-down clients but not relied on. Primary controls are scoped tokens, path sanitisation, schema validation, and media upload validation.
-- **Media validation.** Type allowlist on upload, SVG sanitisation or rejection, media served via imgproxy in front of object storage rather than from the site origin.
+- **Media validation.** SVG rejected outright (no sanitisation attempted in MVP), upload size capped at the multipart-stream layer rather than after buffering the full body, filenames content-addressed so an upload can never overwrite an unrelated file by name collision. Served directly (the MVP transform driver is a passthrough); revisit "served from a proxy rather than the site origin" once a real transform driver exists, since that framing was written assuming object storage plus imgproxy specifically and no longer describes the local-filesystem default.
 - **Supply chain.** Because the agent is now a published package that third parties install, the agent repo gets lockfile auditing, provenance-enabled npm publishing, and a minimal dependency policy from day one.
 
 ## Phased build order
@@ -258,12 +259,15 @@ Built inside the agent repo from the start, against a local test site scaffold, 
 
 ### Phase 4: media
 
-- Storage behind a driver interface (mirroring the SQLite driver pattern): local filesystem as the default, config-driven object storage (bucket and base URL per site) as an option
-- Serving behind an `ImageTransformDriver` interface, default implementation a plain passthrough (serves the original file as-is; no resizing). No image-processing dependency, native or otherwise, in the MVP
-- Upload validation and SVG handling
-- Dynamic resizing deferred, not dropped: an imgproxy-backed (or cloud image API) driver is a later, separately-scoped addition behind the same interface, swapped in via config with no rework of storage/upload/serving. Expected to matter first for the hosted Pro tier, where imgproxy runs as a service the operator manages centrally rather than per self-hosted site
-- No Liquid filter for image URLs, ever (CLAUDE.md's ban on dynamically registered tags/filters) - matches Group K's existing asset-URL precedent. Any resize parameters get baked into the URL stored in content JSON by the admin's media picker, not computed at template-render time
-- Media picker in the admin UI
+`/media/` is a fourth top-level site folder (sibling to `content/`, `theme/`, `vhost/` - not nested inside `content/`), gitignored regardless of which storage driver is active. See constraint 2 and the site scaffold diagram above for the full reasoning.
+
+- **Storage driver interface** (mirroring the SQLite driver pattern - a thin interface, swappable implementations): local filesystem is the default and the only implementation built in this phase; config-driven S3-compatible object storage is a later, separately-scoped alternative driver, not built now
+- **Upload naming**: content-addressed - the filename is derived from a hash of the file's own bytes. No collision handling needed (a hash collision on distinct content is not a real concern at this scale), and an identical re-upload naturally dedupes to the same file rather than creating a duplicate
+- **Upload validation**: SVG rejected outright, not sanitised, for MVP - avoids taking on an XML/SVG sanitisation dependency before it's clear anyone needs SVG support. Size capped via `@fastify/multipart`'s own stream-level `limits.fileSize` (rejects mid-stream once exceeded, never buffers an oversized body fully into memory first, which would itself be a memory-exhaustion vector) - configurable per site in `site.config.json`, `413` on rejection. Pixel-dimension ("decompression bomb": a small file that decodes to enormous dimensions) limits are a known, explicitly deferred gap, not solved in this phase
+- **Deletion**: `DELETE /v1/media/:path`, permanent, no soft-delete/trash. `/media/` has no git history behind it the way `/content/` does (that's the whole point of not git-tracking it), so a delete - or an overwrite, though content-addressed naming makes accidental overwrite unlikely - is genuinely unrecoverable. A broken image on a live page as a result is an accepted trade-off, not something this phase guards against
+- **Serving and resizing**: behind a separate `ImageTransformDriver` interface (deliberately independent of the storage driver - storage and resizing are two different axes, not one bundled choice; local storage plus a self-hosted resizer, or object storage plus no resizing, are both valid combinations). MVP implementation is a plain passthrough: serves the original file as-is, no image-processing dependency of any kind, native or pure-JS. **The URL shape is decided now even though resizing isn't built yet**: Shopify-style query params, e.g. `image.jpg?width=1500` - the passthrough driver accepts and silently ignores these params, so nothing in stored content JSON needs migrating once real resizing exists. Dynamic resizing itself is deferred, not dropped: an imgproxy-backed (self-hosted, sitting in front of whichever storage driver is active - not a required cloud dependency) or in-process (`sharp` vs a pure-JS resizer is an open choice, revisit when this is actually built) driver is later, separately-scoped work behind the same interface. Building it also means revisiting response caching / a bound on permitted width values first - an unauthenticated route doing attacker-parameterised CPU work on every request with no cache is a real DoS surface, deferred along with the resizing work itself, not forgotten
+- **No Liquid filter for image URLs, ever** (CLAUDE.md's ban on dynamically registered tags/filters) - matches Group K's existing asset-URL precedent. Resize params are baked into the URL stored in content JSON by the admin's media picker at pick-time, never computed at template-render time
+- **Media picker in the admin UI.** Browse/upload/select, writing the picked file's URL into whichever `ImageField`-shaped setting is being edited (see `app-granite-cms-admin`'s own `format: "image"` field work - already stores `{ url, focalX, focalY }` and needs no shape change for this). Picker-grid thumbnails: ship the plain version first (lazy-loaded original images, browser-scaled) - a client-side, Canvas-API-generated companion thumbnail file per upload (zero new dependency, no per-request compute, scoped only to this picker's own browsing UX, not a substitute for the deferred transform driver) is a later addition if the plain version actually feels slow, not built speculatively now
 
 ### Phase 5: AI (explicitly deferred, not part of MVP)
 
@@ -281,4 +285,4 @@ No open items remain blocking Phase 3. See `docs/phase-3-checklist.md` for the p
 
 ## Definition of done for MVP
 
-A single site scaffold, on a clean machine with only Node 22+ and git installed, can: be set up by `git clone` plus `npm install` plus `node server.js`; store pages and sections as JSON with schema versions; hold draft and live states for a page; render live content via Liquid into a working website; render a draft in preview mode; promote a draft to live with a single authored git commit; record a redirect when a page moves; run its migration runner on a clean checkout; have its search index rebuilt from scratch with no native compilation required; and be moved to a brand new server by nothing more than `git clone` plus `npm install` plus starting the process, with media repointed by configuration. Separately, the agent package itself builds to compiled output and installs into a fresh scaffold without access to its TypeScript source.
+A single site scaffold, on a clean machine with only Node 22+ and git installed, can: be set up by `git clone` plus `npm install` plus `node server.js`; store pages and sections as JSON with schema versions; hold draft and live states for a page; render live content via Liquid into a working website; render a draft in preview mode; promote a draft to live with a single authored git commit; record a redirect when a page moves; run its migration runner on a clean checkout; have its search index rebuilt from scratch with no native compilation required; and be moved to a brand new server by nothing more than `git clone` plus `npm install` plus starting the process, with media handled per the active storage driver: repointed by configuration for object storage, or separately copied (rsync, tar, a backup tool - `git clone` alone does not carry it) for the default local-filesystem driver, since `/media/` is deliberately not git-tracked either way. Separately, the agent package itself builds to compiled output and installs into a fresh scaffold without access to its TypeScript source.
