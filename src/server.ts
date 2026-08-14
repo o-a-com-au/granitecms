@@ -6,6 +6,7 @@ import type { ServerConfig } from './server-config.ts';
 import { loadServerConfig } from './server-config.ts';
 import { assetsRoutes } from './routes/assets.ts';
 import { v1Routes } from './routes/index.ts';
+import { mediaPublicRoutes } from './routes/media-public.ts';
 import { publicRoutes } from './routes/public.ts';
 import { CHECKPOINT_AUTHOR, runCheckpoint } from './services/checkpoint.ts';
 import { startIntervalJob } from './services/interval-job.ts';
@@ -72,6 +73,7 @@ export function buildServer(
     engine: booted.engine,
     tokens: serverConfig.tokens,
     ipAllowlist: serverConfig.ipAllowlist,
+    maxUploadBytes: serverConfig.media.maxUploadBytes,
   });
 
   // Registered without a /v1 prefix, alongside v1Routes: this is the
@@ -93,6 +95,18 @@ export function buildServer(
   // order (verified empirically), so no guard is needed here the way
   // publicRoutes needs one against /v1/*.
   app.register(assetsRoutes, { config: booted.config });
+
+  // Same "more specific than the public catch-all" reasoning as
+  // assetsRoutes above. Deliberately not registered inside v1Routes
+  // (media.ts's own authenticated /v1/media CRUD routes are what live
+  // there) - this is the public, unauthenticated read side, matching
+  // assetsRoutes/publicRoutes' own placement.
+  //
+  // @fastify/multipart itself is NOT registered here, only inside
+  // media.ts's own plugin scope - see that file's comment for why
+  // (confining it to media routes only, leaving every other route
+  // file's default JSON body parsing untouched).
+  app.register(mediaPublicRoutes, { config: booted.config });
 
   return app;
 }

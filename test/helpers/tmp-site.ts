@@ -36,7 +36,7 @@ export function createTmpSiteRoot(
     // against config.contentRoot etc, or a raw ENOENT surfaces instead
     // of a clean PathSafetyError for reasons unrelated to the test.
     // drafts nests inside content/ (Group N), not a sibling of it.
-    for (const dir of ['content', 'content/pages', 'content/drafts', 'theme', 'theme/assets']) {
+    for (const dir of ['content', 'content/pages', 'content/drafts', 'theme', 'theme/assets', 'media']) {
       mkdirSync(join(siteRoot, dir), { recursive: true });
     }
   }

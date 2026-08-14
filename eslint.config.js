@@ -83,6 +83,7 @@ export default tseslint.config(
       'src/routes/capabilities.ts',
       'src/routes/assets.ts',
       'src/create-site/generate-site.ts',
+      'src/media/drivers/local-fs-driver.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
   },

@@ -4,3 +4,8 @@ node_modules/
 data/
 *.sqlite
 *.sqlite3
+
+# Uploaded media (constraint 2: binary uploads committed forever is
+# unbounded repo bloat with no diffing or expiry benefit - copied
+# separately when moving a site to a new server, never git-tracked)
+/media/

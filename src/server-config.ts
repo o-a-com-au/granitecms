@@ -15,6 +15,16 @@ export interface RateLimitConfig {
   windowMs: number;
 }
 
+// Nested under a "media" key in site.config.json (matching
+// rateLimit's own nested shape) rather than a flat field -
+// docs/cms-build-plan.md's own scaffold diagram already anticipates
+// more media-driver-specific settings arriving at this same location
+// later (e.g. a future driver selector once object storage exists),
+// so nesting now avoids a breaking config shape change then.
+export interface MediaConfig {
+  maxUploadBytes: number;
+}
+
 export interface ServerConfig {
   port: number;
   tokens: TokenEntry[];
@@ -22,10 +32,15 @@ export interface ServerConfig {
   trustProxy: boolean;
   ipAllowlist: string[];
   checkpointIntervalMs: number;
+  media: MediaConfig;
 }
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_RATE_LIMIT: RateLimitConfig = { max: 60, windowMs: 60000 };
+// 10MB (docs/cms-build-plan.md's own suggested default) - comfortably
+// above a properly web-optimised image, well below an unoptimised raw
+// camera export.
+const DEFAULT_MEDIA_MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 // The build plan's own literal example ("every 30 minutes"), adopted
 // as-is rather than re-litigated - its own [REVIEW] flag was about
 // whether checkpoints belong on main vs a dedicated branch (resolved:
@@ -123,6 +138,30 @@ function parseRateLimit(value: unknown): RateLimitConfig {
   return { max, windowMs };
 }
 
+function parseMedia(value: unknown): MediaConfig {
+  if (value === undefined) {
+    // Absent entirely -> the default limit applies, matching every
+    // other optional-object field's own "absence is not an error"
+    // philosophy.
+    return { maxUploadBytes: DEFAULT_MEDIA_MAX_UPLOAD_BYTES };
+  }
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new StartupCheckError('invalid-site-config', 'site.config.json\'s "media" must be an object');
+  }
+  const record = value as Record<string, unknown>;
+  const maxUploadBytes = record.maxUploadBytes;
+  if (maxUploadBytes === undefined) {
+    return { maxUploadBytes: DEFAULT_MEDIA_MAX_UPLOAD_BYTES };
+  }
+  if (typeof maxUploadBytes !== 'number' || !Number.isInteger(maxUploadBytes) || maxUploadBytes < 1) {
+    throw new StartupCheckError(
+      'invalid-site-config',
+      `site.config.json's "media.maxUploadBytes" must be a positive integer, got ${JSON.stringify(maxUploadBytes)}`,
+    );
+  }
+  return { maxUploadBytes };
+}
+
 function parseTrustProxy(value: unknown): boolean {
   if (value === undefined) {
     // Absent -> false, matching a bare single-process, no-reverse-
@@ -174,8 +213,10 @@ function parseCheckpointIntervalMs(value: unknown): number {
 
 // Kept separate from SiteConfig (src/config.ts, pure filesystem paths)
 // and from BootedSite (src/boot.ts): this is site.config.json's
-// non-path settings. Later groups add fields here (a media bucket for
-// Group I) without needing to restructure this module or its callers.
+// non-path settings. Later groups add fields here without needing to
+// restructure this module or its callers - the "media" field below is
+// exactly that: the max-upload-size setting anticipated here since
+// Phase 2 planning, now landed as Phase 4's local-storage foundation.
 //
 // Two different failure classes: the file being entirely absent is
 // not an error (defaults silently) - the whole Phase 1 test estate
@@ -200,6 +241,7 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
       trustProxy: false,
       ipAllowlist: [],
       checkpointIntervalMs: DEFAULT_CHECKPOINT_INTERVAL_MS,
+      media: { maxUploadBytes: DEFAULT_MEDIA_MAX_UPLOAD_BYTES },
     };
   }
 
@@ -230,6 +272,7 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
   const trustProxy = parseTrustProxy(record.trustProxy);
   const ipAllowlist = parseIpAllowlist(record.ipAllowlist);
   const checkpointIntervalMs = parseCheckpointIntervalMs(record.checkpointIntervalMs);
+  const media = parseMedia(record.media);
 
-  return { port, tokens, rateLimit, trustProxy, ipAllowlist, checkpointIntervalMs };
+  return { port, tokens, rateLimit, trustProxy, ipAllowlist, checkpointIntervalMs, media };
 }

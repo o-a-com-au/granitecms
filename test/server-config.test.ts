@@ -17,6 +17,7 @@ test('a site with no site.config.json defaults to port 3000 and no tokens, witho
       trustProxy: false,
       ipAllowlist: [],
       checkpointIntervalMs: 1_800_000,
+      media: { maxUploadBytes: 10 * 1024 * 1024 },
     });
   } finally {
     cleanup();
@@ -35,6 +36,7 @@ test('a site.config.json with a valid port is read correctly', () => {
       trustProxy: false,
       ipAllowlist: [],
       checkpointIntervalMs: 1_800_000,
+      media: { maxUploadBytes: 10 * 1024 * 1024 },
     });
   } finally {
     cleanup();
@@ -53,6 +55,7 @@ test('a site.config.json missing "port" defaults to port 3000', () => {
       trustProxy: false,
       ipAllowlist: [],
       checkpointIntervalMs: 1_800_000,
+      media: { maxUploadBytes: 10 * 1024 * 1024 },
     });
   } finally {
     cleanup();
@@ -261,6 +264,64 @@ test('a site.config.json with a non-positive-integer checkpointIntervalMs is a h
   const { siteRoot, cleanup } = createTmpSiteRoot();
   try {
     writeJson(siteRoot, 'vhost/site.config.json', { checkpointIntervalMs: 0 });
+    assert.throws(
+      () => loadServerConfig(siteRoot),
+      (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-site-config',
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a valid media.maxUploadBytes is read correctly', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { media: { maxUploadBytes: 5000 } });
+    const config = loadServerConfig(siteRoot);
+    assert.deepEqual(config.media, { maxUploadBytes: 5000 });
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json missing "media" defaults to a 10MB max upload size', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    const config = loadServerConfig(siteRoot);
+    assert.deepEqual(config.media, { maxUploadBytes: 10 * 1024 * 1024 });
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with "media" present but missing maxUploadBytes defaults it', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { media: {} });
+    const config = loadServerConfig(siteRoot);
+    assert.deepEqual(config.media, { maxUploadBytes: 10 * 1024 * 1024 });
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a non-positive-integer media.maxUploadBytes is a hard startup failure', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { media: { maxUploadBytes: 0 } });
+    assert.throws(
+      () => loadServerConfig(siteRoot),
+      (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-site-config',
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a non-object "media" is a hard startup failure', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { media: 'not-an-object' });
     assert.throws(
       () => loadServerConfig(siteRoot),
       (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-site-config',

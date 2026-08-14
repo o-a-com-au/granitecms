@@ -31,12 +31,17 @@ test('A3: GET /v1/capabilities returns the agent package version, the content sc
       agentVersion: string;
       contentSchemaVersion: number;
       sqliteDriver: string;
+      maxMediaUploadBytes: number;
     };
     // Asserted against the real sources of truth, not hardcoded
     // expected strings that would silently drift.
     assert.equal(body.agentVersion, AGENT_PACKAGE_JSON.version);
     assert.equal(body.contentSchemaVersion, CURRENT_SCHEMA_VERSION);
     assert.equal(body.sqliteDriver, DRIVER_NAME);
+    // The default (no site.config.json "media" key at all in this tmp
+    // site) - proves this endpoint reports whatever the server was
+    // actually configured with, not a hardcoded literal of its own.
+    assert.equal(body.maxMediaUploadBytes, 10 * 1024 * 1024);
   } finally {
     await app.close();
     cleanup();

@@ -9,6 +9,7 @@ import { capabilitiesRoutes } from './capabilities.ts';
 import { contentRoutes } from './content.ts';
 import { draftsRoutes } from './drafts.ts';
 import { gitRoutes } from './git.ts';
+import { mediaRoutes } from './media.ts';
 import { menusRoutes } from './menus.ts';
 import { previewRoutes } from './preview.ts';
 import { publishRoutes } from './publish.ts';
@@ -25,6 +26,7 @@ export interface V1RouteOptions {
   engine: Liquid;
   tokens: TokenEntry[];
   ipAllowlist: string[];
+  maxUploadBytes: number;
 }
 
 // The /v1 aggregator: buildServer registers this once with
@@ -52,7 +54,7 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   // asserted.
   fastify.addHook('onRequest', ipAllowlistGuard(opts.ipAllowlist));
 
-  fastify.register(capabilitiesRoutes);
+  fastify.register(capabilitiesRoutes, { maxUploadBytes: opts.maxUploadBytes });
 
   // Fastify passes the *entire* options object a plugin was registered
   // with - including `prefix` - through as this plugin's own second
@@ -90,6 +92,7 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
     tokens: opts.tokens,
   });
   fastify.register(gitRoutes, { config: opts.config, tokens: opts.tokens });
+  fastify.register(mediaRoutes, { config: opts.config, tokens: opts.tokens, maxUploadBytes: opts.maxUploadBytes });
   fastify.register(searchRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(redirectsRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(menusRoutes, { config: opts.config, tokens: opts.tokens });

@@ -71,6 +71,17 @@ export function scaffoldSite(targetDir: string): { raw: string } {
   // a sibling of it - see config.ts's own comment for why.
   mkdirSync(join(targetDir, 'content', 'drafts'), { recursive: true });
 
+  // media/ also starts empty, also created directly (no template
+  // content to copy - see config.ts's own comment for why this is a
+  // sibling of content/theme/vhost, not nested under content/). Not
+  // passed to commitPaths below: media is never git-tracked
+  // (constraint 2), even at scaffold time - an empty directory has
+  // nothing to commit anyway (git doesn't track empty directories), so
+  // this omission is a non-issue mechanically, but it's deliberate,
+  // not an oversight, should anyone go looking for why it's absent
+  // from that list.
+  mkdirSync(join(targetDir, 'media'), { recursive: true });
+
   // vhost/: the site's own serving configuration (package.json,
   // server.js, site.config.json), matching a real vhost's own scope in
   // hosting terms - never a sibling of content/theme.

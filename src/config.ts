@@ -21,6 +21,13 @@ export interface SiteConfig {
   vhostRoot: string;
   dataRoot: string;
   searchIndexPath: string;
+  // A sibling of contentRoot/themeRoot/vhostRoot, not nested under
+  // contentRoot the way draftsRoot is - media is deliberately its own
+  // top-level folder so its gitignored status (constraint 2) is a
+  // single, unambiguous rule, not a partial exception carved out of a
+  // folder every other line of this project describes as always
+  // git-tracked. Don't "fix" this to match draftsRoot's nesting.
+  mediaRoot: string;
 }
 
 // Pure path derivation, no fs calls. siteRoot must be supplied by the
@@ -58,5 +65,6 @@ export function loadSiteConfig(siteRoot: string): SiteConfig {
     vhostRoot,
     dataRoot,
     searchIndexPath: join(dataRoot, 'search-index.sqlite'),
+    mediaRoot: join(normalisedRoot, 'media'),
   };
 }

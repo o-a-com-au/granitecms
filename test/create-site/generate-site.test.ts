@@ -37,6 +37,7 @@ test('N: scaffoldSite produces content/(pages,menus,drafts,redirects.json), them
     assert.ok(existsSync(join(targetDir, 'vhost', 'site.config.json')));
     assert.ok(existsSync(join(targetDir, 'vhost', 'package.json')));
     assert.ok(existsSync(join(targetDir, 'vhost', 'server.js')));
+    assert.ok(existsSync(join(targetDir, 'media')), 'media/ is a real top-level folder, sibling to content/theme/vhost');
     assert.ok(existsSync(join(targetDir, '.gitignore')));
     // The template's own "gitignore" (no dot) must never leak into the
     // scaffold verbatim - only the renamed .gitignore should exist.
@@ -107,6 +108,27 @@ test('scaffoldSite initialises a real git repo with one commit using the fixed c
 
     const status = execFileSync('git', ['status', '--porcelain'], { cwd: targetDir }).toString('utf-8').trim();
     assert.equal(status, '', 'nothing should be left uncommitted');
+  } finally {
+    cleanup();
+  }
+});
+
+test('media/ is genuinely gitignored, not merely empty-by-chance: a file placed there is never committed', () => {
+  const { targetDir, cleanup } = tmpTargetDir();
+  try {
+    scaffoldSite(targetDir);
+    writeFileSync(join(targetDir, 'media', 'uploaded.jpg'), 'x');
+
+    // git reports the whole ignored directory, not each file inside it
+    // individually, once the directory itself matches a gitignore rule
+    // - it doesn't recurse into an ignored directory to list contents.
+    const status = execFileSync('git', ['status', '--porcelain', '--ignored'], { cwd: targetDir }).toString('utf-8');
+    assert.match(status, /!! media\//, 'git itself must report media/ as ignored, not just untracked');
+
+    assert.throws(
+      () => execFileSync('git', ['add', '-n', '--', 'media/uploaded.jpg'], { cwd: targetDir, stdio: 'pipe' }),
+      /ignored by one of your \.gitignore files/,
+    );
   } finally {
     cleanup();
   }

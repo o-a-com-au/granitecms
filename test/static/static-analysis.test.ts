@@ -124,6 +124,7 @@ const ROUTE_SCOPE_ALLOWLIST = new Set<string>([
   'routes/capabilities.ts', // intentionally exempt: a discovery endpoint (agent version, schema version, feature manifest) needed before a client necessarily has a working token configured - no token model to bootstrap against yet, and it leaks a version banner, not content
   'routes/public.ts', // intentionally and permanently exempt: this is the site's own public website (outside /v1/, not part of the site agent API), not a discovery aid awaiting a token model - a different category of exemption from capabilities.ts
   'routes/assets.ts', // intentionally and permanently exempt: static theme assets (CSS/JS/images) must be fetchable by any visitor's browser without a token, same reasoning as public.ts
+  'routes/media-public.ts', // intentionally and permanently exempt: uploaded media must be fetchable by any visitor's browser without a token, same reasoning as assets.ts
 ]);
 
 function registersRoutes(contents: string): boolean {
