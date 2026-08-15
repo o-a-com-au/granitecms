@@ -115,7 +115,7 @@ test('POST /v1/media with a valid image returns 201 with {name, size, url}, and 
 
     assert.equal(response.statusCode, 201);
     const body = response.json() as { name: string; size: number; url: string };
-    assert.match(body.name, /^[0-9a-f]{64}-photo\.jpg$/);
+    assert.match(body.name, /^[0-9a-f]{12}-photo\.jpg$/);
     assert.equal(body.size, 5);
     assert.equal(body.url, `/media/${body.name}`);
 

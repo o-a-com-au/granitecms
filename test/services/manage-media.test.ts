@@ -13,7 +13,7 @@ test('putMedia writes a retrievable file with the expected shape', async () => {
   try {
     const config = testConfig(siteRoot);
     const result = await putMedia(config, 'photo.jpg', Buffer.from('hello'));
-    assert.match(result.name, /^[0-9a-f]{64}-photo\.jpg$/);
+    assert.match(result.name, /^[0-9a-f]{12}-photo\.jpg$/);
     assert.equal(result.size, 5);
     assert.equal(result.url, `/media/${result.name}`);
   } finally {

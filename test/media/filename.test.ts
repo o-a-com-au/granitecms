@@ -18,7 +18,7 @@ test('different bytes produce different hashes', () => {
 
 test('the slug strips unsafe characters, spaces, and unicode, and lowercases', () => {
   const name = buildMediaFilename('My Summer Photo (2026)! café.jpg', Buffer.from('x'));
-  assert.match(name, /^[0-9a-f]{64}-my-summer-photo-2026-caf\.jpg$/);
+  assert.match(name, /^[0-9a-f]{12}-my-summer-photo-2026-caf\.jpg$/);
 });
 
 test('the extension is preserved and lowercased', () => {
@@ -28,5 +28,5 @@ test('the extension is preserved and lowercased', () => {
 
 test('an all-punctuation original filename falls back to a non-empty slug', () => {
   const name = buildMediaFilename('!!!.jpg', Buffer.from('x'));
-  assert.match(name, /^[0-9a-f]{64}-file\.jpg$/);
+  assert.match(name, /^[0-9a-f]{12}-file\.jpg$/);
 });

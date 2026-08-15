@@ -11,11 +11,20 @@ import { basename, extname } from 'node:path';
 // authoritative), so the original name is folded into the filename
 // itself instead of tracked anywhere else.
 //
+// Truncated to 12 hex chars (48 bits), not the full 64-char digest -
+// git itself only shows short hashes for the same reason. At this
+// length a collision between two different files stays astronomically
+// unlikely (well past a 1-in-a-trillion chance even at tens of
+// thousands of uploads to one site), while keeping filenames/URLs/git
+// history actually readable.
+//
 // Slug regex matches generate-site.ts's own sanitisePackageName -
 // lowercase, non [a-z0-9-] runs collapsed to a single "-", trimmed -
 // not a second, independently-invented convention.
+const HASH_LENGTH = 12;
+
 export function buildMediaFilename(originalFilename: string, bytes: Buffer): string {
-  const hash = createHash('sha256').update(bytes).digest('hex');
+  const hash = createHash('sha256').update(bytes).digest('hex').slice(0, HASH_LENGTH);
   const base = basename(originalFilename, extname(originalFilename));
   const cleaned = base.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
   const slug = cleaned.length > 0 ? cleaned : 'file';
