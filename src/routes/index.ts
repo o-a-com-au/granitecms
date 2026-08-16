@@ -11,6 +11,7 @@ import { draftsRoutes } from './drafts.ts';
 import { gitRoutes } from './git.ts';
 import { mediaRoutes } from './media.ts';
 import { menusRoutes } from './menus.ts';
+import { previewRevisionRoutes } from './preview-revision.ts';
 import { previewRoutes } from './preview.ts';
 import { publishRoutes } from './publish.ts';
 import { redirectsRoutes } from './redirects.ts';
@@ -64,6 +65,13 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   // registered at /v1/v1/preview/*). Re-pack only the site-data
   // fields, never `opts` itself, for any nested plugin registration.
   fastify.register(previewRoutes, {
+    config: opts.config,
+    themeTemplates: opts.themeTemplates,
+    layouts: opts.layouts,
+    engine: opts.engine,
+    tokens: opts.tokens,
+  });
+  fastify.register(previewRevisionRoutes, {
     config: opts.config,
     themeTemplates: opts.themeTemplates,
     layouts: opts.layouts,
