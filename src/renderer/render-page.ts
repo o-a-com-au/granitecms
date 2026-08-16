@@ -111,12 +111,20 @@ export type RenderMode = 'public' | 'preview';
 // pattern for the "type" field).
 const DEFAULT_LAYOUT = 'theme';
 
+// Throws on invalid JSON rather than swallowing to null - callers reading
+// a specific historical revision (preview-revision.ts) want to know "the
+// JSON at this ref is broken" as a distinct, reportable case, whereas
+// tryReadPage's null return means "nothing here, try the next root".
+export function parsePageContent(raw: string): PageContent {
+  const parsed = JSON.parse(raw) as Record<string, unknown>;
+  const layout = typeof parsed.layout === 'string' && parsed.layout.length > 0 ? parsed.layout : DEFAULT_LAYOUT;
+  return { ...parsed, layout } as PageContent;
+}
+
 function tryReadPage(root: string, relativePath: string): PageContent | null {
   const fullPath = sanitisePath(root, relativePath);
   try {
-    const parsed = JSON.parse(readFileSync(fullPath, 'utf-8')) as Record<string, unknown>;
-    const layout = typeof parsed.layout === 'string' && parsed.layout.length > 0 ? parsed.layout : DEFAULT_LAYOUT;
-    return { ...parsed, layout } as PageContent;
+    return parsePageContent(readFileSync(fullPath, 'utf-8'));
   } catch {
     return null;
   }
@@ -149,16 +157,19 @@ function loadPageForRender(config: SiteConfig, relativePath: string, mode: Rende
   return live;
 }
 
-export async function renderPage(
+// The shared back half of rendering: takes a page already loaded from
+// wherever (current draft/live disk state via loadPageForRender, or a
+// historical git blob via readFileAtRevision + parsePageContent) and runs
+// it through the identical layout/section/menu pipeline - so "render
+// what's on disk" and "render this specific historical revision" never
+// duplicate this logic.
+export async function renderLoadedPage(
+  page: PageContent,
   config: SiteConfig,
   themeTemplates: ThemeTemplates,
   layouts: Record<string, string>,
   engine: Liquid,
-  relativePath: string,
-  mode: RenderMode,
 ): Promise<string> {
-  const page = loadPageForRender(config, relativePath, mode);
-
   // Checked before rendering any sections, matching the fail-fast
   // ordering missing-section-type/missing-block-type already
   // establish - no point rendering a page's whole body just to
@@ -175,7 +186,9 @@ export async function renderPage(
   // to the layout only (not threaded into renderSections/renderInstance
   // above), matching the confirmed requirement: a layout renders nav,
   // sections/blocks don't need it in this pass. No mode distinction:
-  // menus have no draft state (Group N), always the live file.
+  // menus have no draft state (Group N), always the live file. This
+  // also means a historical page preview always shows today's menus,
+  // never a menu as it existed at that revision - an accepted limitation.
   const menus = loadMenus(config);
 
   // content_for_layout is already-rendered, already-safe HTML (like
@@ -187,4 +200,16 @@ export async function renderPage(
     page: { title: page.title },
     menus,
   })) as string;
+}
+
+export async function renderPage(
+  config: SiteConfig,
+  themeTemplates: ThemeTemplates,
+  layouts: Record<string, string>,
+  engine: Liquid,
+  relativePath: string,
+  mode: RenderMode,
+): Promise<string> {
+  const page = loadPageForRender(config, relativePath, mode);
+  return renderLoadedPage(page, config, themeTemplates, layouts, engine);
 }
