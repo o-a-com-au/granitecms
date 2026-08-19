@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 4,
+  "title": "Quickstart — Granite CMS",
+  "type": "page",
+  "layout": "theme",
+  "published": true,
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": {
+        "eyebrow": "Docs / Getting Started / Quickstart",
+        "heading": "The five-minute version.",
+        "subheading": "Install, scaffold, model your first content type, and deploy. No detours."
+      },
+      "blocks": [
+        { "id": "blk-quickstart-cta", "type": "button", "settings": { "label": "Back to Getting Started", "url": "/docs/getting-started", "style": "secondary" } }
+      ]
+    }
+  ]
+}

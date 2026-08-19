@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 4,
+  "title": "Deployment — Granite CMS",
+  "type": "page",
+  "layout": "theme",
+  "published": true,
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": {
+        "eyebrow": "Docs / Deployment",
+        "heading": "Ship it anywhere Node.js runs.",
+        "subheading": "A Granite site is a process and a folder of files - a VPS, a container, or the client's own hosting all work the same way."
+      },
+      "blocks": [
+        { "id": "blk-deploy-cta", "type": "button", "settings": { "label": "Back to Docs", "url": "/docs", "style": "secondary" } }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 4,
+  "title": "Getting Started — Granite CMS",
+  "type": "page",
+  "layout": "theme",
+  "published": true,
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": {
+        "eyebrow": "Docs / Getting Started",
+        "heading": "Scaffold your first site in under five minutes.",
+        "subheading": "One command sets up a theme folder, structured content and a vhost ready to deploy.",
+        "codeTitle": "terminal",
+        "codeSnippet": "$ npx granite create acme-corp\n✔ Scaffolded theme, content and vhost\n✔ Structured content models ready"
+      },
+      "blocks": [
+        { "id": "blk-gs-cta", "type": "button", "settings": { "label": "Quickstart", "url": "/docs/getting-started/quickstart", "style": "primary" } }
+      ]
+    }
+  ]
+}

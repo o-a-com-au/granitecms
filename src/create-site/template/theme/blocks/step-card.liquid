@@ -1,0 +1,19 @@
+<div class="step-card reveal" data-block-id="{{ block.id }}">
+  <div class="step-card__number">{{ block.settings.number }}</div>
+  <h3>{{ block.settings.heading }}</h3>
+  <p>{{ block.settings.description }}</p>
+</div>
+{% schema %}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Step Card",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["number", "heading", "description"],
+  "properties": {
+    "number": { "type": "string", "minLength": 1, "default": "1" },
+    "heading": { "type": "string", "minLength": 1, "default": "Step" },
+    "description": { "type": "string", "minLength": 1, "default": "Description" }
+  }
+}
+{% endschema %}

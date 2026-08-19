@@ -1,0 +1,22 @@
+<details class="faq-item" data-block-id="{{ block.id }}">
+  <summary>
+    <span>{{ block.settings.question }}</span>
+    <span class="faq-item__icon">{% render 'icon', name: 'plus' %}</span>
+  </summary>
+  <div class="faq-item__body">
+    <p>{{ block.settings.answer }}</p>
+  </div>
+</details>
+{% schema %}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FAQ Item",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["question", "answer"],
+  "properties": {
+    "question": { "type": "string", "minLength": 1, "default": "Question" },
+    "answer": { "type": "string", "minLength": 1, "default": "Answer" }
+  }
+}
+{% endschema %}

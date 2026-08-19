@@ -1,0 +1,27 @@
+<section class="section-alt" id="features" data-section-id="{{ section.id }}">
+  <div class="container">
+    <div class="section-head reveal">
+      {% if section.settings.eyebrow %}<span class="eyebrow">{{ section.settings.eyebrow }}</span>{% endif %}
+      <h2>{{ section.settings.heading }}</h2>
+      {% if section.settings.subheading %}<p>{{ section.settings.subheading }}</p>{% endif %}
+    </div>
+    <div class="feature-grid">
+      {% for html in blocksHtml %}{{ html | raw }}{% endfor %}
+    </div>
+  </div>
+</section>
+{% schema %}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Feature Grid",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["heading"],
+  "properties": {
+    "eyebrow": { "type": "string" },
+    "heading": { "type": "string", "minLength": 1, "default": "Why teams choose Granite" },
+    "subheading": { "type": "string" }
+  },
+  "allowedBlocks": ["feature-card"]
+}
+{% endschema %}

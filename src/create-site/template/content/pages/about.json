@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 4,
+  "title": "About — Granite CMS",
+  "type": "page",
+  "layout": "theme",
+  "published": true,
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": {
+        "eyebrow": "About",
+        "heading": "Built by people tired of fighting their CMS.",
+        "subheading": "Granite CMS started as an internal tool for an agency shipping a dozen client sites a year, and grew into something worth open-sourcing."
+      },
+      "blocks": [
+        { "id": "blk-about-cta", "type": "button", "settings": { "label": "Meet the team", "url": "/about/team", "style": "primary" } }
+      ]
+    }
+  ]
+}

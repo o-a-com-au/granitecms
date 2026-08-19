@@ -1,0 +1,42 @@
+<div class="pricing-tier reveal{% if block.settings.highlighted %} pricing-tier--highlight{% endif %}" data-block-id="{{ block.id }}">
+  <div class="pricing-tier__name">{{ block.settings.name }}</div>
+  <div class="pricing-tier__price">
+    <strong>{{ block.settings.price }}</strong>
+    <span>{{ block.settings.period }}</span>
+  </div>
+  <p class="pricing-tier__desc">{{ block.settings.description }}</p>
+  <ul class="pricing-tier__features">
+    {% for feature in block.settings.features %}
+      <li>{% render 'icon', name: 'check' %}<span>{{ feature }}</span></li>
+    {% endfor %}
+  </ul>
+  {% if block.settings.highlighted %}
+    <a class="btn btn--primary" href="{{ block.settings.ctaUrl }}">{{ block.settings.ctaLabel }}</a>
+  {% else %}
+    <a class="btn btn--secondary" href="{{ block.settings.ctaUrl }}">{{ block.settings.ctaLabel }}</a>
+  {% endif %}
+</div>
+{% schema %}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pricing Tier",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "price", "period", "description", "features", "ctaLabel", "ctaUrl"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1, "default": "Plan" },
+    "price": { "type": "string", "minLength": 1, "default": "$0" },
+    "period": { "type": "string", "minLength": 1, "default": "/month" },
+    "description": { "type": "string", "minLength": 1, "default": "Description" },
+    "features": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 },
+      "default": ["Feature one"]
+    },
+    "ctaLabel": { "type": "string", "minLength": 1, "default": "Get started" },
+    "ctaUrl": { "type": "string", "minLength": 1, "default": "#" },
+    "highlighted": { "type": "boolean" }
+  }
+}
+{% endschema %}

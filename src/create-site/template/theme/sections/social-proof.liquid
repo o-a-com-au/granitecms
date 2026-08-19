@@ -1,0 +1,21 @@
+<section class="social-proof" data-section-id="{{ section.id }}">
+  <div class="container">
+    <p class="social-proof__label reveal">{{ section.settings.label }}</p>
+    <div class="social-proof__row reveal">
+      {% for html in blocksHtml %}{{ html | raw }}{% endfor %}
+    </div>
+  </div>
+</section>
+{% schema %}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Social Proof",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["label"],
+  "properties": {
+    "label": { "type": "string", "minLength": 1, "default": "Trusted by teams at" }
+  },
+  "allowedBlocks": ["logo-mark"]
+}
+{% endschema %}

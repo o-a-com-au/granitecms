@@ -1,12 +1,99 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ page.title }}</title>
+    <meta name="description" content="Granite CMS is a lightweight, self-hosted content management system built for agencies and freelance developers who manage client sites on git-based workflows.">
     <link rel="stylesheet" href="/assets/style.css">
   </head>
   <body>
-    <header class="site-header">{% render 'site-name', name: 'My New Site' %}</header>
-    <nav class="site-nav">{% for item in menus.main.items %}<a href="{{ item.url }}">{{ item.label }}</a>{% endfor %}</nav>
-    {{ content_for_layout | raw }}
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header" data-site-header>
+      <div class="container site-header__inner">
+        <a href="/" class="logo">{% render 'logo' %}</a>
+
+        <nav class="site-nav" aria-label="Primary">
+          <ul>
+            {% for item in menus.main.items %}
+              <li><a href="{{ item.url }}">{{ item.label }}</a></li>
+            {% endfor %}
+          </ul>
+        </nav>
+
+        <div class="site-header__actions">
+          <a class="btn btn--primary btn--sm" href="#pricing">Get started</a>
+          <button class="nav-toggle" type="button" data-nav-toggle aria-expanded="false" aria-controls="mobile-nav" aria-label="Toggle menu">
+            <span></span><span></span><span></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="mobile-nav" id="mobile-nav" data-mobile-nav>
+        <ul>
+          {% for item in menus.main.items %}
+            <li><a href="{{ item.url }}">{{ item.label }}</a></li>
+          {% endfor %}
+        </ul>
+        <a class="btn btn--primary btn--block" href="#pricing">Get started</a>
+      </div>
+    </header>
+
+    <main id="main">
+      {{ content_for_layout | raw }}
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer__grid">
+          <div class="footer__brand">
+            {% render 'logo' %}
+            <p>Solid foundations for client sites. A lightweight, self-hosted CMS built for developers.</p>
+            <div class="footer__social">
+              <a href="https://github.com/granite-cms/granite" aria-label="GitHub">{% render 'icon', name: 'github' %}</a>
+              <a href="https://twitter.com/granitecms" aria-label="X (Twitter)">{% render 'icon', name: 'twitter' %}</a>
+              <a href="https://discord.gg/granitecms" aria-label="Discord">{% render 'icon', name: 'discord' %}</a>
+            </div>
+          </div>
+
+          <div class="footer__cols">
+            <nav class="footer__col" aria-label="Product">
+              <h3>Product</h3>
+              <ul>
+                {% for item in menus.footerProduct.items %}
+                  <li><a href="{{ item.url }}">{{ item.label }}</a></li>
+                {% endfor %}
+              </ul>
+            </nav>
+
+            <nav class="footer__col" aria-label="Resources">
+              <h3>Resources</h3>
+              <ul>
+                {% for item in menus.footerResources.items %}
+                  <li><a href="{{ item.url }}">{{ item.label }}</a></li>
+                {% endfor %}
+              </ul>
+            </nav>
+
+            <nav class="footer__col" aria-label="Company">
+              <h3>Company</h3>
+              <ul>
+                {% for item in menus.footerCompany.items %}
+                  <li><a href="{{ item.url }}">{{ item.label }}</a></li>
+                {% endfor %}
+              </ul>
+            </nav>
+          </div>
+        </div>
+
+        <div class="footer__bottom">
+          <span>&copy; 2026 Granite CMS. All rights reserved.</span>
+          <span>Built and self-hosted, everywhere.</span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="/assets/site.js"></script>
   </body>
 </html>

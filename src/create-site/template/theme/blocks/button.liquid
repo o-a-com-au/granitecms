@@ -1,25 +1,21 @@
-<a class="button" data-block-id="{{ block.id }}" href="{{ block.settings.url }}">{{ block.settings.label }}</a>
+{% if block.settings.style == 'secondary' %}
+<a class="btn btn--secondary" data-block-id="{{ block.id }}" href="{{ block.settings.url }}">{{ block.settings.label }}</a>
+{% elsif block.settings.style == 'on-dark' %}
+<a class="btn btn--on-dark" data-block-id="{{ block.id }}" href="{{ block.settings.url }}">{{ block.settings.label }}</a>
+{% else %}
+<a class="btn btn--primary" data-block-id="{{ block.id }}" href="{{ block.settings.url }}">{{ block.settings.label }}</a>
+{% endif %}
 {% schema %}
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Button",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "label",
-    "url"
-  ],
+  "required": ["label", "url"],
   "properties": {
-    "label": {
-      "type": "string",
-      "minLength": 1,
-      "default": "Learn more"
-    },
-    "url": {
-      "type": "string",
-      "minLength": 1,
-      "default": "#"
-    }
+    "label": { "type": "string", "minLength": 1, "default": "Learn more" },
+    "url": { "type": "string", "minLength": 1, "default": "#" },
+    "style": { "type": "string", "enum": ["primary", "secondary", "on-dark"] }
   }
 }
 {% endschema %}

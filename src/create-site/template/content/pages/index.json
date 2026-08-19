@@ -1,6 +1,6 @@
 {
   "schemaVersion": 4,
-  "title": "Home",
+  "title": "Granite CMS — Solid foundations for client sites",
   "type": "page",
   "layout": "theme",
   "published": true,
@@ -9,15 +9,172 @@
       "id": "sec-hero",
       "type": "hero",
       "settings": {
-        "heading": "Welcome to your new site",
-        "subheading": "Edit content/pages/index.json to change this page"
+        "eyebrow": "Open source · self-hosted · git-based",
+        "heading": "Solid foundations for client sites.",
+        "subheading": "Granite CMS is a lightweight, developer-first CMS built for agencies and freelancers who'd rather ship clean git-based sites than fight plugin bloat. Model your content, hand off a client-friendly admin, deploy anywhere.",
+        "codeTitle": "terminal",
+        "codeSnippet": "$ npx granite create acme-corp\n✔ Scaffolded theme, content and vhost\n✔ Structured content models ready\n\n$ granite deploy\n✔ Built 42 pages in 380ms\n✔ Synced to production — done."
+      },
+      "blocks": [
+        { "id": "blk-hero-cta-primary", "type": "button", "settings": { "label": "Get started", "url": "/docs", "style": "primary" } },
+        { "id": "blk-hero-cta-secondary", "type": "button", "settings": { "label": "View the docs", "url": "/docs", "style": "secondary" } }
+      ]
+    },
+    {
+      "id": "sec-social-proof",
+      "type": "social-proof",
+      "settings": {
+        "label": "Trusted by agencies and developers shipping client sites every week"
+      },
+      "blocks": [
+        { "id": "blk-logo-1", "type": "logo-mark", "settings": { "name": "NORTHWARD" } },
+        { "id": "blk-logo-2", "type": "logo-mark", "settings": { "name": "STUDIO PALE" } },
+        { "id": "blk-logo-3", "type": "logo-mark", "settings": { "name": "FIELDNOTE" } },
+        { "id": "blk-logo-4", "type": "logo-mark", "settings": { "name": "GOODHOUSE" } },
+        { "id": "blk-logo-5", "type": "logo-mark", "settings": { "name": "GREYWORKS" } }
+      ]
+    },
+    {
+      "id": "sec-features",
+      "type": "feature-grid",
+      "settings": {
+        "eyebrow": "Why Granite",
+        "heading": "Everything a client site needs. Nothing it doesn't.",
+        "subheading": "Granite is built around a small set of clean primitives instead of a decade of accumulated core and plugin cruft."
+      },
+      "blocks": [
+        { "id": "blk-feature-1", "type": "feature-card", "settings": { "icon": "structure", "heading": "Structured content modelling", "description": "Define content types with plain JSON Schema — no proprietary field builder, no black-box data model. What you write is what gets validated." } },
+        { "id": "blk-feature-2", "type": "feature-card", "settings": { "icon": "git", "heading": "Git-based workflows", "description": "Content and theme live in git alongside your code. Branch a client's homepage redesign, review it in a PR, merge it like anything else you ship." } },
+        { "id": "blk-feature-3", "type": "feature-card", "settings": { "icon": "bolt", "heading": "Blazing performance", "description": "No ORM, no plugin queue, no admin-panel tax on the front end. Pages render in milliseconds because there's nothing extra in the way." } },
+        { "id": "blk-feature-4", "type": "feature-card", "settings": { "icon": "block", "heading": "No plugin bloat", "description": "There's no plugin marketplace to get lost in. Granite ships with exactly what a client site needs, and nothing you'll spend a weekend patching." } },
+        { "id": "blk-feature-5", "type": "feature-card", "settings": { "icon": "admin", "heading": "Simple, client-friendly admin", "description": "Hand off access without a training session. Clients edit their own copy and images through a focused admin UI — no theme settings to break." } },
+        { "id": "blk-feature-6", "type": "feature-card", "settings": { "icon": "portable", "heading": "Fully self-hosted and portable", "description": "Run it on your own infrastructure or the client's. Every site is a folder of files — move it, back it up, or migrate it without asking permission." } }
+      ]
+    },
+    {
+      "id": "sec-how-it-works",
+      "type": "how-it-works",
+      "settings": {
+        "eyebrow": "How it works",
+        "heading": "From new client to live site in three steps",
+        "subheading": "No scaffolding to hand-roll and no framework decisions to relitigate for every new engagement."
+      },
+      "blocks": [
+        { "id": "blk-step-1", "type": "step-card", "settings": { "number": "01", "heading": "Scaffold a site", "description": "Run one command to generate a new site: theme folder, content structure and a vhost ready to deploy. No boilerplate to copy from your last project." } },
+        { "id": "blk-step-2", "type": "step-card", "settings": { "number": "02", "heading": "Model your content", "description": "Define sections and blocks as plain templates with a JSON Schema for their settings. Content authors get a clean admin; you get a system you actually understand." } },
+        { "id": "blk-step-3", "type": "step-card", "settings": { "number": "03", "heading": "Deploy anywhere", "description": "Granite is just a process and a folder of files. Ship it to a VPS, a container, or the client's own hosting — there's no vendor lock-in." } }
+      ]
+    },
+    {
+      "id": "sec-comparison",
+      "type": "comparison",
+      "settings": {
+        "eyebrow": "Granite CMS vs. traditional CMS platforms",
+        "heading": "Built lean, on purpose",
+        "subheading": "A side-by-side look at what changes when you drop the plugin ecosystem and two decades of legacy core.",
+        "criteriaLabel": "Criteria",
+        "graniteLabel": "Granite CMS",
+        "traditionalLabel": "Traditional CMS"
+      },
+      "blocks": [
+        { "id": "blk-row-1", "type": "comparison-row", "settings": { "criteria": "Page load speed", "granite": "Sub-100ms, no plugin overhead", "traditional": "Often 1–3s under plugin load" } },
+        { "id": "blk-row-2", "type": "comparison-row", "settings": { "criteria": "Security surface", "granite": "No third-party plugin ecosystem to patch", "traditional": "Large attack surface from plugins & extensions" } },
+        { "id": "blk-row-3", "type": "comparison-row", "settings": { "criteria": "Maintenance overhead", "granite": "One lightweight core, occasional bump", "traditional": "Core, theme and dozens of plugins to keep current" } },
+        { "id": "blk-row-4", "type": "comparison-row", "settings": { "criteria": "Portability", "granite": "Just files — move or self-host freely", "traditional": "Database-coupled, often host-locked" } }
+      ]
+    },
+    {
+      "id": "sec-testimonials",
+      "type": "testimonials",
+      "settings": {
+        "eyebrow": "From the field",
+        "heading": "What agencies say after switching",
+        "subheading": "Fewer support emails, cleaner handoffs, and a stack their whole team can reason about."
+      },
+      "blocks": [
+        { "id": "blk-testimonial-1", "type": "testimonial-card", "settings": { "quote": "We used to budget half a day per client site just for plugin updates and conflicts. With Granite that's gone entirely — content lives in git, and deploys are boring in the best way.", "name": "Maya Okonkwo", "role": "Founder, Fieldnote Studio", "initials": "MO" } },
+        { "id": "blk-testimonial-2", "type": "testimonial-card", "settings": { "quote": "Handing a finished site to a client used to mean signing them up for a support contract. Now we hand over an admin URL and a five-minute walkthrough. They edit their own copy, and we stop getting 'can you fix a typo' emails.", "name": "Tom Bregman", "role": "Lead Developer, Northward Digital", "initials": "TB" } }
+      ]
+    },
+    {
+      "id": "sec-pricing",
+      "type": "pricing",
+      "settings": {
+        "eyebrow": "Pricing",
+        "heading": "Plans that scale with your client roster",
+        "subheading": "Self-host for free, or let us handle updates and multi-site management for you."
       },
       "blocks": [
         {
-          "id": "blk-docs",
-          "type": "button",
-          "settings": { "label": "Get started", "url": "/" }
+          "id": "blk-tier-solo",
+          "type": "pricing-tier",
+          "settings": {
+            "name": "Solo",
+            "price": "$0",
+            "period": "forever, self-hosted",
+            "description": "For freelancers running a handful of client sites.",
+            "features": ["Unlimited self-hosted sites", "Structured content & git workflows", "Community support", "MIT-licensed core"],
+            "ctaLabel": "Get started",
+            "ctaUrl": "/docs",
+            "highlighted": false
+          }
+        },
+        {
+          "id": "blk-tier-agency",
+          "type": "pricing-tier",
+          "settings": {
+            "name": "Agency",
+            "price": "$39",
+            "period": "per month",
+            "description": "For agencies managing a growing roster of client sites.",
+            "features": ["Everything in Solo", "Managed updates & security patches", "Multi-site admin dashboard", "Priority email support", "Client access management"],
+            "ctaLabel": "Start free trial",
+            "ctaUrl": "/docs",
+            "highlighted": true
+          }
+        },
+        {
+          "id": "blk-tier-enterprise",
+          "type": "pricing-tier",
+          "settings": {
+            "name": "Enterprise",
+            "price": "Custom",
+            "period": "talk to us",
+            "description": "For teams with compliance, scale or white-label needs.",
+            "features": ["Everything in Agency", "SSO & audit logging", "White-label admin", "Dedicated support channel", "Custom SLAs"],
+            "ctaLabel": "Contact sales",
+            "ctaUrl": "/contact",
+            "highlighted": false
+          }
         }
+      ]
+    },
+    {
+      "id": "sec-faq",
+      "type": "faq",
+      "settings": {
+        "eyebrow": "FAQ",
+        "heading": "Questions agencies ask before switching",
+        "subheading": "If you don't see yours here, the docs cover the rest."
+      },
+      "blocks": [
+        { "id": "blk-faq-1", "type": "faq-item", "settings": { "question": "Do I need to host it myself?", "answer": "No — Granite runs anywhere Node.js does, including most managed platforms, but self-hosting is fully supported and often the whole point. Bring your own VPS, container platform, or hand it to your client's existing host." } },
+        { "id": "blk-faq-2", "type": "faq-item", "settings": { "question": "Can I migrate an existing WordPress site?", "answer": "Yes. Granite includes a WordPress import script that pulls posts, pages and media into structured content JSON. Most agencies remap templates by hand afterward, since a Granite theme has a much smaller surface than a WordPress theme." } },
+        { "id": "blk-faq-3", "type": "faq-item", "settings": { "question": "How do clients access their site?", "answer": "Each site ships with a lightweight, focused admin UI scoped to content — no theme settings, no plugin screens. You control what's editable per content type, so clients can't break the layout." } },
+        { "id": "blk-faq-4", "type": "faq-item", "settings": { "question": "How do updates work?", "answer": "Granite has one small core and no plugin ecosystem to keep in sync, so updates are a single version bump with a changelog you can actually read in a minute." } },
+        { "id": "blk-faq-5", "type": "faq-item", "settings": { "question": "What if I need help?", "answer": "Solo and Agency plans include community and priority support respectively; Enterprise gets a dedicated support channel. The docs also cover the vast majority of setup and theming questions directly." } }
+      ]
+    },
+    {
+      "id": "sec-cta",
+      "type": "cta-banner",
+      "settings": {
+        "heading": "Ready to build on solid ground?",
+        "subheading": "Scaffold your first Granite site in under five minutes. No credit card, no plugin marketplace, no legacy baggage."
+      },
+      "blocks": [
+        { "id": "blk-cta-primary", "type": "button", "settings": { "label": "Get started", "url": "/docs", "style": "primary" } },
+        { "id": "blk-cta-secondary", "type": "button", "settings": { "label": "Talk to us", "url": "/contact", "style": "on-dark" } }
       ]
     }
   ]

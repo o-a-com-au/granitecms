@@ -1,0 +1,13 @@
+<span class="logo-mark" data-block-id="{{ block.id }}">{{ block.settings.name }}</span>
+{% schema %}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Logo Mark",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1, "default": "Company" }
+  }
+}
+{% endschema %}

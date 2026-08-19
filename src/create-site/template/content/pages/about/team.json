@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 4,
+  "title": "Team — Granite CMS",
+  "type": "page",
+  "layout": "theme",
+  "published": true,
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": {
+        "eyebrow": "About / Team",
+        "heading": "A small team, on purpose.",
+        "subheading": "Granite CMS is maintained by a handful of people who'd rather ship a focused tool than manage a plugin marketplace."
+      },
+      "blocks": [
+        { "id": "blk-team-cta", "type": "button", "settings": { "label": "Back to About", "url": "/about", "style": "secondary" } }
+      ]
+    }
+  ]
+}

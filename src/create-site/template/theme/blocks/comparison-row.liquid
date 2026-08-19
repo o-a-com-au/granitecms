@@ -1,0 +1,19 @@
+<tr data-block-id="{{ block.id }}">
+  <td>{{ block.settings.criteria }}</td>
+  <td class="col-granite">{{ block.settings.granite }}</td>
+  <td>{{ block.settings.traditional }}</td>
+</tr>
+{% schema %}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Comparison Row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["criteria", "granite", "traditional"],
+  "properties": {
+    "criteria": { "type": "string", "minLength": 1, "default": "Criteria" },
+    "granite": { "type": "string", "minLength": 1, "default": "Granite" },
+    "traditional": { "type": "string", "minLength": 1, "default": "Traditional" }
+  }
+}
+{% endschema %}

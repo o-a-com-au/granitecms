@@ -1,0 +1,25 @@
+<div class="testimonial-card reveal" data-block-id="{{ block.id }}">
+  <blockquote>{{ block.settings.quote }}</blockquote>
+  <div class="testimonial-card__author">
+    <span class="avatar" aria-hidden="true">{{ block.settings.initials }}</span>
+    <div>
+      <strong>{{ block.settings.name }}</strong>
+      <span>{{ block.settings.role }}</span>
+    </div>
+  </div>
+</div>
+{% schema %}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Testimonial Card",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["quote", "name", "role", "initials"],
+  "properties": {
+    "quote": { "type": "string", "minLength": 1, "default": "Quote" },
+    "name": { "type": "string", "minLength": 1, "default": "Name" },
+    "role": { "type": "string", "minLength": 1, "default": "Role" },
+    "initials": { "type": "string", "minLength": 1, "maxLength": 3, "default": "AB" }
+  }
+}
+{% endschema %}

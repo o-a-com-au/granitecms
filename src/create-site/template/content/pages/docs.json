@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 4,
+  "title": "Docs — Granite CMS",
+  "type": "page",
+  "layout": "theme",
+  "published": true,
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": {
+        "eyebrow": "Docs",
+        "heading": "Everything you need to run Granite CMS.",
+        "subheading": "Setup, content modelling and deployment guides, kept short enough to actually read."
+      },
+      "blocks": [
+        { "id": "blk-docs-cta", "type": "button", "settings": { "label": "Getting started", "url": "/docs/getting-started", "style": "primary" } }
+      ]
+    }
+  ]
+}

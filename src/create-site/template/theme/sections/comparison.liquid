@@ -1,0 +1,41 @@
+<section class="section-alt" id="comparison" data-section-id="{{ section.id }}">
+  <div class="container">
+    <div class="section-head center reveal">
+      {% if section.settings.eyebrow %}<span class="eyebrow">{{ section.settings.eyebrow }}</span>{% endif %}
+      <h2>{{ section.settings.heading }}</h2>
+      {% if section.settings.subheading %}<p>{{ section.settings.subheading }}</p>{% endif %}
+    </div>
+    <div class="comparison-wrap reveal">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>{{ section.settings.criteriaLabel }}</th>
+            <th class="col-granite">{{ section.settings.graniteLabel }}</th>
+            <th>{{ section.settings.traditionalLabel }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for html in blocksHtml %}{{ html | raw }}{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% schema %}
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Comparison",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["heading", "criteriaLabel", "graniteLabel", "traditionalLabel"],
+  "properties": {
+    "eyebrow": { "type": "string" },
+    "heading": { "type": "string", "minLength": 1, "default": "How Granite compares" },
+    "subheading": { "type": "string" },
+    "criteriaLabel": { "type": "string", "minLength": 1, "default": "Criteria" },
+    "graniteLabel": { "type": "string", "minLength": 1, "default": "Granite" },
+    "traditionalLabel": { "type": "string", "minLength": 1, "default": "Traditional CMS" }
+  },
+  "allowedBlocks": ["comparison-row"]
+}
+{% endschema %}

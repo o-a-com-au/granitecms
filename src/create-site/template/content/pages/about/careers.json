@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 4,
+  "title": "Careers — Granite CMS",
+  "type": "page",
+  "layout": "theme",
+  "published": true,
+  "sections": [
+    {
+      "id": "sec-hero",
+      "type": "hero",
+      "settings": {
+        "eyebrow": "About / Careers",
+        "heading": "We're not hiring right now.",
+        "subheading": "Granite CMS is a small, deliberately lean team. When that changes, openings will show up here first."
+      },
+      "blocks": [
+        { "id": "blk-careers-cta", "type": "button", "settings": { "label": "Back to About", "url": "/about", "style": "secondary" } }
+      ]
+    }
+  ]
+}
