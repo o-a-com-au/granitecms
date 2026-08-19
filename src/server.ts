@@ -155,6 +155,8 @@ export async function startServer(
     }
   });
 
-  await app.listen({ port: serverConfig.port });
+  // host: '0.0.0.0' - Fastify's own default binds 127.0.0.1 only,
+  // which is unreachable from outside any container or remote host.
+  await app.listen({ port: serverConfig.port, host: '0.0.0.0' });
   return app;
 }

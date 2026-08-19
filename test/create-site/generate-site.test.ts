@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ScaffoldError, scaffoldSite } from '../../src/create-site/generate-site.ts';
@@ -42,6 +42,10 @@ test('N: scaffoldSite produces content/(pages,menus,drafts,redirects.json), them
     // The template's own "gitignore" (no dot) must never leak into the
     // scaffold verbatim - only the renamed .gitignore should exist.
     assert.equal(existsSync(join(targetDir, 'gitignore')), false);
+    assert.ok(existsSync(join(targetDir, 'Dockerfile')));
+    assert.ok(existsSync(join(targetDir, 'docker-entrypoint.sh')));
+    assert.ok(existsSync(join(targetDir, '.dockerignore')));
+    assert.equal(existsSync(join(targetDir, 'dockerignore')), false);
     // The old top-level locations must be genuinely gone, not just
     // duplicated - proves the move, not an addition.
     assert.equal(existsSync(join(targetDir, 'drafts')), false);
@@ -108,6 +112,17 @@ test('scaffoldSite initialises a real git repo with one commit using the fixed c
 
     const status = execFileSync('git', ['status', '--porcelain'], { cwd: targetDir }).toString('utf-8').trim();
     assert.equal(status, '', 'nothing should be left uncommitted');
+  } finally {
+    cleanup();
+  }
+});
+
+test('docker-entrypoint.sh is scaffolded with the executable bit set', () => {
+  const { targetDir, cleanup } = tmpTargetDir();
+  try {
+    scaffoldSite(targetDir);
+    const mode = statSync(join(targetDir, 'docker-entrypoint.sh')).mode;
+    assert.ok(mode & 0o111, 'docker-entrypoint.sh must be executable');
   } finally {
     cleanup();
   }

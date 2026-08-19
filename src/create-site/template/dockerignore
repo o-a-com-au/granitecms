@@ -1,0 +1,6 @@
+# Renamed to .dockerignore by scaffoldSite() (same trick as this
+# template's own "gitignore" -> ".gitignore"). Deliberately does NOT
+# exclude .git - the site root must be a real git repository at
+# runtime (services/startup-checks.ts), so .git has to reach the image.
+vhost/node_modules
+vhost/data

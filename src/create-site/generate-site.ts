@@ -56,14 +56,16 @@ export function scaffoldSite(targetDir: string): { raw: string } {
   mkdirSync(targetDir, { recursive: true });
 
   // The static theme/content template, copied verbatim except its own
-  // "gitignore" (no leading dot - a literal .gitignore inside the
-  // template tree would be silently dropped by npm pack's own packlist
-  // logic, verified empirically before this was written).
+  // "gitignore"/"dockerignore" (no leading dot - a literal .gitignore
+  // or .dockerignore inside the template tree would be silently
+  // dropped by npm pack's own packlist logic, verified empirically
+  // before this was written).
   cpSync(TEMPLATE_ROOT, targetDir, {
     recursive: true,
-    filter: (source) => basename(source) !== 'gitignore',
+    filter: (source) => basename(source) !== 'gitignore' && basename(source) !== 'dockerignore',
   });
   cpSync(join(TEMPLATE_ROOT, 'gitignore'), join(targetDir, '.gitignore'));
+  cpSync(join(TEMPLATE_ROOT, 'dockerignore'), join(targetDir, '.dockerignore'));
 
   // content/drafts/ starts empty - not part of the static template
   // (nothing to copy), created directly so a fresh site has somewhere
@@ -132,7 +134,7 @@ export function scaffoldSite(targetDir: string): { raw: string } {
   execFileSync('git', ['init', '--quiet'], { cwd: targetDir });
   commitPaths(
     targetDir,
-    ['theme', 'content', 'vhost', '.gitignore'],
+    ['theme', 'content', 'vhost', '.gitignore', 'Dockerfile', 'docker-entrypoint.sh', '.dockerignore'],
     'chore: initial scaffold',
     CHECKPOINT_AUTHOR,
   );
