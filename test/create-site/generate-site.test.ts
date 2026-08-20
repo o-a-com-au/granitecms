@@ -42,10 +42,14 @@ test('N: scaffoldSite produces content/(pages,menus,drafts,redirects.json), them
     // The template's own "gitignore" (no dot) must never leak into the
     // scaffold verbatim - only the renamed .gitignore should exist.
     assert.equal(existsSync(join(targetDir, 'gitignore')), false);
-    assert.ok(existsSync(join(targetDir, 'Dockerfile')));
-    assert.ok(existsSync(join(targetDir, 'docker-entrypoint.sh')));
+    assert.ok(existsSync(join(targetDir, 'vhost', 'Dockerfile')));
+    assert.ok(existsSync(join(targetDir, 'vhost', 'docker-entrypoint.sh')));
     assert.ok(existsSync(join(targetDir, '.dockerignore')));
     assert.equal(existsSync(join(targetDir, 'dockerignore')), false);
+    // Deliberately not at the site root - see vhost/Dockerfile's own
+    // comment for why (keeps the top level to content/theme/media/vhost).
+    assert.equal(existsSync(join(targetDir, 'Dockerfile')), false);
+    assert.equal(existsSync(join(targetDir, 'docker-entrypoint.sh')), false);
     // The old top-level locations must be genuinely gone, not just
     // duplicated - proves the move, not an addition.
     assert.equal(existsSync(join(targetDir, 'drafts')), false);
@@ -121,7 +125,7 @@ test('docker-entrypoint.sh is scaffolded with the executable bit set', () => {
   const { targetDir, cleanup } = tmpTargetDir();
   try {
     scaffoldSite(targetDir);
-    const mode = statSync(join(targetDir, 'docker-entrypoint.sh')).mode;
+    const mode = statSync(join(targetDir, 'vhost', 'docker-entrypoint.sh')).mode;
     assert.ok(mode & 0o111, 'docker-entrypoint.sh must be executable');
   } finally {
     cleanup();

@@ -43,7 +43,7 @@ All fields are optional. A missing file, or a missing field within it, falls bac
 
 | Field | Default | Notes |
 |---|---|---|
-| `port` | `3000` | Must match the `EXPOSE`d port if you're building the scaffolded `Dockerfile` unmodified. |
+| `port` | `3000` | Must match the `EXPOSE`d port if you're building the scaffolded `vhost/Dockerfile` unmodified. |
 | `tokens` | `[]` | Array of `{ hash, scopes }`. `hash` is a sha256 hex digest of the real token, never the raw token itself. `scopes` is any of `content`, `theme`, `media`. Rotating a token requires a restart - it's loaded once at boot. |
 | `rateLimit` | `{ max: 60, windowMs: 60000 }` | Per-IP. |
 | `trustProxy` | `false` | Set `true` when a reverse proxy or platform edge sits in front of this process, so client IPs (used by `ipAllowlist` and rate limiting) are read correctly rather than seeing the proxy's own address. |
@@ -65,12 +65,14 @@ Clone or copy the scaffolded site onto the machine, install Node 22.6+ and `git`
 
 ### 2. Docker / any container platform
 
-`create-site` scaffolds a working `Dockerfile` and `docker-entrypoint.sh` at the site root automatically - nothing to write by hand. The image is generic: it bakes the site (content, theme, an already-`npm install`ed `vhost/`) into `/seed` at build time, then at container start seeds an empty `/site` from that copy on first boot only, and runs the server against `/site` from then on.
+`create-site` scaffolds a working `Dockerfile` and `docker-entrypoint.sh` automatically - nothing to write by hand. They live in `vhost/`, alongside the rest of the site's own serving config, keeping the top level down to just `content/`, `theme/`, `media/`, `vhost/`. The image is generic: it bakes the site (content, theme, an already-`npm install`ed `vhost/`) into `/seed` at build time, then at container start seeds an empty `/site` from that copy on first boot only, and runs the server against `/site` from then on.
 
 ```
-docker build -t my-site .
+docker build -f vhost/Dockerfile -t my-site .
 docker run -d -p 3000:3000 -v my-site-data:/site my-site
 ```
+
+The build context is still the site root (the trailing `.`) - only the Dockerfile's own location moved, not what it needs access to.
 
 The `-v my-site-data:/site` volume is what makes drafts and publishes survive a restart or redeploy - without it, the container's writable layer is thrown away every time it's recreated, and every commit made since the image was built is lost. A second `docker run` against the same named volume reuses the already-seeded content and skips straight to starting the server.
 

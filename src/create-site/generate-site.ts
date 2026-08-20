@@ -134,7 +134,7 @@ export function scaffoldSite(targetDir: string): { raw: string } {
   execFileSync('git', ['init', '--quiet'], { cwd: targetDir });
   commitPaths(
     targetDir,
-    ['theme', 'content', 'vhost', '.gitignore', 'Dockerfile', 'docker-entrypoint.sh', '.dockerignore'],
+    ['theme', 'content', 'vhost', '.gitignore', '.dockerignore'],
     'chore: initial scaffold',
     CHECKPOINT_AUTHOR,
   );

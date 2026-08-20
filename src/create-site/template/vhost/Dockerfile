@@ -3,6 +3,11 @@
 # bare VPS, Fly, ECS, or any PaaS - nothing platform-specific is baked
 # in here (see docs/hosting.md for platform-specific deploy config,
 # which always layers on top of this, never inside it).
+#
+# Lives in vhost/, not the site root, alongside the rest of the site's
+# own serving config (package.json, server.js, site.config.json) - the
+# build context is still the site root, so build with:
+#   docker build -f vhost/Dockerfile -t my-site .
 FROM node:22-alpine
 
 # git is a hard runtime requirement (services/startup-checks.ts fails
@@ -19,7 +24,7 @@ COPY . .
 RUN cd vhost && npm install --omit=dev
 
 WORKDIR /site
-COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY vhost/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # Must match vhost/site.config.json's own "port" field.
