@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -289,6 +289,74 @@ test('H4: SIGTERM triggers the same graceful-shutdown checkpoint, not just a dir
     }
     assert.ok(checkpoint, 'a checkpoint commit must exist after a real SIGTERM');
   } finally {
+    cleanup();
+  }
+});
+
+test('a normal boot (no --tunnel) prints a one-line hint about the option, never blocks on input', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  const log = mock.method(console, 'log');
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
+    const app = await startServer(siteRoot, { logger: false });
+    try {
+      const printed = log.mock.calls.map((call) => String(call.arguments[0]));
+      assert.ok(
+        printed.some((line) => line.includes('--tunnel')),
+        'expected a hint mentioning --tunnel to be printed on a normal boot',
+      );
+    } finally {
+      await app.close();
+    }
+  } finally {
+    log.mock.restore();
+    cleanup();
+  }
+});
+
+test('tunnel: true starts the injected tunnel, prints its URL and a security warning, and closes it on shutdown', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  const log = mock.method(console, 'log');
+  let closed = false;
+  const startTunnel = async (port: number) => {
+    assert.equal(typeof port, 'number');
+    return { url: 'https://example-tunnel.test', close: () => { closed = true; } };
+  };
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
+    const app = await startServer(siteRoot, { logger: false, tunnel: true, startTunnel });
+    const printed = log.mock.calls.map((call) => String(call.arguments[0]));
+    assert.ok(printed.some((line) => line.includes('https://example-tunnel.test')));
+    assert.ok(printed.some((line) => line.toLowerCase().includes('publicly')));
+    await app.close();
+    assert.equal(closed, true, 'the tunnel must be closed on graceful shutdown');
+  } finally {
+    log.mock.restore();
+    cleanup();
+  }
+});
+
+test('tunnel: true with a tunnel that fails to start does not prevent the server itself from booting and serving', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  const error = mock.method(console, 'error');
+  const startTunnel = async () => {
+    throw new Error('simulated tunnel failure');
+  };
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
+    const app = await startServer(siteRoot, { logger: false, tunnel: true, startTunnel });
+    try {
+      const address = app.server.address();
+      if (address === null || typeof address === 'string') {
+        throw new Error('expected a real bound network address');
+      }
+      const response = await fetch(`http://127.0.0.1:${address.port}/v1/capabilities`);
+      assert.equal(response.status, 200, 'the site must still be reachable locally despite the tunnel failure');
+    } finally {
+      await app.close();
+    }
+  } finally {
+    error.mock.restore();
     cleanup();
   }
 });

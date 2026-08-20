@@ -9,10 +9,19 @@ import { v1Routes } from './routes/index.ts';
 import { mediaPublicRoutes } from './routes/media-public.ts';
 import { publicRoutes } from './routes/public.ts';
 import { CHECKPOINT_AUTHOR, runCheckpoint } from './services/checkpoint.ts';
+import type { DevTunnel } from './services/dev-tunnel.ts';
+import { startDevTunnel } from './services/dev-tunnel.ts';
 import { startIntervalJob } from './services/interval-job.ts';
 
 export interface BuildServerOptions {
   logger?: boolean;
+}
+
+export interface StartServerOptions extends BuildServerOptions {
+  tunnel?: boolean;
+  // Injectable so tests can exercise the failure path without a real
+  // network call - defaults to the real startDevTunnel.
+  startTunnel?: (port: number) => Promise<DevTunnel>;
 }
 
 // Never wrap v1Routes (or any route-group plugin it registers) with
@@ -119,7 +128,7 @@ export function buildServer(
 // unaffected by any of this.
 export async function startServer(
   siteRoot: string,
-  options: BuildServerOptions = {},
+  options: StartServerOptions = {},
 ): Promise<FastifyInstance> {
   const booted = bootSite(siteRoot);
   const serverConfig = loadServerConfig(siteRoot);
@@ -129,6 +138,8 @@ export async function startServer(
   const scheduler = startIntervalJob(doCheckpoint, serverConfig.checkpointIntervalMs, (error) => {
     app.log.error(error, 'background draft checkpoint failed');
   });
+
+  let tunnel: DevTunnel | undefined;
 
   // Node's default action for an unhandled SIGTERM/SIGINT is immediate
   // process termination, bypassing all JS-level cleanup - without
@@ -145,6 +156,7 @@ export async function startServer(
   process.once('SIGINT', shutdown);
 
   app.addHook('onClose', async () => {
+    tunnel?.close();
     scheduler.stop();
     process.removeListener('SIGTERM', shutdown);
     process.removeListener('SIGINT', shutdown);
@@ -158,5 +170,21 @@ export async function startServer(
   // host: '0.0.0.0' - Fastify's own default binds 127.0.0.1 only,
   // which is unreachable from outside any container or remote host.
   await app.listen({ port: serverConfig.port, host: '0.0.0.0' });
+
+  if (options.tunnel) {
+    try {
+      tunnel = await (options.startTunnel ?? startDevTunnel)(serverConfig.port);
+      console.log(`Tunnel open: ${tunnel.url}`);
+      console.log('This URL is publicly reachable for as long as this process runs - anyone with it (and a valid API token) can reach this site. Do not leave it running unattended.');
+    } catch (error) {
+      // The site itself is already up and correctly serving locally -
+      // a failed tunnel is not a reason to fail the whole boot.
+      app.log.error(error, 'failed to start dev tunnel');
+      console.error('Failed to start the dev tunnel - the site is still running locally.');
+    }
+  } else {
+    console.log('Tip: run with --tunnel to expose this site publicly for testing against a hosted admin.');
+  }
+
   return app;
 }

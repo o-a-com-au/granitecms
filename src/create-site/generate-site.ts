@@ -40,7 +40,7 @@ function generateToken(): { raw: string; hash: string } {
 const SERVER_JS = `import { startServer } from '@oa/cms-agent';
 import { join } from 'node:path';
 
-await startServer(join(import.meta.dirname, '..'));
+await startServer(join(import.meta.dirname, '..'), { tunnel: process.argv.includes('--tunnel') });
 `;
 
 export class ScaffoldError extends Error {}

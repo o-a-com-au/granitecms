@@ -81,6 +81,18 @@ test('scaffoldSite generates a real starter token: a valid sha256 hash in site.c
   }
 });
 
+test('the scaffolded server.js threads a --tunnel CLI flag through to startServer', () => {
+  const { targetDir, cleanup } = tmpTargetDir();
+  try {
+    scaffoldSite(targetDir);
+    const serverJs = readFileSync(join(targetDir, 'vhost', 'server.js'), 'utf-8');
+    assert.match(serverJs, /process\.argv\.includes\(['"]--tunnel['"]\)/);
+    assert.match(serverJs, /startServer\(/);
+  } finally {
+    cleanup();
+  }
+});
+
 test('scaffoldSite pins @oa/cms-agent to the exact installed version, and sets "type": "module"', () => {
   const { targetDir, cleanup } = tmpTargetDir();
   try {

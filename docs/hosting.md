@@ -83,3 +83,11 @@ This same image runs unmodified on Fly, ECS, or any platform that runs a contain
 The Docker image above works as-is on any platform that (a) builds from a `Dockerfile` and (b) lets you mount a persistent volume at a fixed path (here, `/site`). Health-check against `GET /v1/capabilities` - it's a real, always-available endpoint that doubles as a liveness check, not a special route added for this purpose. Any platform-specific config (build settings, health check path, restart policy) is a thin layer on top of the same portable image - it never needs to change the image itself.
 
 What this explicitly does **not** cover: "any shared hosting." A host that can't run a persistent process, exec `git`, or mount a real disk (typical of classic shared PHP-style hosting) cannot run this today.
+
+## Local dev tunnel
+
+`node server.js --tunnel` exposes a locally-running site through a public HTTPS URL (via `localtunnel`), printed to stdout on boot. This is for pointing a hosted admin at a site you're actively developing locally - fast iteration on theme/content, without deploying anywhere - not a hosting mechanism in its own right.
+
+Without `--tunnel`, a normal boot just prints a one-line reminder that the option exists. With it, the tunnel closes automatically on graceful shutdown (`Ctrl+C`), same as everything else in the shutdown sequence; if the tunnel itself fails to start (network issue, etc.), the site keeps running locally regardless - a failed tunnel is never a reason the whole server fails to boot.
+
+**This exposes the site publicly for as long as the process runs.** Anyone with the URL and a valid API token can reach it. Don't leave it running unattended, and don't use it as a substitute for real hosting.
