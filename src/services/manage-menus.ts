@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from '
 import { dirname } from 'node:path';
 import type { SiteConfig } from '../config.ts';
 import { ContentReadError, readContentFile } from './content-read.ts';
-import { computeEtag } from './etag.ts';
+import { computeEtag, etagsMatch } from './etag.ts';
 import type { CommitAuthor } from './git.ts';
 import { commitPaths } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
@@ -61,7 +61,7 @@ async function saveMenuJob(
   // real, empirically-verified gap; the same check run inside the job
   // does not).
   const currentEtag = readCurrentEtag(config, relativePath);
-  if (currentEtag !== null && currentEtag !== expectedEtag) {
+  if (currentEtag !== null && !etagsMatch(currentEtag, expectedEtag)) {
     throw new ManageMenuError(
       'conflict',
       `If-Match "${expectedEtag}" does not match the current ETag for "${relativePath}"`,

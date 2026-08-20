@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from '
 import { dirname } from 'node:path';
 import type { SiteConfig } from '../config.ts';
 import { ContentReadError, readContentFile } from './content-read.ts';
-import { computeEtag } from './etag.ts';
+import { computeEtag, etagsMatch } from './etag.ts';
 import { sanitisePath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
 import type { ThemeSchemas, ValidationError } from './validation.ts';
@@ -69,7 +69,7 @@ async function saveDraftJob(
   // check run inside the job, like this, produced exactly one winner
   // every time, no exceptions).
   const currentEtag = readCurrentEtag(config, relativePath);
-  if (currentEtag !== null && currentEtag !== expectedEtag) {
+  if (currentEtag !== null && !etagsMatch(currentEtag, expectedEtag)) {
     throw new DraftError(
       'conflict',
       `If-Match "${expectedEtag}" does not match the current ETag for "${relativePath}"`,

@@ -155,6 +155,22 @@ test('E3: saving with a matching If-Match succeeds and returns the new ETag', as
   }
 });
 
+test('a weak-prefixed If-Match (W/"...") matching the real content still succeeds, not a spurious conflict - a compressing proxy in front of a real deployment downgrades strong ETags to weak in transit (RFC 7232), and a client faithfully echoing that back must not be rejected', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    const firstEtag = await saveDraft(config, themeSchemas, 'about.json', validPage, NO_PRIOR_FILE_ETAG);
+
+    const weakEtag = `W/${firstEtag}`;
+    const newEtag = await saveDraft(config, themeSchemas, 'about.json', { ...validPage, title: 'Changed' }, weakEtag);
+
+    const draftBytes = readFileSync(join(config.draftsRoot, 'about.json'));
+    assert.equal(newEtag, computeEtag(draftBytes));
+  } finally {
+    cleanup();
+  }
+});
+
 test('E2: saving with a stale If-Match returns a conflict and writes nothing', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
