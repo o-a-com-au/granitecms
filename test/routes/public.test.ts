@@ -257,6 +257,10 @@ test('theme/root/robots.txt is mirrored verbatim at the bare /robots.txt path', 
   try {
     const response = await app.inject({ method: 'GET', url: '/robots.txt' });
     assert.equal(response.statusCode, 200);
+    // text/plain, never application/octet-stream - the latter makes
+    // every browser download the file instead of displaying it
+    // (found live against the real deployed demo site).
+    assert.equal(response.headers['content-type'], 'text/plain; charset=utf-8');
     assert.match(response.body, /User-agent: \*/);
   } finally {
     await app.close();
