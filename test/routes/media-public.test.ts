@@ -43,6 +43,18 @@ test('the response carries X-Content-Type-Options: nosniff', async () => {
   }
 });
 
+test('the response carries Access-Control-Allow-Origin: * - the admin\'s preview route makes genuinely cross-origin requests for this path', async () => {
+  const { app, config, cleanup } = await buildMediaPublicTestServer();
+  try {
+    const { name } = await putMedia(config, 'photo.jpg', Buffer.from('hello'));
+    const response = await app.inject({ method: 'GET', url: `/media/${name}` });
+    assert.equal(response.headers['access-control-allow-origin'], '*');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
 test('a missing media file 404s', async () => {
   const { app, cleanup } = await buildMediaPublicTestServer();
   try {

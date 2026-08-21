@@ -92,3 +92,14 @@ test('/assets/* requires no token: a request with no Authorization header still 
     cleanup();
   }
 });
+
+test('/assets/* sends Access-Control-Allow-Origin: * - @font-face enforces CORS unconditionally, and the admin\'s preview route makes genuinely cross-origin font requests', async () => {
+  const { app, cleanup } = buildAssetsTestServer();
+  try {
+    const response = await app.inject({ method: 'GET', url: '/assets/style.css' });
+    assert.equal(response.headers['access-control-allow-origin'], '*');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});

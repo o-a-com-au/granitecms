@@ -26,7 +26,17 @@ async function handleMediaRequest(
   // content-sniff an octet-stream response - the same stored-content
   // risk class SVG rejection already exists to avoid for that specific
   // case.
-  reply.header('X-Content-Type-Options', 'nosniff').type(mimeTypeFor(relativePath)).send(bytes);
+  // Access-Control-Allow-Origin: * - same reasoning as assets.ts:
+  // fonts specifically enforce CORS unconditionally, and the admin's
+  // preview route proxies a site's HTML into its own origin (with a
+  // <base href> fix), making genuinely cross-origin browser requests
+  // for what looks like a same-origin path. Consistent with this
+  // route already being deliberately unauthenticated and public.
+  reply
+    .header('X-Content-Type-Options', 'nosniff')
+    .header('Access-Control-Allow-Origin', '*')
+    .type(mimeTypeFor(relativePath))
+    .send(bytes);
 }
 
 // Deliberately and permanently unauthenticated, same reasoning as
