@@ -6,7 +6,7 @@ Every rule below is verified directly against the actual renderer source, not in
 
 ## Folder structure
 
-A theme is a single folder with exactly these five subfolders. Nothing else is read.
+A theme is a single folder with exactly these six subfolders. Nothing else is read.
 
 ```
 theme/
@@ -15,9 +15,18 @@ theme/
   blocks/     *.liquid files, flat, one per block type, markup + embedded settings schema
   snippets/   *.liquid files, flat, no schema - reusable partials
   assets/     any static files (CSS, JS, images) - served as-is at /assets/<path>, subfolders preserved
+  root/       any static files - served as-is at the bare site root, subfolders preserved - see below
 ```
 
 No subfolders inside `sections/`, `blocks/`, `layouts/`, or `snippets/`. Every component is exactly one file, named directly.
+
+## Root-level files (`robots.txt`, `.well-known/`, favicons, etc.)
+
+Anything placed under `theme/root/` is mirrored verbatim at the site's bare root, not under `/assets/`: `theme/root/robots.txt` → `/robots.txt`, `theme/root/.well-known/security.txt` → `/.well-known/security.txt`, `theme/root/favicon.ico` → `/favicon.ico`. This is the one place a theme reaches outside the `/assets/` prefix - use it for the class of file that search engines, browsers, or third-party verification (Google Search Console's HTML-file method, Apple/Android app-link association files, etc.) require at an exact reserved path. A request that doesn't match anything under `theme/root/` falls straight through to normal page lookup, so this never shadows real content.
+
+Google's `<meta name="google-site-verification">` method needs no special handling at all - add the tag directly to `theme/layouts/theme.liquid` (or whichever layout renders `<head>`) like any other static markup.
+
+`GET /sitemap.xml` is a separate, built-in dynamic route, not something to place a file for - it's generated fresh on every request from whatever pages/posts are currently `published: true` (see `docs/content-authoring-guide.md`), so it's always accurate without needing regeneration on publish/unpublish. It always takes priority over a same-named static file at `theme/root/sitemap.xml`, if one exists.
 
 ## Sections and blocks
 

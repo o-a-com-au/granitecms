@@ -14,6 +14,14 @@ export interface SiteConfig {
   draftsRoot: string;
   themeRoot: string;
   assetsRoot: string;
+  // A sixth theme subfolder, mirrored verbatim at the bare site root
+  // (theme/root/robots.txt -> /robots.txt) - see routes/public.ts's
+  // root-mirror check. Deliberately not under assetsRoot: assets are
+  // always served under the fixed /assets/ prefix, this is the one
+  // place a theme can reach outside that prefix, for the class of file
+  // (robots.txt, .well-known/*) that must live at an exact reserved
+  // path, not a prefixed one.
+  rootMirrorRoot: string;
   pagesRoot: string;
   postsRoot: string;
   menusRoot: string;
@@ -57,6 +65,7 @@ export function loadSiteConfig(siteRoot: string): SiteConfig {
     draftsRoot: join(contentRoot, 'drafts'),
     themeRoot,
     assetsRoot: join(themeRoot, 'assets'),
+    rootMirrorRoot: join(themeRoot, 'root'),
     pagesRoot: join(contentRoot, 'pages'),
     postsRoot: join(contentRoot, 'posts'),
     menusRoot: join(contentRoot, 'menus'),

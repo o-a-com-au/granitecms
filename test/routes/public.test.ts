@@ -251,3 +251,65 @@ test('an unmatched /v1/* path is never swallowed by the public catch-all as a pa
     cleanup();
   }
 });
+
+test('theme/root/robots.txt is mirrored verbatim at the bare /robots.txt path', async () => {
+  const { app, cleanup } = buildPublicTestServer();
+  try {
+    const response = await app.inject({ method: 'GET', url: '/robots.txt' });
+    assert.equal(response.statusCode, 200);
+    assert.match(response.body, /User-agent: \*/);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('theme/root/ subfolders are preserved - .well-known/security.txt is reachable at /.well-known/security.txt', async () => {
+  const { app, cleanup } = buildPublicTestServer();
+  try {
+    const response = await app.inject({ method: 'GET', url: '/.well-known/security.txt' });
+    assert.equal(response.statusCode, 200);
+    assert.match(response.body, /security@example\.test/);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('a root-mirror miss falls straight through to normal page lookup, never a spurious 404', async () => {
+  const { app, cleanup } = buildPublicTestServer();
+  try {
+    // /about is real published page content, not a theme/root/ file -
+    // proves the miss path doesn't swallow or otherwise interfere with
+    // ordinary page resolution.
+    const response = await app.inject({ method: 'GET', url: '/about' });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['content-type'], 'text/html; charset=utf-8');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('the bare site root ("/") still resolves to content/pages/index.json, not theme/root/ (a directory, never a file)', async () => {
+  const { app, cleanup } = buildPublicTestServer();
+  try {
+    const response = await app.inject({ method: 'GET', url: '/' });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.headers['content-type'], 'text/html; charset=utf-8');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('a path traversal attempt against the theme/root/ mirror fails safely, never a 500', async () => {
+  const { app, cleanup } = buildPublicTestServer();
+  try {
+    const response = await app.inject({ method: 'GET', url: '/..%2f..%2f..%2fetc%2fpasswd' });
+    assert.notEqual(response.statusCode, 500);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});

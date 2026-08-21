@@ -8,6 +8,7 @@ import { PathSafetyError } from '../services/path-safety.ts';
 import { isBlogUrl } from '../services/post-urls.ts';
 import { resolveBlogUrl } from '../services/resolve-blog-url.ts';
 import { resolveUrl } from '../services/resolve-url.ts';
+import { findStaticFile, sendStaticFile } from '../services/static-file.ts';
 
 export interface PublicRouteOptions {
   config: SiteConfig;
@@ -75,6 +76,19 @@ async function handlePublicRequest(
   // registration order.
   if (request.url === '/v1' || request.url.startsWith('/v1/')) {
     return reply.callNotFound();
+  }
+
+  // theme/root/ mirrors arbitrary bare paths (robots.txt, .well-known/*)
+  // at the site root, checked before page resolution - unlike /assets/
+  // or /media/, these aren't distinguishable by a fixed prefix, so
+  // Fastify's own "specific route beats /*" behaviour can't do this for
+  // us automatically. A miss (including the bare "/" itself - a
+  // directory, never a file) falls straight through to the existing
+  // page-lookup logic below, unchanged.
+  const rootMirrorMatch = findStaticFile(config.rootMirrorRoot, request.params['*']);
+  if (rootMirrorMatch) {
+    sendStaticFile(reply, rootMirrorMatch);
+    return;
   }
 
   const url = `/${request.params['*']}`;

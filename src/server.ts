@@ -8,6 +8,7 @@ import { assetsRoutes } from './routes/assets.ts';
 import { v1Routes } from './routes/index.ts';
 import { mediaPublicRoutes } from './routes/media-public.ts';
 import { publicRoutes } from './routes/public.ts';
+import { sitemapRoutes } from './routes/sitemap.ts';
 import { CHECKPOINT_AUTHOR, runCheckpoint } from './services/checkpoint.ts';
 import type { DevTunnel } from './services/dev-tunnel.ts';
 import { startDevTunnel } from './services/dev-tunnel.ts';
@@ -116,6 +117,12 @@ export function buildServer(
   // (confining it to media routes only, leaving every other route
   // file's default JSON body parsing untouched).
   app.register(mediaPublicRoutes, { config: booted.config });
+
+  // Same "more specific than the public catch-all" reasoning again -
+  // this exact path always wins over publicRoutes' /* wildcard, and
+  // also always wins over a same-named static file under
+  // theme/root/sitemap.xml (see routes/public.ts's root-mirror check).
+  app.register(sitemapRoutes, { config: booted.config });
 
   return app;
 }

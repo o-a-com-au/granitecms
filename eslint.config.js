@@ -81,7 +81,7 @@ export default tseslint.config(
       'src/search/rebuild-index.ts',
       'src/server-config.ts',
       'src/routes/capabilities.ts',
-      'src/routes/assets.ts',
+      'src/services/static-file.ts',
       'src/create-site/generate-site.ts',
       'src/media/drivers/local-fs-driver.ts',
     ],
