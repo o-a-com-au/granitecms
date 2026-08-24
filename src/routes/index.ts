@@ -4,6 +4,7 @@ import type { SiteConfig } from '../config.ts';
 import type { ThemeTemplates } from '../renderer/theme-templates.ts';
 import type { TokenEntry } from '../server-config.ts';
 import type { ThemeSchemas } from '../services/validation.ts';
+import type { PageTemplate } from '../services/theme-page-templates.ts';
 import { batchRoutes } from './batch.ts';
 import { capabilitiesRoutes } from './capabilities.ts';
 import { contentRoutes } from './content.ts';
@@ -22,6 +23,7 @@ import { ipAllowlistGuard } from '../services/ip-allowlist.ts';
 export interface V1RouteOptions {
   config: SiteConfig;
   themeSchemas: ThemeSchemas;
+  pageTemplates: PageTemplate[];
   themeTemplates: ThemeTemplates;
   layouts: Record<string, string>;
   engine: Liquid;
@@ -104,5 +106,5 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   fastify.register(searchRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(redirectsRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(menusRoutes, { config: opts.config, tokens: opts.tokens });
-  fastify.register(themeRoutes, { themeSchemas: opts.themeSchemas, tokens: opts.tokens });
+  fastify.register(themeRoutes, { themeSchemas: opts.themeSchemas, pageTemplates: opts.pageTemplates, tokens: opts.tokens });
 };

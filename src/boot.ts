@@ -8,12 +8,15 @@ import type { StartupCheckOptions } from './services/startup-checks.ts';
 import { runStartupChecks } from './services/startup-checks.ts';
 import type { ThemeSchemas } from './services/validation.ts';
 import { loadThemeSchemas } from './services/theme-schemas.ts';
+import type { PageTemplate } from './services/theme-page-templates.ts';
+import { loadPageTemplates } from './services/theme-page-templates.ts';
 
 export interface BootedSite {
   config: SiteConfig;
   themeSchemas: ThemeSchemas;
   themeTemplates: ThemeTemplates;
   layouts: Record<string, string>;
+  pageTemplates: PageTemplate[];
   engine: Liquid;
 }
 
@@ -37,6 +40,10 @@ export function bootSite(siteRoot: string, options?: StartupCheckOptions): Boote
   const themeTemplates = loadThemeTemplates(config.themeRoot);
   const layouts = loadLayouts(config.themeRoot);
   const snippets = loadSnippets(config.themeRoot);
+  // After themeSchemas - a template's own sections/blocks are validated
+  // against the theme's real section/block schemas, same as any real
+  // page.
+  const pageTemplates = loadPageTemplates(config.templatesRoot, themeSchemas);
   const engine = createEngine(snippets);
-  return { config, themeSchemas, themeTemplates, layouts, engine };
+  return { config, themeSchemas, themeTemplates, layouts, pageTemplates, engine };
 }

@@ -29,6 +29,16 @@ test('config derives pagesRoot under contentRoot/pages and redirectsPath at the 
   }
 });
 
+test('config derives templatesRoot under themeRoot/templates, flat like sections/blocks/root', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    const config = loadSiteConfig(siteRoot);
+    assert.equal(config.templatesRoot, join(config.themeRoot, 'templates'));
+  } finally {
+    cleanup();
+  }
+});
+
 test('B1: a relative siteRoot is rejected rather than silently resolved against process.cwd()', () => {
   assert.throws(() => loadSiteConfig('relative/site/root'));
 });

@@ -78,6 +78,7 @@ export function buildServer(
     prefix: '/v1',
     config: booted.config,
     themeSchemas: booted.themeSchemas,
+    pageTemplates: booted.pageTemplates,
     themeTemplates: booted.themeTemplates,
     layouts: booted.layouts,
     engine: booted.engine,

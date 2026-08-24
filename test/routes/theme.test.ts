@@ -30,6 +30,16 @@ function buildThemeTestServer() {
     join(siteRoot, 'theme', 'blocks', 'button.liquid'),
     '<a href="{{ block.settings.url }}">{{ block.settings.label }}</a>\n{% schema %}\n{"type":"object","required":["label","url"],"properties":{"label":{"type":"string","default":"Learn more"},"url":{"type":"string","default":"#"}}}\n{% endschema %}\n',
   );
+  mkdirSync(join(siteRoot, 'theme', 'templates'), { recursive: true });
+  writeJson(siteRoot, 'theme/templates/blog-article.json', {
+    schemaVersion: 1,
+    name: 'blog-article',
+    title: 'Blog Article',
+    type: 'page',
+    layout: 'theme',
+    published: true,
+    sections: [{ id: 'sec-hero', type: 'hero', settings: { heading: 'A blog post' }, blocks: [] }],
+  });
 
   const booted = bootSite(siteRoot);
   const serverConfig = loadServerConfig(siteRoot);
@@ -87,6 +97,63 @@ test('GET /v1/theme/schemas with no token is rejected with 401', async () => {
   const { app, cleanup } = buildThemeTestServer();
   try {
     const response = await app.inject({ method: 'GET', url: '/v1/theme/schemas' });
+    assert.equal(response.statusCode, 401);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('Group Q: GET /v1/theme/page-templates returns the real page templates verbatim', async () => {
+  const { app, cleanup } = buildThemeTestServer();
+  try {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/theme/page-templates',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = response.json() as { templates: Array<{ id: string; title: string }> };
+    assert.equal(body.templates.length, 1);
+    assert.equal(body.templates[0]?.id, 'blog-article');
+    assert.equal(body.templates[0]?.title, 'Blog Article');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('Group Q: GET /v1/theme/page-templates returns an empty list when the theme has no templates folder', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  writeJson(siteRoot, 'vhost/site.config.json', {
+    tokens: [{ hash: hashOf(CONTENT_TOKEN), scopes: ['content'] }],
+  });
+  try {
+    const booted = bootSite(siteRoot);
+    const serverConfig = loadServerConfig(siteRoot);
+    const app = buildServer(booted, serverConfig, { logger: false });
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/theme/page-templates',
+        headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+      });
+
+      assert.equal(response.statusCode, 200);
+      assert.deepEqual(response.json(), { templates: [] });
+    } finally {
+      await app.close();
+    }
+  } finally {
+    cleanup();
+  }
+});
+
+test('GET /v1/theme/page-templates with no token is rejected with 401', async () => {
+  const { app, cleanup } = buildThemeTestServer();
+  try {
+    const response = await app.inject({ method: 'GET', url: '/v1/theme/page-templates' });
     assert.equal(response.statusCode, 401);
   } finally {
     await app.close();

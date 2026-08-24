@@ -6,7 +6,7 @@ Every rule below is verified directly against the actual renderer source, not in
 
 ## Folder structure
 
-A theme is a single folder with exactly these six subfolders. Nothing else is read.
+A theme is a single folder with exactly these seven subfolders. Nothing else is read.
 
 ```
 theme/
@@ -16,6 +16,7 @@ theme/
   snippets/   *.liquid files, flat, no schema - reusable partials
   assets/     any static files (CSS, JS, images) - served as-is at /assets/<path>, subfolders preserved
   root/       any static files - served as-is at the bare site root, subfolders preserved - see below
+  templates/  *.json files, flat, one per prebuilt page (a blog article, a product page, etc) - see below
 ```
 
 No subfolders inside `sections/`, `blocks/`, `layouts/`, or `snippets/`. Every component is exactly one file, named directly.
@@ -124,6 +125,14 @@ Each entry is a child block type's identifier (its filename without `.liquid`). 
 }
 {% endschema %}
 ```
+
+## Page templates
+
+`theme/templates/` is optional - a theme with no `templates/` folder (or an empty one) is entirely normal; the admin simply offers no template picker and every new page starts blank. When present, each file is a prebuilt starting point a content editor can pick from when creating a new page (a blog article, a product page, a landing page, etc), flat, one `.json` file per template, named directly (e.g. `theme/templates/blog-article.json`) - no subfolders, same convention as `sections/`/`blocks/`.
+
+A template file is a real page - exactly the same JSON shape as any file under `content/pages/`, validated against the identical schema (`schemaVersion`, `name`, `title`, `type`, `layout`, `published`, `sections`), using the theme's own current section/block types. There is no separate template format or metadata file to author: build a template the same way you'd build any other page, using whatever section/block types this theme already defines, then save it under `theme/templates/` instead of `content/pages/`. A template's own `"title"` field is what a content editor sees as its label when picking one - choose it accordingly (e.g. `"Blog Article"`, not a generic `"Untitled"`).
+
+A template's `"published"` value is never honoured when a page is actually created from it - the admin always creates the new page as an unpublished draft regardless of what the template file itself says. A template that fails to parse as JSON, or fails validation against the current theme, is silently skipped (never a startup failure) - if a template you added doesn't appear in the admin's picker, check it validates the same way a real page under `content/pages/` would.
 
 ## Layouts
 

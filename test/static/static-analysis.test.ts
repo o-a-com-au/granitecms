@@ -51,6 +51,7 @@ const SANITISE_PATH_IMPORT_PATTERN = /from\s+['"].*path-safety(?:\.js|\.ts)?['"]
 const FS_USAGE_ALLOWLIST = new Set<string>([
   'services/path-safety.ts', // implements the shared helper itself
   'services/theme-schemas.ts', // walks agent-configured theme directories, not request paths
+  'services/theme-page-templates.ts', // walks the agent-configured templates directory, not request paths
   'services/startup-checks.ts', // checks the site root itself and reads the agent's own package.json
   'services/validation.ts', // reads the agent's own bundled page/instance schema.json
   'renderer/theme-templates.ts', // walks agent-configured theme directories, not request paths

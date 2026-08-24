@@ -60,6 +60,7 @@ export default tseslint.config(
     files: [
       'src/services/path-safety.ts',
       'src/services/theme-schemas.ts',
+      'src/services/theme-page-templates.ts',
       'src/services/startup-checks.ts',
       'src/services/validation.ts',
       'src/services/drafts.ts',

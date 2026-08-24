@@ -22,6 +22,13 @@ export interface SiteConfig {
   // (robots.txt, .well-known/*) that must live at an exact reserved
   // path, not a prefixed one.
   rootMirrorRoot: string;
+  // A seventh theme subfolder: prebuilt page templates a theme author
+  // ships (a blog article, a product page, etc), each one a real page
+  // file (same shape as anything under contentRoot/pages) - see
+  // theme-page-templates.ts. Flat, like sections/blocks/assets/root,
+  // not nested under contentRoot: a template is never itself live
+  // content, only ever a starting point copied into a new page.
+  templatesRoot: string;
   pagesRoot: string;
   postsRoot: string;
   menusRoot: string;
@@ -66,6 +73,7 @@ export function loadSiteConfig(siteRoot: string): SiteConfig {
     themeRoot,
     assetsRoot: join(themeRoot, 'assets'),
     rootMirrorRoot: join(themeRoot, 'root'),
+    templatesRoot: join(themeRoot, 'templates'),
     pagesRoot: join(contentRoot, 'pages'),
     postsRoot: join(contentRoot, 'posts'),
     menusRoot: join(contentRoot, 'menus'),
