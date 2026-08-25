@@ -24,10 +24,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Deliberately no registry-url here: setup-node's registry-url
+      # option writes an .npmrc referencing ${NODE_AUTH_TOKEN} and sets
+      # that env var for later steps, even with no real token secret
+      # configured anywhere - npm then tries that (empty) token-based
+      # auth instead of the OIDC trusted-publisher exchange, and the
+      # registry rejects it with a 404 ("not found or no permission"),
+      # not an auth error, which is genuinely confusing to debug the
+      # first time. Found this the hard way on the first real release.
+      # npm's own default registry is already registry.npmjs.org - no
+      # config needed for that part.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: 'https://registry.npmjs.org'
 
       # Trusted publishing needs a recent npm CLI - don't rely on
       # whatever setup-node's chosen Node version happens to bundle.
