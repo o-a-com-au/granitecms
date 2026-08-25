@@ -43,6 +43,39 @@ test('a site.config.json with a valid port is read correctly', () => {
   }
 });
 
+test('the PORT environment variable overrides site.config.json\'s own port', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  const previous = process.env.PORT;
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 4321 });
+    process.env.PORT = '5555';
+    assert.equal(loadServerConfig(siteRoot).port, 5555);
+  } finally {
+    if (previous === undefined) {
+      delete process.env.PORT;
+    } else {
+      process.env.PORT = previous;
+    }
+    cleanup();
+  }
+});
+
+test('an invalid PORT environment variable is ignored, falling back to site.config.json (or its default)', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  const previous = process.env.PORT;
+  try {
+    process.env.PORT = 'not-a-number';
+    assert.equal(loadServerConfig(siteRoot).port, 3000);
+  } finally {
+    if (previous === undefined) {
+      delete process.env.PORT;
+    } else {
+      process.env.PORT = previous;
+    }
+    cleanup();
+  }
+});
+
 test('a site.config.json missing "port" defaults to port 3000', () => {
   const { siteRoot, cleanup } = createTmpSiteRoot();
   try {

@@ -43,7 +43,7 @@ All fields are optional. A missing file, or a missing field within it, falls bac
 
 | Field | Default | Notes |
 |---|---|---|
-| `port` | `3000` | Must match the `EXPOSE`d port if you're building the scaffolded `vhost/Dockerfile` unmodified. |
+| `port` | `3000` | Must match the `EXPOSE`d port if you're building the scaffolded `vhost/Dockerfile` unmodified. Overridden by the `PORT` environment variable if set (e.g. `PORT=3001 node server.js`) - no file edit needed for a quick local port change, and several hosting platforms already inject `PORT` this way. |
 | `tokens` | `[]` | Array of `{ hash, scopes }`. `hash` is a sha256 hex digest of the real token, never the raw token itself. `scopes` is any of `content`, `theme`, `media`. Rotating a token requires a restart - it's loaded once at boot. |
 | `rateLimit` | `{ max: 60, windowMs: 60000 }` | Per-IP. |
 | `trustProxy` | `false` | Set `true` when a reverse proxy or platform edge sits in front of this process, so client IPs (used by `ipAllowlist` and rate limiting) are read correctly rather than seeing the proxy's own address. |

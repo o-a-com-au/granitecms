@@ -177,7 +177,24 @@ export async function startServer(
 
   // host: '0.0.0.0' - Fastify's own default binds 127.0.0.1 only,
   // which is unreachable from outside any container or remote host.
-  await app.listen({ port: serverConfig.port, host: '0.0.0.0' });
+  try {
+    await app.listen({ port: serverConfig.port, host: '0.0.0.0' });
+  } catch (error) {
+    // A raw EADDRINUSE crash is a wall of Node internals with no
+    // indication of what to actually do about it. This is the single
+    // most likely startup failure a developer hits on their own
+    // machine (something else already using the default port) - tell
+    // them the two real ways to pick a different one instead of
+    // rethrowing Node's own stack trace.
+    if (error instanceof Error && 'code' in error && error.code === 'EADDRINUSE') {
+      console.error(`Port ${serverConfig.port} is already in use.`);
+      console.error(
+        `Set a different port with the PORT environment variable (e.g. PORT=3001 node server.js), or "port" in vhost/site.config.json.`,
+      );
+      process.exit(1);
+    }
+    throw error;
+  }
 
   if (options.tunnel) {
     try {

@@ -336,6 +336,37 @@ test('tunnel: true starts the injected tunnel, prints its URL and a security war
   }
 });
 
+test('EADDRINUSE prints a clear, actionable message (PORT env var / site.config.json) instead of a raw Node stack trace', async () => {
+  const { siteRoot: occupantRoot, cleanup: cleanupOccupant } = createTmpSiteRoot({ git: true, contentDirs: true });
+  const { siteRoot: contenderRoot, cleanup: cleanupContender } = createTmpSiteRoot({ git: true, contentDirs: true });
+  const error = mock.method(console, 'error', () => {});
+  const exit = mock.method(process, 'exit', () => undefined as never);
+  let occupant;
+  try {
+    writeJson(occupantRoot, 'vhost/site.config.json', { port: 0 });
+    occupant = await startServer(occupantRoot, { logger: false });
+    const address = occupant.server.address();
+    if (address === null || typeof address === 'string') {
+      throw new Error('expected a real bound network address');
+    }
+
+    writeJson(contenderRoot, 'vhost/site.config.json', { port: address.port });
+    await assert.rejects(() => startServer(contenderRoot, { logger: false }));
+
+    assert.equal(exit.mock.calls.length, 1);
+    assert.equal(exit.mock.calls[0]?.arguments[0], 1);
+    const printed = error.mock.calls.map((call) => String(call.arguments[0]));
+    assert.ok(printed.some((line) => line.includes(`Port ${address.port} is already in use`)));
+    assert.ok(printed.some((line) => line.includes('PORT environment variable') && line.includes('site.config.json')));
+  } finally {
+    error.mock.restore();
+    exit.mock.restore();
+    await occupant?.close();
+    cleanupOccupant();
+    cleanupContender();
+  }
+});
+
 test('tunnel: true with a tunnel that fails to start does not prevent the server itself from booting and serving', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   const error = mock.method(console, 'error');

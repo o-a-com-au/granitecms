@@ -227,6 +227,21 @@ function parseCheckpointIntervalMs(value: unknown): number {
 // restart, since this loads once at boot - matches the existing
 // "agent upgrade = restart" story already established for schema
 // migrations, a deliberate decision, not an accident.
+// PORT overrides site.config.json's own "port" (or its default) without
+// editing a file - the universal Node/12-factor convention, and how
+// several hosting platforms (Railway, Render, etc.) already inject the
+// port a process must bind. An invalid value is ignored, not a hard
+// failure - a stray non-numeric PORT shouldn't stop the whole site from
+// booting when the configured/default port would have worked fine.
+function resolvePort(configuredPort: number): number {
+  const envPort = process.env.PORT;
+  if (envPort === undefined) {
+    return configuredPort;
+  }
+  const parsed = Number(envPort);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : configuredPort;
+}
+
 export function loadServerConfig(siteRoot: string): ServerConfig {
   const configPath = join(siteRoot, VHOST_DIR_NAME, 'site.config.json');
 
@@ -235,7 +250,7 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
     raw = readFileSync(configPath, 'utf-8');
   } catch {
     return {
-      port: DEFAULT_PORT,
+      port: resolvePort(DEFAULT_PORT),
       tokens: [],
       rateLimit: DEFAULT_RATE_LIMIT,
       trustProxy: false,
@@ -274,5 +289,5 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
   const checkpointIntervalMs = parseCheckpointIntervalMs(record.checkpointIntervalMs);
   const media = parseMedia(record.media);
 
-  return { port, tokens, rateLimit, trustProxy, ipAllowlist, checkpointIntervalMs, media };
+  return { port: resolvePort(port), tokens, rateLimit, trustProxy, ipAllowlist, checkpointIntervalMs, media };
 }
