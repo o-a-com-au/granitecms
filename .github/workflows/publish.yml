@@ -24,21 +24,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Deliberately no registry-url here: setup-node's registry-url
-      # option writes an .npmrc referencing ${NODE_AUTH_TOKEN} and sets
-      # that env var for later steps, even with no real token secret
-      # configured anywhere - npm then tries that (empty) token-based
-      # auth instead of the OIDC trusted-publisher exchange, and the
-      # registry rejects it with a 404 ("not found or no permission"),
-      # not an auth error, which is genuinely confusing to debug the
-      # first time. Found this the hard way on the first real release.
-      # npm's own default registry is already registry.npmjs.org - no
-      # config needed for that part.
+      # registry-url IS required for trusted publishing (confirmed
+      # against npm's own current docs, contrary to what an earlier
+      # version of this comment guessed) - it's what tells npm which
+      # registry to attempt the OIDC exchange against at all.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          registry-url: 'https://registry.npmjs.org'
 
-      # Trusted publishing needs a recent npm CLI - don't rely on
+      # Trusted publishing requires npm CLI >=11.5.1 - don't rely on
       # whatever setup-node's chosen Node version happens to bundle.
       - run: npm install -g npm@latest
 
@@ -48,8 +43,14 @@ jobs:
       - run: npm run lint
       - run: npm test
 
-      # No --//registry.npmjs.org/:_authToken and no NODE_AUTH_TOKEN -
-      # the trusted-publisher OIDC exchange handles authentication.
-      # --provenance attaches a public attestation linking this exact
-      # tarball back to this workflow run and commit.
-      - run: npm publish --provenance
+      # No NODE_AUTH_TOKEN/NPM_TOKEN anywhere - the trusted-publisher
+      # OIDC exchange handles authentication on its own. Deliberately
+      # plain `npm publish`, not `--provenance`: with trusted
+      # publishing, npm generates and attaches provenance automatically
+      # (per npm's own docs) - passing --provenance explicitly forces a
+      # different, older code path whose separate registry-auth step
+      # doesn't correctly pick up the trusted-publisher exchange,
+      # producing a confusing 404 on the actual registry write even
+      # though provenance itself signs and logs successfully. Found
+      # this the hard way on the first real release attempts.
+      - run: npm publish
