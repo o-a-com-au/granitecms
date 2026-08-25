@@ -93,7 +93,7 @@ test('the scaffolded server.js threads a --tunnel CLI flag through to startServe
   }
 });
 
-test('scaffoldSite pins @oa/cms-agent to the exact installed version, and sets "type": "module"', () => {
+test('scaffoldSite pins @o-a/cms-agent to the exact installed version, and sets "type": "module"', () => {
   const { targetDir, cleanup } = tmpTargetDir();
   try {
     scaffoldSite(targetDir);
@@ -102,8 +102,8 @@ test('scaffoldSite pins @oa/cms-agent to the exact installed version, and sets "
       dependencies: Record<string, string>;
     };
     assert.equal(pkg.type, 'module');
-    assert.ok(pkg.dependencies['@oa/cms-agent']);
-    assert.ok(!pkg.dependencies['@oa/cms-agent'].startsWith('^'), 'the dependency must be pinned exact, not a range');
+    assert.ok(pkg.dependencies['@o-a/cms-agent']);
+    assert.ok(!pkg.dependencies['@o-a/cms-agent'].startsWith('^'), 'the dependency must be pinned exact, not a range');
   } finally {
     cleanup();
   }

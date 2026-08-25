@@ -9,7 +9,7 @@ This document is for a developer who has run `create-site` and now wants to run 
 - **Persistent storage for the whole site root** (`content/`, `theme/`, `media/`, `vhost/data/`), not just `media/`. Drafts and publishes are commits made by the running server itself - if that disk isn't persistent, every commit since the last deploy is lost on restart.
 - No database, no required environment variables, no external service dependencies beyond the above.
 
-## Installing `@oa/cms-agent` today
+## Installing `@o-a/cms-agent` today
 
 The package is not yet published to any registry (`package.json`'s `"private": true` - publishing is a deliberate future step, not yet taken). A freshly scaffolded site's `vhost/package.json` still pins a real dependency on it, so until publish happens, resolve it from a local tarball instead of a registry:
 
@@ -25,7 +25,7 @@ npm pack
 ```json
 {
   "dependencies": {
-    "@oa/cms-agent": "file:./cms-agent.tgz"
+    "@o-a/cms-agent": "file:./cms-agent.tgz"
   }
 }
 ```

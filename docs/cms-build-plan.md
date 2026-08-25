@@ -22,7 +22,7 @@ Build a lightweight CMS with a Shopify-style sections and blocks content model, 
 
 ### The agent is a package
 
-The server is developed in its own repository and published as a scoped npm package (working name `@oa/cms-agent`). What ships is compiled JavaScript in `dist/` plus type declarations; TypeScript source never leaves the agent repo. A site depends on a semver-pinned version of the agent via its `package.json` and lockfile.
+The server is developed in its own repository and published as a scoped npm package (working name `@o-a/cms-agent`). What ships is compiled JavaScript in `dist/` plus type declarations; TypeScript source never leaves the agent repo. A site depends on a semver-pinned version of the agent via its `package.json` and lockfile.
 
 A site is therefore a thin scaffold, restructured during Phase 2 (Group N) to four top-level folders - everything a marketing manager touches lives under `content/`, everything a web designer touches lives under `theme/`, uploaded media lives under `media/`, and the site's own serving configuration lives under `vhost/` (a real vhost's own scope in hosting terms - Apache/nginx/CyberPanel - the per-site serving configuration, not a multi-tenancy concept). `media/` is its own top-level folder rather than nesting inside `content/` specifically so its git-ignored status is a single, unambiguous `.gitignore` line at the site root - not a partial exception carved out of a folder every other line in this document describes as always git-tracked:
 
@@ -37,7 +37,7 @@ my-site/
   /media/             uploaded assets, served at /media/... - gitignored, see constraint 2
   /vhost/
     site.config.json  config holds ports, tokens hash, media driver settings, preview settings
-    package.json      depends on @oa/cms-agent at a pinned version
+    package.json      depends on @o-a/cms-agent at a pinned version
     package-lock.json
     server.js         imports the agent, points it one directory up (the real site root), starts
 ```

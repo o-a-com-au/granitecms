@@ -46,11 +46,11 @@ Granite CMS is the combination neither of those is:
 ## Quick start
 
 > **Not yet published to npm.** Until it is, install from a local build -
-> see [`docs/hosting.md`](docs/hosting.md#installing-oacms-agent-today) for
+> see [`docs/hosting.md`](docs/hosting.md#installing-o-acms-agent-today) for
 > the exact steps. Once published, this becomes:
 >
 > ```
-> npx -p @oa/cms-agent create-site my-site
+> npx -p @o-a/cms-agent create-site my-site
 > ```
 
 Either way, the result is the same:

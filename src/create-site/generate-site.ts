@@ -37,7 +37,7 @@ export function generateToken(): { raw: string; hash: string } {
 // rather than the agent inferring anything (constraint 2 stays intact:
 // the site root is always explicit, never assumed from the agent's own
 // location).
-const SERVER_JS = `import { startServer } from '@oa/cms-agent';
+const SERVER_JS = `import { startServer } from '@o-a/cms-agent';
 import { join } from 'node:path';
 
 await startServer(join(import.meta.dirname, '..'), { tunnel: process.argv.includes('--tunnel') });
@@ -119,7 +119,7 @@ export function scaffoldSite(targetDir: string): { raw: string } {
         dependencies: {
           // Pinned exact, never a ^range - at v0.x even a minor bump
           // can be breaking (build plan's own word is "pinned").
-          '@oa/cms-agent': readAgentVersion(),
+          '@o-a/cms-agent': readAgentVersion(),
         },
       },
       null,
