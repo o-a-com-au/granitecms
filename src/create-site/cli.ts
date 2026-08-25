@@ -19,10 +19,10 @@ try {
   console.log('Next steps:');
   console.log(`  cd ${targetArg}/vhost`);
   console.log('  npm install');
-  console.log('  node server.js');
+  console.log('  npm start');
   console.log('');
   console.log('Want to edit this site from a hosted admin while developing locally?');
-  console.log('  node server.js --tunnel');
+  console.log('  npm run tunnel');
 } catch (error) {
   if (error instanceof ScaffoldError) {
     console.error(error.message);

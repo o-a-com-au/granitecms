@@ -58,7 +58,7 @@ Either way, the result is the same:
 ```
 cd my-site/vhost
 npm install
-node server.js
+npm start
 ```
 
 Visit `http://localhost:3000`. `create-site` prints a real API token to

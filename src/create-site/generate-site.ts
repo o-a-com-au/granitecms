@@ -116,6 +116,16 @@ export function scaffoldSite(targetDir: string): { raw: string } {
         version: '0.0.0',
         private: true,
         type: 'module',
+        // "start" matters beyond convenience: several PaaS platforms
+        // auto-detect and run `npm start` by default for a Node app
+        // with no other deploy config - without this, a site pushed
+        // straight to one of those (no Dockerfile in the loop) simply
+        // wouldn't boot. "tunnel" mirrors the --tunnel flag create-site
+        // already tells the operator about in its own next-steps output.
+        scripts: {
+          start: 'node server.js',
+          tunnel: 'node server.js --tunnel',
+        },
         dependencies: {
           // Pinned exact, never a ^range - at v0.x even a minor bump
           // can be breaking (build plan's own word is "pinned").

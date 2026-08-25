@@ -61,7 +61,7 @@ Every shape below satisfies the same requirements above - a VPS just has a persi
 
 ### 1. VPS / bare metal
 
-Clone or copy the scaffolded site onto the machine, install Node 22.6+ and `git`, then `cd vhost && npm install && node server.js` (see the installing section above for the pre-publish tarball step). Run it under a process supervisor (systemd unit, `pm2`, etc.) so it restarts on crash or reboot, and put a reverse proxy (nginx, Caddy) in front for TLS - set `trustProxy: true` in `site.config.json` once you do. The disk is persistent by default; nothing extra needed for that.
+Clone or copy the scaffolded site onto the machine, install Node 22.6+ and `git`, then `cd vhost && npm install && npm start` (see the installing section above for the pre-publish tarball step). `npm start` is also what several PaaS platforms run by default for a Node app with no other deploy config, so the same scaffold works unmodified there too. Run it under a process supervisor (systemd unit, `pm2`, etc.) so it restarts on crash or reboot, and put a reverse proxy (nginx, Caddy) in front for TLS - set `trustProxy: true` in `site.config.json` once you do. The disk is persistent by default; nothing extra needed for that.
 
 ### 2. Docker / any container platform
 
@@ -86,7 +86,7 @@ What this explicitly does **not** cover: "any shared hosting." A host that can't
 
 ## Local dev tunnel
 
-`node server.js --tunnel` exposes a locally-running site through a public HTTPS URL (via `localtunnel`), printed to stdout on boot. This is for pointing a hosted admin at a site you're actively developing locally - fast iteration on theme/content, without deploying anywhere - not a hosting mechanism in its own right.
+`npm run tunnel` (or `node server.js --tunnel` directly) exposes a locally-running site through a public HTTPS URL (via `localtunnel`), printed to stdout on boot. This is for pointing a hosted admin at a site you're actively developing locally - fast iteration on theme/content, without deploying anywhere - not a hosting mechanism in its own right.
 
 Without `--tunnel`, a normal boot just prints a one-line reminder that the option exists. With it, the tunnel closes automatically on graceful shutdown (`Ctrl+C`), same as everything else in the shutdown sequence; if the tunnel itself fails to start (network issue, etc.), the site keeps running locally regardless - a failed tunnel is never a reason the whole server fails to boot.
 
