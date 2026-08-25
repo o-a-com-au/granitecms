@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { loadSiteConfig } from '../../src/config.ts';
 import { ManageMenuError, saveMenu } from '../../src/services/manage-menus.ts';
-import { createTmpSiteRoot } from '../helpers/tmp-site.ts';
+import { createTmpSiteRoot, TEST_IDENTITY_ENV } from '../helpers/tmp-site.ts';
 
 const author = { name: 'Jane Editor', email: 'jane@example.com' };
 
@@ -22,7 +22,7 @@ function commitCount(siteRoot: string): number {
 test('saveMenu writes the file and commits immediately, no draft step', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
     const before = commitCount(siteRoot);
 
@@ -38,7 +38,7 @@ test('saveMenu writes the file and commits immediately, no draft step', async ()
 test('saveMenu rejects a stale If-Match with conflict, matching drafts.ts semantics', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
     await saveMenu(config, 'main.json', menu('Home'), 'no-prior-file', 'create', author);
 
@@ -54,7 +54,7 @@ test('saveMenu rejects a stale If-Match with conflict, matching drafts.ts semant
 test('saveMenu rejects invalid content with validation-failed, writes nothing', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
     const before = commitCount(siteRoot);
 
@@ -72,7 +72,7 @@ test('saveMenu rejects invalid content with validation-failed, writes nothing', 
 test('saveMenu on a brand-new path skips the ETag comparison regardless of the supplied If-Match value', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
 
     // Any non-empty placeholder satisfies it for a wholly new resource,

@@ -10,7 +10,13 @@ export interface TmpSite {
   cleanup: () => void;
 }
 
-const TEST_IDENTITY_ENV = {
+// Exported so any test that needs to make its own raw git commit (not
+// through writeAndCommit or the app's own commitPaths, both of which
+// already pass this) can too - a bare `git commit` with no identity
+// works silently on any machine with global git config already set,
+// but fails outright on a clean CI runner with none ("Author identity
+// unknown"). Discovered via a real CI run, not a local one.
+export const TEST_IDENTITY_ENV = {
   GIT_AUTHOR_NAME: 'Test Fixture',
   GIT_AUTHOR_EMAIL: 'fixture@example.com',
   GIT_COMMITTER_NAME: 'Test Fixture',

@@ -9,7 +9,7 @@ import {
   updateRedirect,
 } from '../../src/services/manage-redirects.ts';
 import { loadRedirects } from '../../src/services/redirects.ts';
-import { createTmpSiteRoot, writeAndCommit, writeJson } from '../helpers/tmp-site.ts';
+import { createTmpSiteRoot, writeAndCommit, writeJson, TEST_IDENTITY_ENV } from '../helpers/tmp-site.ts';
 
 const author = { name: 'Jane Editor', email: 'jane@example.com' };
 
@@ -28,7 +28,7 @@ function commitCount(siteRoot: string): number {
 test('createRedirect writes a new entry and commits immediately, with no draft step', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
     const before = commitCount(siteRoot);
 
@@ -47,7 +47,7 @@ test('createRedirect writes a new entry and commits immediately, with no draft s
 test('createRedirect rejects with already-exists when from already has an entry', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
     await createRedirect(config, '/a', '/b', undefined, 'first', author);
 
@@ -78,7 +78,7 @@ test('createRedirect rejects with live-content-exists when a live page already s
 test('createRedirect rejects an external target', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
 
     await assert.rejects(
@@ -93,7 +93,7 @@ test('createRedirect rejects an external target', async () => {
 test('createRedirect rejects a from that is not an internal path', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
 
     await assert.rejects(
@@ -108,7 +108,7 @@ test('createRedirect rejects a from that is not an internal path', async () => {
 test('createRedirect rejects a redirect that would create a cycle', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
     await createRedirect(config, '/a', '/b', undefined, 'first', author);
 
@@ -124,7 +124,7 @@ test('createRedirect rejects a redirect that would create a cycle', async () => 
 test('updateRedirect changes an existing entry and reuses chain-collapse, in one commit', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
     await createRedirect(config, '/a', '/b', 'original note', 'create', author);
     const before = commitCount(siteRoot);
@@ -142,7 +142,7 @@ test('updateRedirect changes an existing entry and reuses chain-collapse, in one
 test('createRedirect surfaces retargeted entries when chain-collapse silently repoints another, note-bearing entry', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
     // /a -> /b already exists, carrying a human-authored note.
     await createRedirect(config, '/a', '/b', 'campaign A', 'create a', author);
@@ -165,7 +165,7 @@ test('createRedirect surfaces retargeted entries when chain-collapse silently re
 test('updateRedirect rejects with not-found when from has no entry', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
 
     await assert.rejects(
@@ -180,7 +180,7 @@ test('updateRedirect rejects with not-found when from has no entry', async () =>
 test('deleteRedirect removes an entry in one commit', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
     await createRedirect(config, '/a', '/b', undefined, 'create', author);
     const before = commitCount(siteRoot);
@@ -197,7 +197,7 @@ test('deleteRedirect removes an entry in one commit', async () => {
 test('deleteRedirect rejects with not-found when from has no entry', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
 
     await assert.rejects(
@@ -214,7 +214,7 @@ test('createRedirect refuses a malformed redirects.json rather than silently ove
   try {
     writeJson(siteRoot, 'content/redirects.json', { schemaVersion: 1, entries: 'not-an-array' });
     execFileSync('git', ['add', '-A'], { cwd: siteRoot });
-    execFileSync('git', ['commit', '-m', 'seed malformed redirects.json'], { cwd: siteRoot });
+    execFileSync('git', ['commit', '-m', 'seed malformed redirects.json'], { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } });
     const config = loadSiteConfig(siteRoot);
 
     await assert.rejects(
