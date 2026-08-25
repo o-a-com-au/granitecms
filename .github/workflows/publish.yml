@@ -1,0 +1,46 @@
+name: Publish to npm
+
+# Fires on a real version tag (v0.1.0, v1.2.3, ...) - never on an
+# ordinary push to main, so a publish is always a deliberate, tagged
+# release. No NPM_TOKEN or other long-lived secret is stored anywhere
+# in this repo: id-token: write is what lets npm exchange this
+# workflow's own GitHub-issued OIDC token for a short-lived publish
+# credential (npm's "trusted publisher" flow). That trust relationship
+# has to be registered once on npmjs.com against this exact repo and
+# workflow filename before the first tag push - see docs/hosting.md's
+# publish-readiness notes.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing needs a recent npm CLI - don't rely on
+      # whatever setup-node's chosen Node version happens to bundle.
+      - run: npm install -g npm@latest
+
+      - run: npm ci
+
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+
+      # No --//registry.npmjs.org/:_authToken and no NODE_AUTH_TOKEN -
+      # the trusted-publisher OIDC exchange handles authentication.
+      # --provenance attaches a public attestation linking this exact
+      # tarball back to this workflow run and commit.
+      - run: npm publish --provenance

@@ -1,9 +1,12 @@
 {
   "name": "@oa/cms-agent",
   "version": "0.0.0",
-  "private": true,
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "Self-hosted, git-backed CMS agent, distributed as a compiled npm package.",
+  "license": "SEE LICENSE IN LICENSE",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -14,7 +17,8 @@
     "./package.json": "./package.json"
   },
   "bin": {
-    "create-site": "dist/create-site/cli.js"
+    "create-site": "dist/create-site/cli.js",
+    "mint-token": "dist/create-site/mint-token-cli.js"
   },
   "files": [
     "dist"

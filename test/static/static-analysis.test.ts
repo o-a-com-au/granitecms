@@ -63,6 +63,7 @@ const FS_USAGE_ALLOWLIST = new Set<string>([
   'server-config.ts', // reads site.config.json from the agent-configured siteRoot, not a request path
   'routes/capabilities.ts', // reads the agent's own bundled package.json for the capabilities endpoint
   'create-site/generate-site.ts', // a standalone CLI operating on an operator-supplied local directory, not a web request's :path
+  'create-site/mint-token.ts', // a standalone CLI operating on an operator-supplied local directory, not a web request's :path
 ]);
 
 test('B7: the sanitisation function is a single shared helper and every fs-touching code path imports it', () => {

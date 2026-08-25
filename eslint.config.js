@@ -84,6 +84,7 @@ export default tseslint.config(
       'src/routes/capabilities.ts',
       'src/services/static-file.ts',
       'src/create-site/generate-site.ts',
+      'src/create-site/mint-token.ts',
       'src/media/drivers/local-fs-driver.ts',
     ],
     rules: { 'no-restricted-imports': 'off' },
