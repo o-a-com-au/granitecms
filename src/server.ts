@@ -196,6 +196,17 @@ export async function startServer(
     throw error;
   }
 
+  // The real bound port, not just serverConfig.port verbatim - the
+  // same reasoning tests already rely on (app.server.address()):
+  // port 0 means "OS picks a free one", so echoing the configured
+  // value back would print a meaningless 0 in that case. 127.0.0.1,
+  // not the 0.0.0.0 bind host above - that's what's actually
+  // reachable and clickable from the machine running this.
+  const address = app.server.address();
+  if (address !== null && typeof address !== 'string') {
+    console.log(`Site running at http://127.0.0.1:${address.port}`);
+  }
+
   if (options.tunnel) {
     try {
       tunnel = await (options.startTunnel ?? startDevTunnel)(serverConfig.port);

@@ -293,6 +293,31 @@ test('H4: SIGTERM triggers the same graceful-shutdown checkpoint, not just a dir
   }
 });
 
+test('boot prints the real bound address, not just the configured port verbatim', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  const log = mock.method(console, 'log');
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
+    const app = await startServer(siteRoot, { logger: false });
+    try {
+      const address = app.server.address();
+      if (address === null || typeof address === 'string') {
+        throw new Error('expected a real bound network address');
+      }
+      const printed = log.mock.calls.map((call) => String(call.arguments[0]));
+      assert.ok(
+        printed.some((line) => line === `Site running at http://127.0.0.1:${address.port}`),
+        `expected the real bound port (${address.port}) to be printed, not the configured 0`,
+      );
+    } finally {
+      await app.close();
+    }
+  } finally {
+    log.mock.restore();
+    cleanup();
+  }
+});
+
 test('a normal boot (no --tunnel) prints a one-line hint about the option, never blocks on input', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   const log = mock.method(console, 'log');
