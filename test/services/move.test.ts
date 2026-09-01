@@ -232,6 +232,82 @@ test('moving a page onto an existing page is rejected, and nothing changes', asy
   }
 });
 
+// Every test above only ever renames within the same parent/depth
+// (about -> company, a subtree kept at the same nesting level). The
+// admin's own drag-and-drop "move this page under a different parent"
+// feature relies on this same movePage/prepareMovePage exercising a
+// genuine DEPTH change too (a root page becoming a child, or a child
+// becoming a root page again) - mechanically this was already just
+// "whatever toUrl says", but had no test coverage of its own before
+// this admin-facing feature was built on top of it.
+test('reparenting: moving a root page to become a child of a different existing page creates the destination directory and moves the file', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', pageJson('About'));
+    writeAndCommit(siteRoot, 'content/pages/team.json', pageJson('Team'));
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+
+    await movePage(config, '/team', '/about/team', 'move team under about', author);
+
+    assert.equal(existsSync(join(config.pagesRoot, 'team.json')), false);
+    assert.ok(existsSync(join(config.pagesRoot, 'about', 'team.json')));
+    assert.equal(readFileSync(join(config.pagesRoot, 'about', 'team.json'), 'utf-8'), pageJson('Team'));
+    // about.json itself is untouched - only team.json moved into a new
+    // about/ directory sitting alongside it, not merged into or
+    // replacing about.json.
+    assert.ok(existsSync(join(config.pagesRoot, 'about.json')));
+    assert.equal(commitCount(siteRoot), before + 1);
+    assert.equal(redirectTargetFor(config, '/team'), '/about/team');
+  } finally {
+    cleanup();
+  }
+});
+
+test('reparenting: moving a child page back out to root level also works', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', pageJson('About'));
+    writeAndCommit(siteRoot, 'content/pages/about/team.json', pageJson('Team'));
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+
+    await movePage(config, '/about/team', '/team', 'move team out to root', author);
+
+    assert.ok(existsSync(join(config.pagesRoot, 'team.json')));
+    assert.equal(readFileSync(join(config.pagesRoot, 'team.json'), 'utf-8'), pageJson('Team'));
+    assert.equal(existsSync(join(config.pagesRoot, 'about', 'team.json')), false);
+    assert.ok(existsSync(join(config.pagesRoot, 'about.json')), 'about.json itself must be untouched');
+    assert.equal(commitCount(siteRoot), before + 1);
+    assert.equal(redirectTargetFor(config, '/about/team'), '/team');
+  } finally {
+    cleanup();
+  }
+});
+
+test('reparenting: moving a page with its own children to a different-depth destination carries the whole subtree along', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', pageJson('About'));
+    writeAndCommit(siteRoot, 'content/pages/team.json', pageJson('Team'));
+    writeAndCommit(siteRoot, 'content/pages/team/lead.json', pageJson('Lead'));
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+
+    await movePage(config, '/team', '/about/team', 'move team (with its own children) under about', author);
+
+    assert.ok(existsSync(join(config.pagesRoot, 'about', 'team.json')));
+    assert.ok(existsSync(join(config.pagesRoot, 'about', 'team', 'lead.json')));
+    assert.equal(existsSync(join(config.pagesRoot, 'team.json')), false);
+    assert.equal(existsSync(join(config.pagesRoot, 'team')), false);
+    assert.equal(commitCount(siteRoot), before + 1);
+    assert.equal(redirectTargetFor(config, '/team'), '/about/team');
+    assert.equal(redirectTargetFor(config, '/team/lead'), '/about/team/lead');
+  } finally {
+    cleanup();
+  }
+});
+
 test('rollback-on-commit-failure: a real git failure after the rename rolls back the rename and redirect, no commit', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
