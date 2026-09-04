@@ -29,5 +29,8 @@ export function buildMediaFilename(originalFilename: string, bytes: Buffer): str
   const cleaned = base.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
   const slug = cleaned.length > 0 ? cleaned : 'file';
   const extension = extname(originalFilename).toLowerCase();
-  return `${hash}-${slug}${extension}`;
+  // Slug first, hash last (requested directly) - the readable part of
+  // the filename sorts and scans first in a directory listing/URL,
+  // with the hash as a suffix rather than something to read past.
+  return `${slug}-${hash}${extension}`;
 }
