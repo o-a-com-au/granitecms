@@ -8,6 +8,7 @@ import { assetsRoutes } from './routes/assets.ts';
 import { v1Routes } from './routes/index.ts';
 import { mediaPublicRoutes } from './routes/media-public.ts';
 import { publicRoutes } from './routes/public.ts';
+import { searchPublicRoutes } from './routes/search-public.ts';
 import { sitemapRoutes } from './routes/sitemap.ts';
 import { CHECKPOINT_AUTHOR, runCheckpoint } from './services/checkpoint.ts';
 import type { DevTunnel } from './services/dev-tunnel.ts';
@@ -124,6 +125,17 @@ export function buildServer(
   // also always wins over a same-named static file under
   // theme/root/sitemap.xml (see routes/public.ts's root-mirror check).
   app.register(sitemapRoutes, { config: booted.config });
+
+  // Same "more specific than the public catch-all" reasoning again - a
+  // stable, public, front-end-facing contract (a theme's own JS calls
+  // it directly), not part of the versioned /v1 admin/integration
+  // surface, so it lives alongside these other unprefixed routes
+  // rather than inside v1Routes (search.ts's /v1/search/rebuild is the
+  // authenticated write side that does). GET /search.json, not
+  // GET /search: a single reserved path, not a whole prefix, so a
+  // site's own content page can still live at the bare /search URL
+  // (granite-starter's search-demo section does exactly that).
+  app.register(searchPublicRoutes, { config: booted.config });
 
   return app;
 }
