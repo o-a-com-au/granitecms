@@ -349,6 +349,23 @@ Design notes:
 - **`schemaVersion` on a newly-created page is a hardcoded `5`** (`docs/content-authoring-guide.md`'s own "always 5 for newly-authored content"), not read from a template's own file or from a live capabilities call - every page this modal creates, template or blank, is authored fresh right now, so it always gets the current version regardless of what an older template file happens to declare.
 - **v1 scope cut, deliberate**: every page created through this modal is flat under `pages/` - no nested-page creation (a page with children) yet. `path -> url` is a trivial string strip (`pages/x.json -> /x`), not the agent's own general `urlToPagePath`, which this modal deliberately doesn't reimplement admin-side.
 
+## Group R: Queryable API fields for section/block settings
+
+Raised by the project owner: theme authors should be able to flag individual section/block fields (a price, a category) as exposed through the agent's own search index, independent of the existing full-text `body` search - the driving use case is a developer filtering a product listing by price. This group is agent-side only: the schema keyword, the index shape, and a new read-only query endpoint. Admin-side UI for authoring/using this is intentionally deferred, same "agent capability first, confirm before any UI follows" sequencing Groups P/Q already used.
+
+| # | Criterion | Proof |
+|---|---|---|
+| R1 | A section/block field can be flagged `"api": true` in its own JSON Schema property - a plain, unvalidated keyword (same status as `format`/`allowedBlocks`), read only at index-build time, never enforced by Ajv | `docs/theme-authoring-guide.md`'s new paragraph documenting it |
+| R2 | Rebuilding the search index also indexes every flagged field's actual value, typed (string/number/boolean), one row per section/block *instance* (not collapsed per page or per field name) - unpublished pages produce none, same guarantee the existing full-text `body` already has | `src/search/rebuild-index.ts`'s new `extractApiFields`/`extractInstanceApiFields` + `page_fields` table; `test/search/rebuild-index.test.ts`'s 7 new cases (typed columns, a field without the flag is absent, nested block fields via the block schema map, multiple instances each independently queryable, unpublished pages produce none, `page_type` filter) |
+| R3 | A new endpoint queries those fields - exact match by default, plus `gt`/`gte`/`lt`/`lte` for numeric fields, with an optional page-type filter | `src/search/query-fields.ts`'s `queryFields`; `src/routes/search.ts`'s new `GET /v1/search/fields` (same `content`-scope guard `GET /v1/content` already uses). `test/routes/search.test.ts`'s 7 new cases (default exact match, all four numeric operators, page-type filter, 400 on missing params/unknown op/non-numeric value with a numeric op, 401 with no token) |
+
+Design notes:
+
+- **One row per instance, not one column per field name or one merged value per page** - a page can carry several instances of the same block type (several "product" blocks on one listing page), each with its own value; a fixed relational schema of columns-per-field can't accommodate that, and collapsing to one value per field name per page would silently lose every instance but the last-written. Confirmed directly with the project owner before implementation.
+- **`page_fields` is a plain SQLite table, not a second FTS5 virtual table** - it holds typed, orderable values (a price, a rating), the opposite of `pages_fts`'s own free-text matching; `pages_fts` itself only gained one new `page_type` column (`UNINDEXED`, same role as its existing `url` column).
+- **The query endpoint's operator set is deliberately small and named** (`eq`/`gt`/`gte`/`lt`/`lte`), not a generic filter DSL - matches this project's existing `GET /v1/content` query-param style, and the actual driving use case (numeric range filtering, e.g. "products under $50") doesn't need more than this.
+- **No admin-side UI yet** - this group only ships the agent capability, same sequencing Groups P/Q already used (agent capability confirmed and built first, admin UI as a separate later piece of work if the project owner wants one).
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.
