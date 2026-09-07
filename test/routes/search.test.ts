@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { bootSite } from '../../src/boot.ts';
-import { queryIndex } from '../../src/search/query-index.ts';
+import { queryContent } from '../../src/search/query-content.ts';
 import { buildServer } from '../../src/server.ts';
 import { loadServerConfig } from '../../src/server-config.ts';
 import { createTmpSiteRoot, writeJson } from '../helpers/tmp-site.ts';
@@ -52,7 +52,8 @@ test('H1: POST /v1/search/rebuild rebuilds the index and returns success', async
 
     assert.equal(response.statusCode, 200);
     assert.deepEqual(JSON.parse(response.body), { ok: true });
-    assert.deepEqual(queryIndex(config.searchIndexPath, 'aardvarks'), [{ url: '/about', title: 'About' }]);
+    const { results } = queryContent(config.searchIndexPath, { q: 'aardvarks', filters: [], limit: 20, offset: 0 });
+    assert.deepEqual(results, [{ url: '/about', title: 'About', pageType: 'page', fields: {} }]);
   } finally {
     await app.close();
     cleanup();
@@ -74,18 +75,18 @@ function writeProductSectionSchema(siteRoot: string): void {
   mkdirSync(join(siteRoot, 'theme', 'sections'), { recursive: true });
   writeFileSync(
     join(siteRoot, 'theme', 'sections', 'product.liquid'),
-    '<div></div>\n{% schema %}\n{"type":"object","properties":{"price":{"type":"number","api":true}}}\n{% endschema %}\n',
+    '<div></div>\n{% schema %}\n{"type":"object","properties":{"price":{"type":"number","api":true},"category":{"type":"string","api":true}}}\n{% endschema %}\n',
   );
 }
 
-function productPage(title: string, price: number): object {
+function productPage(title: string, price: number, category: string): object {
   return {
     schemaVersion: 4,
     title,
     type: 'page',
     layout: 'theme',
     published: true,
-    sections: [{ id: 'sec-1', type: 'product', settings: { price } }],
+    sections: [{ id: 'sec-1', type: 'product', settings: { price, category } }],
   };
 }
 
@@ -98,143 +99,201 @@ async function rebuildViaRoute(app: ReturnType<typeof buildSearchTestServer>['ap
   assert.equal(response.statusCode, 200);
 }
 
-test('GET /v1/search/fields with no op defaults to exact match', async () => {
+async function search(
+  app: ReturnType<typeof buildSearchTestServer>['app'],
+  query: string,
+): Promise<{ statusCode: number; body: unknown }> {
+  const response = await app.inject({
+    method: 'GET',
+    url: `/v1/search${query}`,
+    headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+  });
+  return { statusCode: response.statusCode, body: JSON.parse(response.body) };
+}
+
+test('GET /v1/search with q does a full-text search and returns each result\'s page type', async () => {
   const { app, siteRoot, cleanup } = buildSearchTestServer();
   try {
-    writeProductSectionSchema(siteRoot);
-    writeJson(siteRoot, 'content/pages/widget.json', productPage('Widget', 25));
+    writeJson(siteRoot, 'content/pages/about.json', page('About', 'trail running shoe'));
+    writeJson(siteRoot, 'content/pages/contact.json', page('Contact', 'get in touch'));
     await rebuildViaRoute(app);
 
-    const response = await app.inject({
-      method: 'GET',
-      url: '/v1/search/fields?field=price&value=25',
-      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+    const { statusCode, body } = await search(app, '?q=trail');
+    assert.equal(statusCode, 200);
+    assert.deepEqual(body, {
+      results: [{ url: '/about', title: 'About', pageType: 'page', fields: {} }],
+      limit: 20,
+      offset: 0,
+      hasMore: false,
     });
-
-    assert.equal(response.statusCode, 200);
-    assert.deepEqual(JSON.parse(response.body), [{ url: '/widget', title: 'Widget', pageType: 'page' }]);
   } finally {
     await app.close();
     cleanup();
   }
 });
 
-test('GET /v1/search/fields supports gt/gte/lt/lte for a numeric field', async () => {
+test('GET /v1/search with no filter (field:value) op implies "eq"', async () => {
   const { app, siteRoot, cleanup } = buildSearchTestServer();
   try {
     writeProductSectionSchema(siteRoot);
-    writeJson(siteRoot, 'content/pages/cheap.json', productPage('Cheap', 10));
-    writeJson(siteRoot, 'content/pages/pricey.json', productPage('Pricey', 90));
+    writeJson(siteRoot, 'content/pages/widget.json', productPage('Widget', 25, 'tools'));
     await rebuildViaRoute(app);
 
-    async function urlsFor(op: string, value: string): Promise<string[]> {
-      const response = await app.inject({
-        method: 'GET',
-        url: `/v1/search/fields?field=price&op=${op}&value=${value}`,
-        headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
-      });
-      assert.equal(response.statusCode, 200);
-      return (JSON.parse(response.body) as Array<{ url: string }>).map((entry) => entry.url);
+    const { statusCode, body } = await search(app, '?filter=category:tools');
+    assert.equal(statusCode, 200);
+    assert.deepEqual((body as { results: unknown[] }).results, [
+      { url: '/widget', title: 'Widget', pageType: 'page', fields: { price: 25, category: 'tools' } },
+    ]);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('GET /v1/search ANDs multiple filter params together - a product grid filtering by category and price', async () => {
+  const { app, siteRoot, cleanup } = buildSearchTestServer();
+  try {
+    writeProductSectionSchema(siteRoot);
+    writeJson(siteRoot, 'content/pages/cheap-shoe.json', productPage('Cheap Shoe', 40, 'shoes'));
+    writeJson(siteRoot, 'content/pages/pricey-shoe.json', productPage('Pricey Shoe', 200, 'shoes'));
+    writeJson(siteRoot, 'content/pages/cheap-hat.json', productPage('Cheap Hat', 20, 'hats'));
+    await rebuildViaRoute(app);
+
+    const { statusCode, body } = await search(app, '?filter=category:eq:shoes&filter=price:lt:100');
+    assert.equal(statusCode, 200);
+    assert.deepEqual((body as { results: Array<{ url: string }> }).results.map((r) => r.url), ['/cheap-shoe']);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('GET /v1/search sort=-price and sort=price order a numeric field descending/ascending', async () => {
+  const { app, siteRoot, cleanup } = buildSearchTestServer();
+  try {
+    writeProductSectionSchema(siteRoot);
+    writeJson(siteRoot, 'content/pages/a.json', productPage('A', 30, 'shoes'));
+    writeJson(siteRoot, 'content/pages/b.json', productPage('B', 10, 'shoes'));
+    writeJson(siteRoot, 'content/pages/c.json', productPage('C', 20, 'shoes'));
+    await rebuildViaRoute(app);
+
+    const asc = await search(app, '?filter=category:shoes&sort=price');
+    assert.deepEqual((asc.body as { results: Array<{ url: string }> }).results.map((r) => r.url), [
+      '/b',
+      '/c',
+      '/a',
+    ]);
+
+    const desc = await search(app, '?filter=category:shoes&sort=-price');
+    assert.deepEqual((desc.body as { results: Array<{ url: string }> }).results.map((r) => r.url), [
+      '/a',
+      '/c',
+      '/b',
+    ]);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('GET /v1/search sort=-publishDate orders posts newest first, for a paginated blog listing', async () => {
+  const { app, siteRoot, cleanup } = buildSearchTestServer();
+  try {
+    function post(slug: string, title: string, publishDate: string): object {
+      return {
+        schemaVersion: 4,
+        title,
+        type: 'post',
+        layout: 'theme',
+        published: true,
+        author: 'Jane Editor',
+        publishDate,
+        tags: [],
+        sections: [],
+      };
     }
+    writeJson(siteRoot, 'content/posts/old.json', post('old', 'Old Post', '2024-01-01'));
+    writeJson(siteRoot, 'content/posts/new.json', post('new', 'New Post', '2026-01-01'));
+    writeJson(siteRoot, 'content/posts/middle.json', post('middle', 'Middle Post', '2025-01-01'));
+    await rebuildViaRoute(app);
 
-    assert.deepEqual(await urlsFor('lt', '50'), ['/cheap']);
-    assert.deepEqual(await urlsFor('lte', '10'), ['/cheap']);
-    assert.deepEqual(await urlsFor('gt', '50'), ['/pricey']);
-    assert.deepEqual(await urlsFor('gte', '90'), ['/pricey']);
+    const { statusCode, body } = await search(app, '?pageType=post&sort=-publishDate');
+    assert.equal(statusCode, 200);
+    assert.deepEqual((body as { results: Array<{ url: string }> }).results.map((r) => r.url), [
+      '/blog/new',
+      '/blog/middle',
+      '/blog/old',
+    ]);
   } finally {
     await app.close();
     cleanup();
   }
 });
 
-test('GET /v1/search/fields with pageType filters to just that page type', async () => {
+test('GET /v1/search paginates with limit/offset and reports hasMore', async () => {
   const { app, siteRoot, cleanup } = buildSearchTestServer();
   try {
     writeProductSectionSchema(siteRoot);
-    writeJson(siteRoot, 'content/pages/widget.json', productPage('Widget', 15));
-    writeJson(siteRoot, 'content/posts/on-sale.json', {
-      schemaVersion: 4,
-      title: 'On Sale',
-      type: 'post',
-      layout: 'theme',
-      published: true,
-      author: 'Jane Editor',
-      publishDate: '2026-07-27',
-      tags: [],
-      sections: [{ id: 'sec-1', type: 'product', settings: { price: 15 } }],
-    });
+    for (const name of ['a', 'b', 'c', 'd', 'e']) {
+      writeJson(siteRoot, `content/pages/${name}.json`, productPage(name, 10, 'shoes'));
+    }
     await rebuildViaRoute(app);
 
-    const response = await app.inject({
-      method: 'GET',
-      url: '/v1/search/fields?field=price&value=15&pageType=post',
-      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
-    });
+    const first = await search(app, '?filter=category:shoes&sort=price&limit=2&offset=0');
+    assert.deepEqual((first.body as { hasMore: boolean }).hasMore, true);
+    assert.equal((first.body as { results: unknown[] }).results.length, 2);
 
-    assert.equal(response.statusCode, 200);
-    assert.deepEqual(JSON.parse(response.body), [{ url: '/blog/on-sale', title: 'On Sale', pageType: 'post' }]);
+    const last = await search(app, '?filter=category:shoes&sort=price&limit=2&offset=4');
+    assert.deepEqual((last.body as { hasMore: boolean }).hasMore, false);
+    assert.equal((last.body as { results: unknown[] }).results.length, 1);
   } finally {
     await app.close();
     cleanup();
   }
 });
 
-test('GET /v1/search/fields with a missing field or value is rejected with 400', async () => {
+test('GET /v1/search with an invalid filter (no colon) is rejected with 400', async () => {
   const { app, cleanup } = buildSearchTestServer();
   try {
-    const noField = await app.inject({
-      method: 'GET',
-      url: '/v1/search/fields?value=25',
-      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
-    });
-    assert.equal(noField.statusCode, 400);
-
-    const noValue = await app.inject({
-      method: 'GET',
-      url: '/v1/search/fields?field=price',
-      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
-    });
-    assert.equal(noValue.statusCode, 400);
+    const { statusCode } = await search(app, '?filter=notafilter');
+    assert.equal(statusCode, 400);
   } finally {
     await app.close();
     cleanup();
   }
 });
 
-test('GET /v1/search/fields with an unknown op is rejected with 400', async () => {
+test('GET /v1/search with a non-numeric value and a numeric op is rejected with 400', async () => {
   const { app, cleanup } = buildSearchTestServer();
   try {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/v1/search/fields?field=price&op=contains&value=25',
-      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
-    });
-    assert.equal(response.statusCode, 400);
+    const { statusCode } = await search(app, '?filter=price:lt:cheap');
+    assert.equal(statusCode, 400);
   } finally {
     await app.close();
     cleanup();
   }
 });
 
-test('GET /v1/search/fields with a non-numeric value and a numeric op is rejected with 400', async () => {
-  const { app, cleanup } = buildSearchTestServer();
+test('GET /v1/search with a syntax-breaking q (stray quote, trailing operator) never 500s', async () => {
+  const { app, siteRoot, cleanup } = buildSearchTestServer();
   try {
-    const response = await app.inject({
-      method: 'GET',
-      url: '/v1/search/fields?field=price&op=lt&value=cheap',
-      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
-    });
-    assert.equal(response.statusCode, 400);
+    writeJson(siteRoot, 'content/pages/about.json', page('About', 'hello world'));
+    await rebuildViaRoute(app);
+
+    for (const q of ['"unbalanced', 'trailing-', 'AND OR NOT', '""""']) {
+      const { statusCode } = await search(app, `?q=${encodeURIComponent(q)}`);
+      assert.equal(statusCode, 200, `q=${q} should not error`);
+    }
   } finally {
     await app.close();
     cleanup();
   }
 });
 
-test('GET /v1/search/fields with no token is rejected with 401', async () => {
+test('GET /v1/search with no token is rejected with 401', async () => {
   const { app, cleanup } = buildSearchTestServer();
   try {
-    const response = await app.inject({ method: 'GET', url: '/v1/search/fields?field=price&value=25' });
+    const response = await app.inject({ method: 'GET', url: '/v1/search?q=hello' });
     assert.equal(response.statusCode, 401);
   } finally {
     await app.close();

@@ -60,6 +60,7 @@ const FS_USAGE_ALLOWLIST = new Set<string>([
   'services/menus.ts', // walks agent-configured menusRoot/draftsRoot, not request paths
   'services/migration-runner.ts', // walks and rewrites files under agent-configured content/drafts roots, not request paths
   'search/rebuild-index.ts', // walks agent-configured pagesRoot and writes to agent-configured dataRoot, not request paths
+  'search/query-content.ts', // checks the existence of the agent-configured searchIndexPath, not a request path
   'server-config.ts', // reads site.config.json from the agent-configured siteRoot, not a request path
   'routes/capabilities.ts', // reads the agent's own bundled package.json for the capabilities endpoint
   'create-site/generate-site.ts', // a standalone CLI operating on an operator-supplied local directory, not a web request's :path

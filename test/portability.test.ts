@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { bootSite } from '../src/boot.ts';
 import { renderPage } from '../src/renderer/render-page.ts';
 import { rebuildIndex } from '../src/search/rebuild-index.ts';
-import { queryIndex } from '../src/search/query-index.ts';
+import { queryContent } from '../src/search/query-content.ts';
 import { resolveUrl } from '../src/services/resolve-url.ts';
 
 const FIXTURE_SITE = join(import.meta.dirname, 'fixtures', 'site');
@@ -65,9 +65,12 @@ test('H1: the full fixture site clones to a temp dir, and the agent boots agains
     // The search index rebuilds and queries against the clone, and
     // still excludes the draft-only page shipped in the fixture.
     await rebuildIndex(config);
-    const results = queryIndex(config.searchIndexPath, 'Welcome');
-    assert.deepEqual(results, [{ url: '/about', title: 'About' }]);
-    assert.deepEqual(queryIndex(config.searchIndexPath, 'Draft'), []);
+    const { results } = queryContent(config.searchIndexPath, { q: 'Welcome', filters: [], limit: 20, offset: 0 });
+    assert.deepEqual(results, [{ url: '/about', title: 'About', pageType: '', fields: {} }]);
+    assert.deepEqual(
+      queryContent(config.searchIndexPath, { q: 'Draft', filters: [], limit: 20, offset: 0 }).results,
+      [],
+    );
   } finally {
     rmSync(originRoot, { recursive: true, force: true });
     rmSync(cloneParent, { recursive: true, force: true });

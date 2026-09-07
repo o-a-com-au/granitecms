@@ -5,9 +5,33 @@ import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
 import { rebuildIndex } from '../../src/search/rebuild-index.ts';
-import { queryIndex } from '../../src/search/query-index.ts';
-import { queryFields } from '../../src/search/query-fields.ts';
+import { queryContent, type FieldOp } from '../../src/search/query-content.ts';
 import { createTmpSiteRoot, writeAndCommit, writeJson } from '../helpers/tmp-site.ts';
+
+// Thin wrappers over queryContent (query-content.ts), matching the
+// shape the now-retired queryIndex/queryFields each had - keeps every
+// existing call site below unchanged in shape, since queryContent
+// itself now covers what both of them did (and more; its own fuller
+// response shape - filters/sort/pagination/fields - gets its own
+// dedicated coverage in test/routes/search.test.ts instead).
+function searchText(searchIndexPath: string, q: string): Array<{ url: string; title: string }> {
+  return queryContent(searchIndexPath, { q, filters: [], limit: 100, offset: 0 }).results.map(({ url, title }) => ({
+    url,
+    title,
+  }));
+}
+
+function searchField(
+  searchIndexPath: string,
+  params: { fieldKey: string; op: FieldOp; value: string; pageType?: string },
+): Array<{ url: string; title: string; pageType: string }> {
+  return queryContent(searchIndexPath, {
+    filters: [{ field: params.fieldKey, op: params.op, value: params.value }],
+    pageType: params.pageType,
+    limit: 100,
+    offset: 0,
+  }).results.map(({ url, title, pageType }) => ({ url, title, pageType }));
+}
 
 function page(options: {
   title: string;
@@ -51,7 +75,7 @@ test('G1: rebuild from a clean checkout produces an index; a basic FTS query ret
 
     await rebuildIndex(config);
 
-    const results = queryIndex(config.searchIndexPath, 'aardvarks');
+    const results = searchText(config.searchIndexPath, 'aardvarks');
     assert.deepEqual(results, [{ url: '/about', title: 'About' }]);
   } finally {
     cleanup();
@@ -66,11 +90,11 @@ test('G2: deleting the index file and rebuilding produces equivalent query resul
     const config = loadSiteConfig(siteRoot);
 
     await rebuildIndex(config);
-    const first = queryIndex(config.searchIndexPath, 'aardvarks');
+    const first = searchText(config.searchIndexPath, 'aardvarks');
 
     unlinkSync(config.searchIndexPath);
     await rebuildIndex(config);
-    const second = queryIndex(config.searchIndexPath, 'aardvarks');
+    const second = searchText(config.searchIndexPath, 'aardvarks');
 
     assert.deepEqual(first, second);
     assert.deepEqual(first, [{ url: '/about', title: 'About' }]);
@@ -93,9 +117,9 @@ test('G3: unpublished pages and drafts are absent from the index', async () => {
 
     await rebuildIndex(config);
 
-    assert.deepEqual(queryIndex(config.searchIndexPath, 'controlterm'), [{ url: '/live', title: 'Live' }]);
-    assert.deepEqual(queryIndex(config.searchIndexPath, 'unpublishedterm'), []);
-    assert.deepEqual(queryIndex(config.searchIndexPath, 'draftonlyterm'), []);
+    assert.deepEqual(searchText(config.searchIndexPath, 'controlterm'), [{ url: '/live', title: 'Live' }]);
+    assert.deepEqual(searchText(config.searchIndexPath, 'unpublishedterm'), []);
+    assert.deepEqual(searchText(config.searchIndexPath, 'draftonlyterm'), []);
   } finally {
     cleanup();
   }
@@ -119,7 +143,7 @@ test('a published post is indexed under its /blog/<slug> URL, same as a page', a
 
     await rebuildIndex(config);
 
-    assert.deepEqual(queryIndex(config.searchIndexPath, 'postsearchterm'), [
+    assert.deepEqual(searchText(config.searchIndexPath, 'postsearchterm'), [
       { url: '/blog/hello-world', title: 'Hello World' },
     ]);
   } finally {
@@ -145,7 +169,7 @@ test('an unpublished post is absent from the index, same as an unpublished page'
 
     await rebuildIndex(config);
 
-    assert.deepEqual(queryIndex(config.searchIndexPath, 'unpublishedpostterm'), []);
+    assert.deepEqual(searchText(config.searchIndexPath, 'unpublishedpostterm'), []);
   } finally {
     cleanup();
   }
@@ -163,8 +187,8 @@ test('a menu is never indexed - it has no public URL to point a search result at
 
     await rebuildIndex(config);
 
-    assert.deepEqual(queryIndex(config.searchIndexPath, 'menuindexterm'), []);
-    assert.deepEqual(queryIndex(config.searchIndexPath, 'controlterm2'), [{ url: '/about', title: 'About' }]);
+    assert.deepEqual(searchText(config.searchIndexPath, 'menuindexterm'), []);
+    assert.deepEqual(searchText(config.searchIndexPath, 'controlterm2'), [{ url: '/about', title: 'About' }]);
   } finally {
     cleanup();
   }
@@ -177,7 +201,7 @@ test('a rebuild swaps the index atomically via a temp file + rename - no leftove
     const config = loadSiteConfig(siteRoot);
 
     await rebuildIndex(config);
-    assert.deepEqual(queryIndex(config.searchIndexPath, 'aardvarks'), [{ url: '/about', title: 'About' }]);
+    assert.deepEqual(searchText(config.searchIndexPath, 'aardvarks'), [{ url: '/about', title: 'About' }]);
 
     // A genuinely different second page, not just an edit of the first -
     // proves the real index file is a full replacement of the previous
@@ -185,8 +209,8 @@ test('a rebuild swaps the index atomically via a temp file + rename - no leftove
     writeJson(siteRoot, 'content/pages/about.json', page({ title: 'About', heading: 'bumblebees' }));
     await rebuildIndex(config);
 
-    assert.deepEqual(queryIndex(config.searchIndexPath, 'aardvarks'), []);
-    assert.deepEqual(queryIndex(config.searchIndexPath, 'bumblebees'), [{ url: '/about', title: 'About' }]);
+    assert.deepEqual(searchText(config.searchIndexPath, 'aardvarks'), []);
+    assert.deepEqual(searchText(config.searchIndexPath, 'bumblebees'), [{ url: '/about', title: 'About' }]);
 
     // rebuildIndexJob's own temp file (searchIndexPath + '.tmp-<uuid>')
     // is renamed over the real path on success, not left sitting
@@ -220,13 +244,13 @@ test('a field flagged "api": true is indexed with its own typed value; a field w
 
     await rebuildIndex(config);
 
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '25' }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '25' }), [
       { url: '/widget', title: 'Widget', pageType: 'page' },
     ]);
     // description has no "api": true - it's absent from page_fields
     // entirely, not just unqueried.
     assert.deepEqual(
-      queryFields(config.searchIndexPath, { fieldKey: 'description', op: 'eq', value: 'A fine widget' }),
+      searchField(config.searchIndexPath, { fieldKey: 'description', op: 'eq', value: 'A fine widget' }),
       [],
     );
   } finally {
@@ -255,13 +279,13 @@ test('a string field and a boolean field are each queryable by their own typed v
 
     await rebuildIndex(config);
 
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'category', op: 'eq', value: 'tools' }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'category', op: 'eq', value: 'tools' }), [
       { url: '/widget', title: 'Widget', pageType: 'page' },
     ]);
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'inStock', op: 'eq', value: 'true' }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'inStock', op: 'eq', value: 'true' }), [
       { url: '/widget', title: 'Widget', pageType: 'page' },
     ]);
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'inStock', op: 'eq', value: 'false' }), []);
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'inStock', op: 'eq', value: 'false' }), []);
   } finally {
     cleanup();
   }
@@ -293,7 +317,7 @@ test('an exposed field nested inside a block (not just a top-level section) is i
 
     await rebuildIndex(config);
 
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '40' }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '40' }), [
       { url: '/shelf', title: 'Shelf', pageType: 'page' },
     ]);
   } finally {
@@ -322,17 +346,17 @@ test('multiple instances of the same exposed field on one page each keep their o
 
     await rebuildIndex(config);
 
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '10' }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '10' }), [
       { url: '/shop', title: 'Shop', pageType: 'page' },
     ]);
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '90' }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '90' }), [
       { url: '/shop', title: 'Shop', pageType: 'page' },
     ]);
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '50' }), []);
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '50' }), []);
     // A numeric range only needs ONE instance to qualify - the page
     // still matches once (DISTINCT), it isn't returned twice for its
     // two matching-or-not instances.
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'price', op: 'lt', value: '50' }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'price', op: 'lt', value: '50' }), [
       { url: '/shop', title: 'Shop', pageType: 'page' },
     ]);
   } finally {
@@ -358,7 +382,7 @@ test('an unpublished page produces no page_fields rows either, same as its full-
 
     await rebuildIndex(config);
 
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '10' }), []);
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '10' }), []);
   } finally {
     cleanup();
   }
@@ -395,12 +419,12 @@ test('pageType filters a field query to just that page type', async () => {
 
     // Ordered by url ascending (queryFields' own ORDER BY) - /blog/...
     // sorts before /widget.
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '15' }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '15' }), [
       { url: '/blog/on-sale', title: 'On Sale', pageType: 'post' },
       { url: '/widget', title: 'Widget', pageType: 'page' },
     ]);
     assert.deepEqual(
-      queryFields(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '15', pageType: 'post' }),
+      searchField(config.searchIndexPath, { fieldKey: 'price', op: 'eq', value: '15', pageType: 'post' }),
       [{ url: '/blog/on-sale', title: 'On Sale', pageType: 'post' }],
     );
   } finally {
@@ -426,19 +450,19 @@ test('a post\'s built-in author/publishDate/tags fields are auto-indexed, no "ap
 
     await rebuildIndex(config);
 
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'author', op: 'eq', value: 'Jane Editor' }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'author', op: 'eq', value: 'Jane Editor' }), [
       { url: '/blog/hello-world', title: 'Hello World', pageType: 'post' },
     ]);
     // Each tag is independently matchable - a query for either tag
     // finds the same post, proving the array expanded into separate
     // rows rather than being indexed as one opaque blob.
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'tags', op: 'eq', value: 'design' }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'tags', op: 'eq', value: 'design' }), [
       { url: '/blog/hello-world', title: 'Hello World', pageType: 'post' },
     ]);
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'tags', op: 'eq', value: 'launch' }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'tags', op: 'eq', value: 'launch' }), [
       { url: '/blog/hello-world', title: 'Hello World', pageType: 'post' },
     ]);
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'tags', op: 'eq', value: 'unrelated' }), []);
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'tags', op: 'eq', value: 'unrelated' }), []);
   } finally {
     cleanup();
   }
@@ -474,10 +498,10 @@ test('publishDate is indexed as a numeric epoch value, so range operators can qu
     await rebuildIndex(config);
 
     const cutoff = Date.parse('2023-01-01').toString();
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'publishDate', op: 'gt', value: cutoff }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'publishDate', op: 'gt', value: cutoff }), [
       { url: '/blog/new-post', title: 'New Post', pageType: 'post' },
     ]);
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'publishDate', op: 'lt', value: cutoff }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'publishDate', op: 'lt', value: cutoff }), [
       { url: '/blog/old-post', title: 'Old Post', pageType: 'post' },
     ]);
   } finally {
@@ -493,7 +517,7 @@ test('a page (not a post) has no author/publishDate/tags rows - envelope auto-in
 
     await rebuildIndex(config);
 
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'author', op: 'eq', value: 'anyone' }), []);
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'author', op: 'eq', value: 'anyone' }), []);
   } finally {
     cleanup();
   }
@@ -518,7 +542,7 @@ test('a theme field schema\'d "type": "string", "format": "date" is also indexed
     await rebuildIndex(config);
 
     const epoch = Date.parse('2026-09-10').toString();
-    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'startsOn', op: 'eq', value: epoch }), [
+    assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'startsOn', op: 'eq', value: epoch }), [
       { url: '/conference', title: 'Conference', pageType: 'page' },
     ]);
   } finally {

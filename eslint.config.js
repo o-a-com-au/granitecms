@@ -80,6 +80,7 @@ export default tseslint.config(
       'src/services/manage-menus.ts',
       'src/services/migration-runner.ts',
       'src/search/rebuild-index.ts',
+      'src/search/query-content.ts',
       'src/server-config.ts',
       'src/routes/capabilities.ts',
       'src/services/static-file.ts',
