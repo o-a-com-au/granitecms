@@ -217,6 +217,8 @@ Design notes:
 
 ## Group L: posts and menus content types
 
+> **Superseded (Phase 3, "fold posts into pages" group): the distinct "post" content type and the reserved `/blog` namespace described below were removed.** `author`/`publishDate`/`tags` became optional fields any page may carry, and `/blog` is now an ordinary nested page path, not reserved. A deliberate reversal, confirmed directly with the project owner, not an oversight - see `docs/phase-3-checklist.md`'s own group for the full reasoning and proof. **Menus are unaffected** - everything below about menus still stands.
+
 Not in the original build plan anywhere - added mid-phase at the user's request after manually testing the rendering pipeline against the fixture site (see Group K's rendering work). Two new content types alongside pages: **posts** (blog-post-like content at a fixed `/blog/<slug>` URL prefix, with `author`/`publishDate`/`tags`) and **menus** (flat `{label, url}` navigation lists, no individual public URL, exposed globally to every layout render). Independent of Groups G-J; doesn't block or get blocked by search/rate-limiting/media/packaging work.
 
 | # | Criterion | Proof |

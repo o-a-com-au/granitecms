@@ -44,7 +44,7 @@ my-site/
 
 "Drop into your own Node environment" is: clone or unzip the scaffold, `cd vhost`, `npm install`, `node server.js`. A `create-site` scaffolding command (a small companion package or a template repo) generates this structure with a starter theme.
 
-Not every content type has a draft state. Pages and posts go through the full draft-then-publish workflow described below. Menus and redirects do not: both are edited directly with an immediate commit, the same low-ceremony model, because neither has a meaningful "preview before publish" step worth the overhead of a separate draft file.
+Not every content type has a draft state. Pages go through the full draft-then-publish workflow described below (there is no separate "post" content type - `author`/`publishDate`/`tags` are optional fields any page may carry, see docs/phase-3-checklist.md's post/page merge group). Menus and redirects do not: both are edited directly with an immediate commit, the same low-ceremony model, because neither has a meaningful "preview before publish" step worth the overhead of a separate draft file.
 
 ### Prerequisites, checked at startup
 
