@@ -33,6 +33,12 @@ export interface ServerConfig {
   ipAllowlist: string[];
   checkpointIntervalMs: number;
   media: MediaConfig;
+  // Undefined, not a default value, unlike every other optional field
+  // above - this is genuinely opt-in (see routes/admin-redirect.ts):
+  // GET /admin is only ever registered as a route at all when this is
+  // set, so a site that doesn't configure it can still use "admin" as
+  // an ordinary page path if it wants to.
+  adminBaseUrl: string | undefined;
 }
 
 const DEFAULT_PORT = 3000;
@@ -198,6 +204,40 @@ function parseIpAllowlist(value: unknown): string[] {
   return value as string[];
 }
 
+// Undefined -> undefined: absence means the /admin redirect feature
+// is off entirely, not a default target to redirect to (there's no
+// sensible default admin URL to assume). Validated as a real absolute
+// http(s) URL, not just any non-empty string, since it becomes a
+// redirect target - rejects `javascript:`/`ftp:`/anything else before
+// it can ever reach a Location header.
+function parseAdminBaseUrl(value: unknown): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new StartupCheckError(
+      'invalid-site-config',
+      `site.config.json's "adminBaseUrl" must be a non-empty string, got ${JSON.stringify(value)}`,
+    );
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new StartupCheckError(
+      'invalid-site-config',
+      `site.config.json's "adminBaseUrl" must be a valid URL, got ${JSON.stringify(value)}`,
+    );
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new StartupCheckError(
+      'invalid-site-config',
+      `site.config.json's "adminBaseUrl" must be an http or https URL, got ${JSON.stringify(value)}`,
+    );
+  }
+  return value;
+}
+
 function parseCheckpointIntervalMs(value: unknown): number {
   if (value === undefined) {
     return DEFAULT_CHECKPOINT_INTERVAL_MS;
@@ -257,6 +297,7 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
       ipAllowlist: [],
       checkpointIntervalMs: DEFAULT_CHECKPOINT_INTERVAL_MS,
       media: { maxUploadBytes: DEFAULT_MEDIA_MAX_UPLOAD_BYTES },
+      adminBaseUrl: undefined,
     };
   }
 
@@ -288,6 +329,7 @@ export function loadServerConfig(siteRoot: string): ServerConfig {
   const ipAllowlist = parseIpAllowlist(record.ipAllowlist);
   const checkpointIntervalMs = parseCheckpointIntervalMs(record.checkpointIntervalMs);
   const media = parseMedia(record.media);
+  const adminBaseUrl = parseAdminBaseUrl(record.adminBaseUrl);
 
-  return { port: resolvePort(port), tokens, rateLimit, trustProxy, ipAllowlist, checkpointIntervalMs, media };
+  return { port: resolvePort(port), tokens, rateLimit, trustProxy, ipAllowlist, checkpointIntervalMs, media, adminBaseUrl };
 }

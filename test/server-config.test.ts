@@ -18,6 +18,7 @@ test('a site with no site.config.json defaults to port 3000 and no tokens, witho
       ipAllowlist: [],
       checkpointIntervalMs: 1_800_000,
       media: { maxUploadBytes: 10 * 1024 * 1024 },
+      adminBaseUrl: undefined,
     });
   } finally {
     cleanup();
@@ -37,6 +38,7 @@ test('a site.config.json with a valid port is read correctly', () => {
       ipAllowlist: [],
       checkpointIntervalMs: 1_800_000,
       media: { maxUploadBytes: 10 * 1024 * 1024 },
+      adminBaseUrl: undefined,
     });
   } finally {
     cleanup();
@@ -89,6 +91,7 @@ test('a site.config.json missing "port" defaults to port 3000', () => {
       ipAllowlist: [],
       checkpointIntervalMs: 1_800_000,
       media: { maxUploadBytes: 10 * 1024 * 1024 },
+      adminBaseUrl: undefined,
     });
   } finally {
     cleanup();
@@ -373,6 +376,66 @@ test('a site.config.json with an unknown scope value is a hard startup failure',
     assert.throws(
       () => loadServerConfig(siteRoot),
       (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-token-config',
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json missing adminBaseUrl leaves it undefined - the /admin redirect is opt-in, not defaulted', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    const config = loadServerConfig(siteRoot);
+    assert.equal(config.adminBaseUrl, undefined);
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a valid adminBaseUrl is read correctly', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { adminBaseUrl: 'https://admin.example.com' });
+    const config = loadServerConfig(siteRoot);
+    assert.equal(config.adminBaseUrl, 'https://admin.example.com');
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a non-string adminBaseUrl is a hard startup failure', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { adminBaseUrl: 12345 });
+    assert.throws(
+      () => loadServerConfig(siteRoot),
+      (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-site-config',
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with an unparseable adminBaseUrl is a hard startup failure', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { adminBaseUrl: 'not a url at all' });
+    assert.throws(
+      () => loadServerConfig(siteRoot),
+      (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-site-config',
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('a site.config.json with a non-http(s) adminBaseUrl (e.g. javascript:) is a hard startup failure', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { adminBaseUrl: 'javascript:alert(1)' });
+    assert.throws(
+      () => loadServerConfig(siteRoot),
+      (error: unknown) => error instanceof StartupCheckError && error.reason === 'invalid-site-config',
     );
   } finally {
     cleanup();

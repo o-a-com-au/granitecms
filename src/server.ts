@@ -4,6 +4,7 @@ import type { BootedSite } from './boot.ts';
 import { bootSite } from './boot.ts';
 import type { ServerConfig } from './server-config.ts';
 import { loadServerConfig } from './server-config.ts';
+import { adminRedirectRoutes } from './routes/admin-redirect.ts';
 import { assetsRoutes } from './routes/assets.ts';
 import { v1Routes } from './routes/index.ts';
 import { mediaPublicRoutes } from './routes/media-public.ts';
@@ -136,6 +137,16 @@ export function buildServer(
   // site's own content page can still live at the bare /search URL
   // (granite-starter's search-demo section does exactly that).
   app.register(searchPublicRoutes, { config: booted.config });
+
+  // Conditional, unlike every other registration above - this is what
+  // makes GET /admin genuinely opt-in rather than a reserved
+  // namespace: with no adminBaseUrl configured, the route is never
+  // registered at all, so an unconfigured site can still use "admin"
+  // as an ordinary page path. See routes/admin-redirect.ts's own
+  // comment for the full reasoning.
+  if (serverConfig.adminBaseUrl) {
+    app.register(adminRedirectRoutes, { adminBaseUrl: serverConfig.adminBaseUrl });
+  }
 
   return app;
 }

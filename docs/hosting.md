@@ -50,6 +50,7 @@ All fields are optional. A missing file, or a missing field within it, falls bac
 | `ipAllowlist` | `[]` | Empty means no restriction, not "nothing allowed". |
 | `checkpointIntervalMs` | `1800000` (30 min) | How often open drafts are auto-committed as a safety checkpoint. |
 | `media.maxUploadBytes` | `10485760` (10MB) | |
+| `adminBaseUrl` | unset | An absolute `http(s)` URL for whichever admin instance manages this site. When set, `GET /admin` redirects there with `?site=<host>` appended, so visiting `yoursite.com/admin` jumps straight to that site's dashboard. When unset, `/admin` is never reserved at all - the route genuinely doesn't exist, so a real page at `content/pages/admin.json` (if you have one) works normally. Self-hosting your own admin? Point this at it - the agent never assumes anything about a specific admin app's own URL scheme. |
 
 ## Backing up media
 

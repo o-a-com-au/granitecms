@@ -130,6 +130,7 @@ const ROUTE_SCOPE_ALLOWLIST = new Set<string>([
   'routes/media-public.ts', // intentionally and permanently exempt: uploaded media must be fetchable by any visitor's browser without a token, same reasoning as assets.ts
   'routes/sitemap.ts', // intentionally and permanently exempt: a sitemap must be fetchable by any crawler without a token, same reasoning as assets.ts/media-public.ts
   'routes/search-public.ts', // intentionally and permanently exempt: GET /search.json is read-only and only ever surfaces already-published data, so a theme's own front-end JS can call it directly with no token - same reasoning as assets.ts/media-public.ts
+  'routes/admin-redirect.ts', // intentionally and permanently exempt: a discovery aid anyone can hit before they have a token, same category as capabilities.ts - conditionally registered at all only when adminBaseUrl is configured (see server.ts)
 ]);
 
 function registersRoutes(contents: string): boolean {
@@ -257,14 +258,15 @@ test('H2: every write route (POST/PUT/DELETE/PATCH) under src/routes/ carries a 
   );
 });
 
-// GET /v1/capabilities and GET /search.json are the only two routes
-// with no requireScope at all (search-public.ts's own comment explains
-// why) - both need NO_AUTH_ROUTE_RATE_LIMIT's own defense-in-depth
-// rather than WRITE_ROUTE_RATE_LIMIT (that one only ever applies to a
-// write) or no marker at all (unlimited, fine for a route only
-// reachable with a real token, not for one reachable by anyone).
+// GET /v1/capabilities, GET /search.json, and GET /admin (when
+// configured) are the only routes with no requireScope at all
+// (each file's own comment explains why) - all three need
+// NO_AUTH_ROUTE_RATE_LIMIT's own defense-in-depth rather than
+// WRITE_ROUTE_RATE_LIMIT (that one only ever applies to a write) or no
+// marker at all (unlimited, fine for a route only reachable with a
+// real token, not for one reachable by anyone).
 test('H2: every zero-credential route carries its own, more generous rate-limit marker', () => {
-  for (const file of ['capabilities.ts', 'search-public.ts']) {
+  for (const file of ['capabilities.ts', 'search-public.ts', 'admin-redirect.ts']) {
     const contents = readFileSync(join(srcDir, 'routes', file), 'utf-8');
     assert.match(contents, /NO_AUTH_ROUTE_RATE_LIMIT/, `${file} should reference NO_AUTH_ROUTE_RATE_LIMIT`);
   }
