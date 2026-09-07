@@ -256,7 +256,15 @@ test('H2: every write route (POST/PUT/DELETE/PATCH) under src/routes/ carries a 
   );
 });
 
-test('H2: GET /v1/capabilities carries its own, more generous rate-limit marker', () => {
-  const contents = readFileSync(join(srcDir, 'routes', 'capabilities.ts'), 'utf-8');
-  assert.match(contents, /CAPABILITIES_RATE_LIMIT/);
+// GET /v1/capabilities and GET /v1/search are the only two routes with
+// no requireScope at all (search.ts's own comment explains why) - both
+// need NO_AUTH_ROUTE_RATE_LIMIT's own defense-in-depth rather than
+// WRITE_ROUTE_RATE_LIMIT (that one only ever applies to a write) or no
+// marker at all (unlimited, fine for a route only reachable with a
+// real token, not for one reachable by anyone).
+test('H2: every zero-credential route carries its own, more generous rate-limit marker', () => {
+  for (const file of ['capabilities.ts', 'search.ts']) {
+    const contents = readFileSync(join(srcDir, 'routes', file), 'utf-8');
+    assert.match(contents, /NO_AUTH_ROUTE_RATE_LIMIT/, `${file} should reference NO_AUTH_ROUTE_RATE_LIMIT`);
+  }
 });

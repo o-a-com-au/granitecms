@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest 
 import type { SiteConfig } from '../config.ts';
 import { rebuildIndex } from '../search/rebuild-index.ts';
 import { queryContent, type FieldFilter, type FieldOp, type SortParam } from '../search/query-content.ts';
-import { WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
+import { NO_AUTH_ROUTE_RATE_LIMIT, WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
 import { requireScope } from '../services/token-auth.ts';
 import type { TokenEntry } from '../server-config.ts';
 
@@ -126,12 +126,22 @@ export const searchRoutes: FastifyPluginAsync<SearchRouteOptions> = async (
 
   // The one public query surface - full-text (q), structured filters,
   // sort, and pagination all in one endpoint (query-content.ts's own
-  // queryContent), rather than three narrow ones. Same content-scope
-  // guard GET /v1/content already uses for reads (routes/content.ts),
-  // no rate limit (this isn't a write).
+  // queryContent), rather than three narrow ones. Deliberately no
+  // requireScope, unlike every other route in this codebase: it's
+  // read-only and can only ever surface already-published data
+  // (rebuild-index.ts never indexes drafts or unpublished content), so
+  // there's nothing here a site visitor couldn't already see by
+  // browsing the live site directly - the whole point of this route is
+  // that a theme's own front-end JS can call it directly, which a
+  // token requirement would rule out entirely (a bearer token embedded
+  // in public client-side JS is not a secret - anyone's dev tools can
+  // read it straight back out, and this agent's tokens all carry
+  // real write scopes, not just search). NO_AUTH_ROUTE_RATE_LIMIT, the
+  // same defense-in-depth GET /v1/capabilities already has, since this
+  // is now the second endpoint reachable with zero credentials.
   fastify.get(
     '/search',
-    { preHandler: requireScope(opts.tokens, 'content') },
+    { config: NO_AUTH_ROUTE_RATE_LIMIT },
     async (request, reply) => handleSearch(request as FastifyRequest<{ Querystring: SearchQuery }>, reply, opts.config),
   );
 };

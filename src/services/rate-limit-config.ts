@@ -16,7 +16,9 @@
 // in, not a duplicated copy of the numbers.
 export const WRITE_ROUTE_RATE_LIMIT = { rateLimit: {} };
 
-// Generous defense-in-depth against basic scanning of the one endpoint
-// reachable with zero credentials, not a meaningful throttle on
-// legitimate use.
-export const CAPABILITIES_RATE_LIMIT = { rateLimit: { max: 300, timeWindow: 60000 } };
+// Generous defense-in-depth against basic scanning/abuse of the
+// endpoints reachable with zero credentials (GET /v1/capabilities,
+// GET /v1/search), not a meaningful throttle on legitimate use - a
+// real front-end calling search on every keystroke of a live search
+// box should never realistically hit this.
+export const NO_AUTH_ROUTE_RATE_LIMIT = { rateLimit: { max: 300, timeWindow: 60000 } };

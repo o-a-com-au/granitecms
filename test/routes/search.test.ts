@@ -337,11 +337,29 @@ test('GET /v1/search with a syntax-breaking q (stray quote, trailing operator) n
   }
 });
 
-test('GET /v1/search with no token is rejected with 401', async () => {
-  const { app, cleanup } = buildSearchTestServer();
+// Deliberately the opposite of every other route in this file: GET
+// /v1/search is read-only and only ever surfaces already-published
+// data, so a front-end can call it directly with no token at all (see
+// routes/search.ts's own comment on this route for the full reasoning) -
+// a bearer token embedded in public client-side JS wouldn't actually be
+// a secret anyway. Rebuilds and queries with zero auth header, proving
+// the endpoint works end to end for exactly that use case, not just
+// that it doesn't 401.
+test('GET /v1/search works with no Authorization header at all - the whole point of this route', async () => {
+  const { app, siteRoot, cleanup } = buildSearchTestServer();
   try {
-    const response = await app.inject({ method: 'GET', url: '/v1/search?q=hello' });
-    assert.equal(response.statusCode, 401);
+    writeJson(siteRoot, 'content/pages/about.json', page('About', 'aardvarks'));
+    await app.inject({
+      method: 'POST',
+      url: '/v1/search/rebuild',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+    });
+
+    const response = await app.inject({ method: 'GET', url: '/v1/search?q=aardvarks' });
+
+    assert.equal(response.statusCode, 200);
+    const body = response.json() as { results: Array<{ url: string; title: string }> };
+    assert.deepEqual(body.results, [{ url: '/about', title: 'About', pageType: 'page', fields: {} }]);
   } finally {
     await app.close();
     cleanup();
