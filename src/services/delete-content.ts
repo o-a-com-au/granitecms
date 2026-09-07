@@ -5,7 +5,6 @@ import { commitPaths } from './git.ts';
 import type { CommitAuthor } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
-import { postPathToUrl } from './post-urls.ts';
 import {
   RedirectError,
   addRedirect,
@@ -17,22 +16,12 @@ import { pagePathToUrl } from './urls.ts';
 import { enqueue } from './write-queue.ts';
 
 const PAGES_PREFIX = 'pages/';
-const POSTS_PREFIX = 'posts/';
 
-// Widens the redirect-on-delete gate to posts alongside pages, without
-// touching the has-children subtree check below (PAGES_PREFIX-only,
-// unchanged - posts never have nested children by construction). A
-// tiny duplicated helper, not a shared "collection" abstraction,
-// matching this codebase's existing precedent (e.g. prepareSaveDraft/
-// prepareDiscardDraft mirror rather than share a base with publish.ts/
-// move.ts). Returns null for anything else (menus have no public URL
-// at all, so redirects are meaningless there).
+// Returns null for anything else (menus have no public URL at all, so
+// redirects are meaningless there).
 function urlForDeletedEntry(relativePath: string): string | null {
   if (relativePath.startsWith(PAGES_PREFIX)) {
     return pagePathToUrl(relativePath.slice(PAGES_PREFIX.length));
-  }
-  if (relativePath.startsWith(POSTS_PREFIX)) {
-    return postPathToUrl(relativePath.slice(POSTS_PREFIX.length));
   }
   return null;
 }

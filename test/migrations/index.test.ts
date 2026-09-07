@@ -18,8 +18,11 @@ assert.ok(migrateV3ToV4, 'expected a migration registered for schemaVersion 3');
 const migrateV4ToV5 = migrations[4];
 assert.ok(migrateV4ToV5, 'expected a migration registered for schemaVersion 4');
 
-test('CURRENT_SCHEMA_VERSION is 5', () => {
-  assert.equal(CURRENT_SCHEMA_VERSION, 5);
+const migrateV5ToV6 = migrations[5];
+assert.ok(migrateV5ToV6, 'expected a migration registered for schemaVersion 5');
+
+test('CURRENT_SCHEMA_VERSION is 6', () => {
+  assert.equal(CURRENT_SCHEMA_VERSION, 6);
 });
 
 test('migrateV1ToV2 is a trivial identity migration: only schemaVersion changes', () => {
@@ -116,9 +119,62 @@ test('migrateV4ToV5 adds a "name" default copied from the existing title: only s
   });
 });
 
+test('migrateV5ToV6 leaves an already-named page untouched: only schemaVersion changes', () => {
+  const input = Object.freeze({
+    schemaVersion: 5,
+    name: 'About Us',
+    title: 'About',
+    type: 'page',
+    layout: 'theme',
+    published: true,
+    sections: [],
+  });
+
+  const migrated = migrateV5ToV6(input);
+
+  assert.deepEqual(migrated, {
+    schemaVersion: 6,
+    name: 'About Us',
+    title: 'About',
+    type: 'page',
+    layout: 'theme',
+    published: true,
+    sections: [],
+  });
+});
+
+test('migrateV5ToV6 backfills "name" from title for a legacy post file, which never had one', () => {
+  const input = Object.freeze({
+    schemaVersion: 5,
+    title: 'Hello World',
+    type: 'post',
+    layout: 'theme',
+    published: true,
+    author: 'Jane Editor',
+    publishDate: '2026-07-27',
+    tags: ['news'],
+    sections: [],
+  });
+
+  const migrated = migrateV5ToV6(input);
+
+  assert.deepEqual(migrated, {
+    schemaVersion: 6,
+    name: 'Hello World',
+    title: 'Hello World',
+    type: 'post',
+    layout: 'theme',
+    published: true,
+    author: 'Jane Editor',
+    publishDate: '2026-07-27',
+    tags: ['news'],
+    sections: [],
+  });
+});
+
 test('a migrated v1 page validates against page.schema.json (chained through every step to current)', () => {
   const input = { schemaVersion: 1, title: 'About', published: true, sections: [] };
-  const migrated = migrateV4ToV5(migrateV3ToV4(migrateV2ToV3(migrateV1ToV2(input))));
+  const migrated = migrateV5ToV6(migrateV4ToV5(migrateV3ToV4(migrateV2ToV3(migrateV1ToV2(input)))));
 
   const result = validatePage(migrated, themeSchemas);
   assert.equal(result.valid, true);

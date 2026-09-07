@@ -444,13 +444,14 @@ test('F4: POST /v1/content/move returns 404 when the source page does not exist'
   }
 });
 
-test('F4: POST /v1/content/move against a /blog/ URL is not extended to posts in this pass - it safely 404s rather than corrupting anything', async () => {
+test('F4: POST /v1/content/move works on a page nested under /blog/ like any other page - author/publishDate/tags are ordinary optional page fields now, not a distinct post type move.ts was never extended to', async () => {
   const { app, siteRoot, cleanup } = buildContentTestServer();
   try {
-    writeAndCommit(siteRoot, 'content/posts/hello-world.json', JSON.stringify({
-      schemaVersion: 4,
+    writeAndCommit(siteRoot, 'content/pages/blog/hello-world.json', JSON.stringify({
+      schemaVersion: 6,
+      name: 'Hello World',
       title: 'Hello World',
-      type: 'post',
+      type: 'blog-article',
       layout: 'theme',
       published: true,
       author: 'Jane Editor',
@@ -465,11 +466,9 @@ test('F4: POST /v1/content/move against a /blog/ URL is not extended to posts in
       headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
       payload: { from: '/blog/hello-world', to: '/blog/renamed', message: 'move', author },
     });
-    // move.ts is pages-only by design (see docs/phase-2-checklist.md's
-    // Group L notes) - a /blog/ URL resolves via pages' own
-    // urlToPagePath convention, which never finds a page there, so this
-    // is a deliberate, harmless 404, not a bug.
-    assert.equal(response.statusCode, 404);
+    assert.equal(response.statusCode, 200);
+    assert.ok(existsSync(join(siteRoot, 'content', 'pages', 'blog', 'renamed.json')));
+    assert.ok(!existsSync(join(siteRoot, 'content', 'pages', 'blog', 'hello-world.json')));
   } finally {
     await app.close();
     cleanup();

@@ -7,7 +7,6 @@ import type { ThemeTemplates } from '../renderer/theme-templates.ts';
 import { GitShowError, readFileAtRevision } from '../services/git-history.ts';
 import { isValidGitRef } from '../services/git.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
-import { isBlogUrl, urlToPostPath } from '../services/post-urls.ts';
 import { requireScope } from '../services/token-auth.ts';
 import { urlToPagePath } from '../services/urls.ts';
 import type { TokenEntry } from '../server-config.ts';
@@ -34,14 +33,10 @@ export interface PreviewRevisionRouteOptions {
 // readFileAtRevision resolves paths relative to config.siteRoot, not
 // config.contentRoot (confirmed by git-history.ts/git.test.ts's own
 // "content/pages/about.json" usage) - so unlike preview.ts's
-// toRenderPath/toPostsRenderPath (contentRoot-relative), the path
-// built here is prefixed with "content/".
+// toRenderPath (contentRoot-relative), the path built here is prefixed
+// with "content/".
 function toRevisionPath(pagesRelativePath: string): string {
   return join('content', 'pages', pagesRelativePath);
-}
-
-function toPostsRevisionPath(postsRelativePath: string): string {
-  return join('content', 'posts', postsRelativePath);
 }
 
 async function handlePreviewRevisionRequest(
@@ -61,18 +56,7 @@ async function handlePreviewRevisionRequest(
   }
 
   try {
-    const isPost = isBlogUrl(url);
-    let repoRelativePath: string;
-    if (isPost) {
-      const relativePath = urlToPostPath(url);
-      if (relativePath === null) {
-        reply.code(404).send({ statusCode: 404, error: 'Not Found', message: `No page at "${url}"` });
-        return;
-      }
-      repoRelativePath = toPostsRevisionPath(relativePath);
-    } else {
-      repoRelativePath = toRevisionPath(urlToPagePath(url));
-    }
+    const repoRelativePath = toRevisionPath(urlToPagePath(url));
 
     const raw = readFileAtRevision(config, ref, repoRelativePath);
     const page = parsePageContent(raw.toString('utf-8'));

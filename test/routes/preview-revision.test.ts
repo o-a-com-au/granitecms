@@ -148,13 +148,14 @@ test('returns 422 when the revision references a section type absent from the cu
   }
 });
 
-test('renders a post revision at /v1/preview-revision/:ref/blog/<slug>', async () => {
+test('renders a revision of a page nested under /blog/<slug> - /blog is an ordinary nested path, not reserved', async () => {
   const { app, siteRoot, cleanup } = buildPreviewRevisionTestServer();
   try {
-    const post = {
-      schemaVersion: 4,
+    const page = {
+      schemaVersion: 6,
+      name: 'Hello World',
       title: 'Hello World',
-      type: 'post',
+      type: 'blog-article',
       layout: 'theme',
       published: true,
       author: 'Jane Editor',
@@ -162,7 +163,7 @@ test('renders a post revision at /v1/preview-revision/:ref/blog/<slug>', async (
       tags: [],
       sections: [{ id: 'sec-1', type: 'hero', settings: { heading: 'Historical post heading' } }],
     };
-    writeAndCommit(siteRoot, 'content/posts/hello-world.json', JSON.stringify(post), 'add post revision');
+    writeAndCommit(siteRoot, 'content/pages/blog/hello-world.json', JSON.stringify(page), 'add blog page revision');
     const hash = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: siteRoot }).toString('utf-8').trim();
 
     const response = await app.inject({

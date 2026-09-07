@@ -5,7 +5,6 @@ import { GitOperationError, commitPaths } from './git.ts';
 import type { CommitAuthor } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
-import { postPathToUrl } from './post-urls.ts';
 import { loadRedirects, removeRedirectForPath, serialiseRedirects } from './redirects.ts';
 import { pagePathToUrl } from './urls.ts';
 import type { ThemeSchemas } from './validation.ts';
@@ -13,18 +12,13 @@ import { validateContent } from './validation.ts';
 import { enqueue } from './write-queue.ts';
 
 const PAGES_PREFIX = 'pages/';
-const POSTS_PREFIX = 'posts/';
 
 // Mirrors delete-content.ts's urlForDeletedEntry - a tiny duplicated
-// helper, not a shared abstraction. Widens the stale-redirect-clearing
-// block below to posts alongside pages; returns null for anything
-// else (menus have no public URL, so redirect semantics don't apply).
+// helper, not a shared abstraction. Returns null for anything else
+// (menus have no public URL, so redirect semantics don't apply).
 function urlForPublishedEntry(relativePath: string): string | null {
   if (relativePath.startsWith(PAGES_PREFIX)) {
     return pagePathToUrl(relativePath.slice(PAGES_PREFIX.length));
-  }
-  if (relativePath.startsWith(POSTS_PREFIX)) {
-    return postPathToUrl(relativePath.slice(POSTS_PREFIX.length));
   }
   return null;
 }
@@ -207,12 +201,12 @@ export function preparePublishDrafts(
       unlinkSync(entry.draftPath);
     }
 
-    // E5 (publish half): a brand-new live page or post may supersede a
-    // stale redirect recorded at its own URL (checklist wording:
-    // "creating a page at a path that has a redirect entry"). Only
-    // applies to pages/posts content - redirect semantics aren't
-    // defined for menus (no public URL), so anything else is skipped
-    // silently via urlForPublishedEntry's null return.
+    // E5 (publish half): a brand-new live page may supersede a stale
+    // redirect recorded at its own URL (checklist wording: "creating a
+    // page at a path that has a redirect entry"). Only applies to page
+    // content - redirect semantics aren't defined for menus (no public
+    // URL), so anything else is skipped silently via
+    // urlForPublishedEntry's null return.
     const qualifyingUrls = entries
       .map((entry) => urlForPublishedEntry(entry.relativePath))
       .filter((url): url is string => url !== null);

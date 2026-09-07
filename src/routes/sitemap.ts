@@ -3,7 +3,6 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest 
 import type { SiteConfig } from '../config.ts';
 import { readContentFile } from '../services/content-read.ts';
 import { listFilesRecursively } from '../services/fs-walk.ts';
-import { postPathToUrl } from '../services/post-urls.ts';
 import { pagePathToUrl } from '../services/urls.ts';
 
 export interface SitemapRouteOptions {
@@ -18,9 +17,9 @@ interface PublishedShape {
 // gated behind sanitisePath/agent-configured roots - see their own
 // files) rather than touching fs directly, so this route needs no
 // allowlist entry of its own (docs/phase-1-checklist.md Group B).
-function isPublished(contentRoot: string, subdir: 'pages' | 'posts', relativePath: string): boolean {
+function isPublished(contentRoot: string, relativePath: string): boolean {
   try {
-    const { bytes } = readContentFile(contentRoot, join(subdir, relativePath));
+    const { bytes } = readContentFile(contentRoot, join('pages', relativePath));
     const parsed = JSON.parse(bytes.toString('utf-8')) as PublishedShape;
     return parsed.published === true;
   } catch {
@@ -46,14 +45,8 @@ function buildSitemapUrls(config: SiteConfig): string[] {
     if (relativePath === '404.json') {
       continue;
     }
-    if (isPublished(config.contentRoot, 'pages', relativePath)) {
+    if (isPublished(config.contentRoot, relativePath)) {
       urls.push(pagePathToUrl(relativePath));
-    }
-  }
-
-  for (const relativePath of listFilesRecursively(config.postsRoot, config.postsRoot, '.json')) {
-    if (isPublished(config.contentRoot, 'posts', relativePath)) {
-      urls.push(postPathToUrl(relativePath));
     }
   }
 

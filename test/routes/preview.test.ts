@@ -100,13 +100,14 @@ test('C5: previewing a page with no draft falls back to the live version', async
   }
 });
 
-test('previewing a draft-only post at /v1/preview/blog/<slug> renders it', async () => {
+test('previewing a draft-only page nested under /blog/<slug> renders it - /blog is an ordinary nested path, not reserved', async () => {
   const { app, siteRoot, cleanup } = buildPreviewTestServer();
   try {
-    writeJson(siteRoot, 'content/drafts/posts/hello-world.json', {
-      schemaVersion: 4,
+    writeJson(siteRoot, 'content/drafts/pages/blog/hello-world.json', {
+      schemaVersion: 6,
+      name: 'Hello World',
       title: 'Hello World',
-      type: 'post',
+      type: 'blog-article',
       layout: 'theme',
       published: true,
       author: 'Jane Editor',

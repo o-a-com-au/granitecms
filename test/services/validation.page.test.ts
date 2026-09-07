@@ -77,3 +77,22 @@ test('A7: an unknown/extra property on a page is rejected (additionalProperties 
   assert.ok(error, 'expected an additionalProperties error');
   assert.equal(error?.path, '/unexpectedField');
 });
+
+test('a page may optionally carry author, publishDate, and tags - no separate post type needed', () => {
+  const page = readJson('pages', 'valid-page.json') as Record<string, unknown>;
+  const withEnvelopeFields = {
+    ...page,
+    author: 'Jane Editor',
+    publishDate: '2026-07-27',
+    tags: ['news', 'launch'],
+  };
+  const result = validatePage(withEnvelopeFields, themeSchemas);
+  assert.equal(result.valid, true);
+  assert.deepEqual(result.errors, []);
+});
+
+test('a page with none of author, publishDate, or tags still validates - they are optional, not required', () => {
+  const page = readJson('pages', 'valid-page.json');
+  const result = validatePage(page, themeSchemas);
+  assert.equal(result.valid, true);
+});

@@ -125,13 +125,14 @@ test('G3: unpublished pages and drafts are absent from the index', async () => {
   }
 });
 
-test('a published post is indexed under its /blog/<slug> URL, same as a page', async () => {
+test('a published page nested under /blog/ is indexed under that URL, like any other page', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
-    writeJson(siteRoot, 'content/posts/hello-world.json', {
-      schemaVersion: 4,
+    writeJson(siteRoot, 'content/pages/blog/hello-world.json', {
+      schemaVersion: 6,
+      name: 'Hello World',
       title: 'Hello World',
-      type: 'post',
+      type: 'blog-article',
       layout: 'theme',
       published: true,
       author: 'Jane Editor',
@@ -151,13 +152,14 @@ test('a published post is indexed under its /blog/<slug> URL, same as a page', a
   }
 });
 
-test('an unpublished post is absent from the index, same as an unpublished page', async () => {
+test('an unpublished page nested under /blog/ is absent from the index, same as any other unpublished page', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
-    writeJson(siteRoot, 'content/posts/draft-post.json', {
-      schemaVersion: 4,
+    writeJson(siteRoot, 'content/pages/blog/draft-post.json', {
+      schemaVersion: 6,
+      name: 'Draft Post',
       title: 'Draft Post',
-      type: 'post',
+      type: 'blog-article',
       layout: 'theme',
       published: false,
       author: 'Jane Editor',
@@ -402,8 +404,9 @@ test('pageType filters a field query to just that page type', async () => {
       published: true,
       sections: [{ id: 'sec-1', type: 'product', settings: { price: 15 } }],
     });
-    writeJson(siteRoot, 'content/posts/on-sale.json', {
-      schemaVersion: 4,
+    writeJson(siteRoot, 'content/pages/blog/on-sale.json', {
+      schemaVersion: 6,
+      name: 'On Sale',
       title: 'On Sale',
       type: 'post',
       layout: 'theme',
@@ -432,13 +435,14 @@ test('pageType filters a field query to just that page type', async () => {
   }
 });
 
-test('a post\'s built-in author/publishDate/tags fields are auto-indexed, no "api": true needed', async () => {
+test('a page\'s author/publishDate/tags fields are auto-indexed whenever present, no "api": true needed and no distinct post type required', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
-    writeJson(siteRoot, 'content/posts/hello-world.json', {
-      schemaVersion: 4,
+    writeJson(siteRoot, 'content/pages/blog/hello-world.json', {
+      schemaVersion: 6,
+      name: 'Hello World',
       title: 'Hello World',
-      type: 'post',
+      type: 'blog-article',
       layout: 'theme',
       published: true,
       author: 'Jane Editor',
@@ -451,16 +455,16 @@ test('a post\'s built-in author/publishDate/tags fields are auto-indexed, no "ap
     await rebuildIndex(config);
 
     assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'author', op: 'eq', value: 'Jane Editor' }), [
-      { url: '/blog/hello-world', title: 'Hello World', pageType: 'post' },
+      { url: '/blog/hello-world', title: 'Hello World', pageType: 'blog-article' },
     ]);
     // Each tag is independently matchable - a query for either tag
-    // finds the same post, proving the array expanded into separate
+    // finds the same page, proving the array expanded into separate
     // rows rather than being indexed as one opaque blob.
     assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'tags', op: 'eq', value: 'design' }), [
-      { url: '/blog/hello-world', title: 'Hello World', pageType: 'post' },
+      { url: '/blog/hello-world', title: 'Hello World', pageType: 'blog-article' },
     ]);
     assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'tags', op: 'eq', value: 'launch' }), [
-      { url: '/blog/hello-world', title: 'Hello World', pageType: 'post' },
+      { url: '/blog/hello-world', title: 'Hello World', pageType: 'blog-article' },
     ]);
     assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'tags', op: 'eq', value: 'unrelated' }), []);
   } finally {
@@ -471,10 +475,11 @@ test('a post\'s built-in author/publishDate/tags fields are auto-indexed, no "ap
 test('publishDate is indexed as a numeric epoch value, so range operators can query it like any other numeric field', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
-    writeJson(siteRoot, 'content/posts/old-post.json', {
-      schemaVersion: 4,
+    writeJson(siteRoot, 'content/pages/blog/old-post.json', {
+      schemaVersion: 6,
+      name: 'Old Post',
       title: 'Old Post',
-      type: 'post',
+      type: 'blog-article',
       layout: 'theme',
       published: true,
       author: 'Jane Editor',
@@ -482,10 +487,11 @@ test('publishDate is indexed as a numeric epoch value, so range operators can qu
       tags: [],
       sections: [],
     });
-    writeJson(siteRoot, 'content/posts/new-post.json', {
-      schemaVersion: 4,
+    writeJson(siteRoot, 'content/pages/blog/new-post.json', {
+      schemaVersion: 6,
+      name: 'New Post',
       title: 'New Post',
-      type: 'post',
+      type: 'blog-article',
       layout: 'theme',
       published: true,
       author: 'Jane Editor',
@@ -499,17 +505,17 @@ test('publishDate is indexed as a numeric epoch value, so range operators can qu
 
     const cutoff = Date.parse('2023-01-01').toString();
     assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'publishDate', op: 'gt', value: cutoff }), [
-      { url: '/blog/new-post', title: 'New Post', pageType: 'post' },
+      { url: '/blog/new-post', title: 'New Post', pageType: 'blog-article' },
     ]);
     assert.deepEqual(searchField(config.searchIndexPath, { fieldKey: 'publishDate', op: 'lt', value: cutoff }), [
-      { url: '/blog/old-post', title: 'Old Post', pageType: 'post' },
+      { url: '/blog/old-post', title: 'Old Post', pageType: 'blog-article' },
     ]);
   } finally {
     cleanup();
   }
 });
 
-test('a page (not a post) has no author/publishDate/tags rows - envelope auto-indexing only ever applies to posts', async () => {
+test('a page with none of author/publishDate/tags has no such rows - envelope auto-indexing is presence-based, not gated on any particular type value', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
     writeJson(siteRoot, 'content/pages/about.json', page({ title: 'About' }));

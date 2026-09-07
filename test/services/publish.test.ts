@@ -192,11 +192,12 @@ test('E5 (publish half, move half closed out in move.test.ts): creating a page a
   }
 });
 
-function post(title: string): object {
+function blogArticle(title: string): object {
   return {
-    schemaVersion: 4,
+    schemaVersion: 6,
+    name: title,
     title,
-    type: 'post',
+    type: 'blog-article',
     layout: 'theme',
     published: true,
     author: 'Jane Editor',
@@ -206,18 +207,18 @@ function post(title: string): object {
   };
 }
 
-test('E5 (posts): publishing a new post at a URL that has a stale redirect entry removes that entry in the same commit', async () => {
+test('E5 (a page nested under /blog/): publishing a new page at a URL that has a stale redirect entry removes that entry in the same commit', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
     const config = loadSiteConfig(siteRoot);
-    // move.ts isn't extended to posts (see docs/phase-2-checklist.md's
-    // Group L notes), so the stale redirect is seeded directly, rather
-    // than via movePage as the pages test above does.
+    // Seeded directly, rather than via movePage as the pages test above
+    // does - this test is about publish's own stale-redirect-clearing,
+    // not move.
     writeAndCommit(siteRoot, 'content/redirects.json', JSON.stringify({ '/blog/hello-world': '/blog/elsewhere' }));
 
-    await saveDraft(config, themeSchemas, 'posts/hello-world.json', post('Hello World'), NO_PRIOR_FILE_ETAG);
+    await saveDraft(config, themeSchemas, 'pages/blog/hello-world.json', blogArticle('Hello World'), NO_PRIOR_FILE_ETAG);
     const before = commitCount(siteRoot);
-    await publishDrafts(config, themeSchemas, ['posts/hello-world.json'], 'publish hello-world', author);
+    await publishDrafts(config, themeSchemas, ['pages/blog/hello-world.json'], 'publish hello-world', author);
 
     assert.equal(commitCount(siteRoot), before + 1);
     assert.equal(redirectTargetFor(config, '/blog/hello-world'), undefined);

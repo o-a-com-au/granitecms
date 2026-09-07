@@ -54,11 +54,12 @@ test('F3: deleting a live page with a redirectTo records a redirect in the same 
   }
 });
 
-function postJson(title: string): string {
+function blogArticleJson(title: string): string {
   return JSON.stringify({
-    schemaVersion: 4,
+    schemaVersion: 6,
+    name: title,
     title,
-    type: 'post',
+    type: 'blog-article',
     layout: 'theme',
     published: true,
     author: 'Jane Editor',
@@ -68,14 +69,14 @@ function postJson(title: string): string {
   });
 }
 
-test('deleting a post with a redirectTo records a /blog/-shaped redirect, same as a page', async () => {
+test('deleting a page nested under /blog/ with a redirectTo records a /blog/-shaped redirect, same as any other page', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
-    writeAndCommit(siteRoot, 'content/posts/hello-world.json', postJson('Hello World'));
+    writeAndCommit(siteRoot, 'content/pages/blog/hello-world.json', blogArticleJson('Hello World'));
     const config = loadSiteConfig(siteRoot);
     const before = commitCount(siteRoot);
 
-    await deleteContent(config, 'posts/hello-world.json', '/blog/moved', 'delete post, redirect', author);
+    await deleteContent(config, 'pages/blog/hello-world.json', '/blog/moved', 'delete page, redirect', author);
 
     assert.equal(redirectTargetFor(config, '/blog/hello-world'), '/blog/moved');
     assert.equal(commitCount(siteRoot), before + 1);

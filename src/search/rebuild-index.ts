@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import type { SiteConfig } from '../config.ts';
 import { listFilesRecursively } from '../services/fs-walk.ts';
-import { postPathToUrl } from '../services/post-urls.ts';
 import { loadThemeSchemas } from '../services/theme-schemas.ts';
 import { pagePathToUrl } from '../services/urls.ts';
 import { enqueue } from '../services/write-queue.ts';
@@ -170,19 +169,17 @@ function extractInstanceApiFields(instance: InstanceLike, schemaMap: Record<stri
   }
 }
 
-// Built-in post fields, auto-indexed with no "api": true needed - they
-// are intrinsic to what a post IS (post.schema.json), not something a
-// theme's own schema declares one way or the other. block_type
-// '__page__' is a sentinel (never a real theme type, which always
-// matches a *.liquid filename) marking these rows as envelope-level
-// rather than a real section/block instance; instanceId is the page's
-// own url - stable and unique enough, since there's exactly one
-// envelope per page.
+// Built-in envelope fields, auto-indexed with no "api": true needed -
+// author/publishDate/tags are optional on every page (page.schema.json),
+// so indexing is presence-based rather than gated on a specific "type"
+// value: any page carrying one of these fields gets it indexed,
+// regardless of what its own type string is. block_type '__page__' is a
+// sentinel (never a real theme type, which always matches a *.liquid
+// filename) marking these rows as envelope-level rather than a real
+// section/block instance; instanceId is the page's own url - stable
+// and unique enough, since there's exactly one envelope per page.
 function extractEnvelopeApiFields(page: PageForIndex, url: string): ApiFieldRow[] {
   const rows: ApiFieldRow[] = [];
-  if (page.type !== 'post') {
-    return rows;
-  }
   pushFieldValue('__page__', url, 'author', page.author, false, rows);
   pushFieldValue('__page__', url, 'publishDate', page.publishDate, true, rows);
   pushFieldValue('__page__', url, 'tags', page.tags, false, rows);
@@ -282,14 +279,9 @@ async function rebuildIndexJob(config: SiteConfig): Promise<void> {
         'INSERT INTO page_fields (url, block_type, instance_id, field_key, value_text, value_number, value_bool) VALUES (?, ?, ?, ?, ?, ?, ?)',
       );
 
-      // Posts are genuinely public, URL-addressable content search
-      // should cover, same as pages - only the root and the URL mapping
-      // differ. Menus are deliberately never walked here at all: they
-      // have no public URL to point a search result at.
-      const collections = [
-        { root: config.pagesRoot, toUrl: pagePathToUrl },
-        { root: config.postsRoot, toUrl: postPathToUrl },
-      ];
+      // Menus are deliberately never walked here at all: they have no
+      // public URL to point a search result at.
+      const collections = [{ root: config.pagesRoot, toUrl: pagePathToUrl }];
 
       driver.exec('BEGIN');
       let filesExamined = 0;
@@ -305,9 +297,9 @@ async function rebuildIndexJob(config: SiteConfig): Promise<void> {
           // single-threaded, that means every other request the server
           // is handling (auth, content reads, publishes) stalls for the
           // rebuild's whole duration, not just other search queries.
-          // Counted once per file examined regardless of collection or
-          // whether it ends up skipped below, so the cadence tracks
-          // total work done rather than the pages/posts split.
+          // Counted once per file examined regardless of whether it
+          // ends up skipped below, so the cadence tracks total work
+          // done, not just files actually indexed.
           filesExamined += 1;
           if (filesExamined % YIELD_EVERY_N_FILES === 0) {
             await yieldToEventLoop();

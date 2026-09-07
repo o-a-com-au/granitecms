@@ -30,7 +30,6 @@ export interface SiteConfig {
   // content, only ever a starting point copied into a new page.
   templatesRoot: string;
   pagesRoot: string;
-  postsRoot: string;
   menusRoot: string;
   redirectsPath: string;
   vhostRoot: string;
@@ -75,7 +74,6 @@ export function loadSiteConfig(siteRoot: string): SiteConfig {
     rootMirrorRoot: join(themeRoot, 'root'),
     templatesRoot: join(themeRoot, 'templates'),
     pagesRoot: join(contentRoot, 'pages'),
-    postsRoot: join(contentRoot, 'posts'),
     menusRoot: join(contentRoot, 'menus'),
     // Also nested inside contentRoot, for the same reason.
     redirectsPath: join(contentRoot, 'redirects.json'),

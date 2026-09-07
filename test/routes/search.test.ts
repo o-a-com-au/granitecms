@@ -243,14 +243,15 @@ test('GET /v1/search sort=-price and sort=price order a numeric field descending
   }
 });
 
-test('GET /v1/search sort=-publishDate orders posts newest first, for a paginated blog listing', async () => {
+test('GET /v1/search sort=-publishDate orders pages newest first, for a paginated blog listing - author/publishDate/tags are optional page fields, not a distinct post type', async () => {
   const { app, siteRoot, cleanup } = buildSearchTestServer();
   try {
-    function post(slug: string, title: string, publishDate: string): object {
+    function blogArticle(slug: string, title: string, publishDate: string): object {
       return {
-        schemaVersion: 4,
+        schemaVersion: 6,
+        name: title,
         title,
-        type: 'post',
+        type: 'blog-article',
         layout: 'theme',
         published: true,
         author: 'Jane Editor',
@@ -259,12 +260,12 @@ test('GET /v1/search sort=-publishDate orders posts newest first, for a paginate
         sections: [],
       };
     }
-    writeJson(siteRoot, 'content/posts/old.json', post('old', 'Old Post', '2024-01-01'));
-    writeJson(siteRoot, 'content/posts/new.json', post('new', 'New Post', '2026-01-01'));
-    writeJson(siteRoot, 'content/posts/middle.json', post('middle', 'Middle Post', '2025-01-01'));
+    writeJson(siteRoot, 'content/pages/blog/old.json', blogArticle('old', 'Old Post', '2024-01-01'));
+    writeJson(siteRoot, 'content/pages/blog/new.json', blogArticle('new', 'New Post', '2026-01-01'));
+    writeJson(siteRoot, 'content/pages/blog/middle.json', blogArticle('middle', 'Middle Post', '2025-01-01'));
     await rebuildViaRoute(app);
 
-    const { statusCode, body } = await search(app, '?pageType=post&sort=-publishDate');
+    const { statusCode, body } = await search(app, '?pageType=blog-article&sort=-publishDate');
     assert.equal(statusCode, 200);
     assert.deepEqual((body as { results: Array<{ url: string }> }).results.map((r) => r.url), [
       '/blog/new',

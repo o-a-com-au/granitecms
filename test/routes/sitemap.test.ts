@@ -12,9 +12,10 @@ import { writeJson } from '../helpers/tmp-site.ts';
 const FIXTURE_SITE = join(import.meta.dirname, '..', 'fixtures', 'site');
 
 // Same real-fixture-site pattern as public.test.ts/assets.test.ts -
-// the fixture already has a realistic mix (published pages/posts, an
-// unpublished page "hidden.json", a nested child page, a 404.json)
-// that this route's filtering logic needs to be exercised against.
+// the fixture already has a realistic mix (published pages including
+// one nested under /blog with author/publishDate/tags, an unpublished
+// page "hidden.json", a nested child page, a 404.json) that this
+// route's filtering logic needs to be exercised against.
 function buildSitemapTestServer(options: { trustProxy?: boolean } = {}) {
   const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-sitemap-test-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
@@ -44,7 +45,7 @@ test('GET /sitemap.xml returns valid XML with the correct content-type', async (
   }
 });
 
-test('includes published pages (root, nested child, and posts) as absolute URLs', async () => {
+test('includes published pages (root, nested child, and a page nested under /blog) as absolute URLs', async () => {
   const { app, cleanup } = buildSitemapTestServer();
   try {
     const response = await app.inject({ method: 'GET', url: '/sitemap.xml' });

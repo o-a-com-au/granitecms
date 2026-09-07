@@ -3,7 +3,7 @@ import type { MigrationMap } from '../services/migration-runner.ts';
 // The current content schema version. Bumping this and adding a new
 // migrations[N] entry is the only way a content shape may change
 // (constraint 4) - never a manual edit convention.
-export const CURRENT_SCHEMA_VERSION = 5;
+export const CURRENT_SCHEMA_VERSION = 6;
 
 // A trivial identity migration, proving the mechanism (per the build
 // plan's Phase 1 scope): no shape change, only the version bump. Safe
@@ -48,9 +48,33 @@ function migrateV4ToV5(content: Record<string, unknown>): Record<string, unknown
   return { ...content, schemaVersion: 5, name: title };
 }
 
+// Folds the distinct "post" content type into "page" - author,
+// publishDate, and tags become optional fields any page may carry
+// (page.schema.json), and the post-only schema (which required them,
+// but had no "name" field at all) is retired. Ordinary pages already
+// at v5 already have "name"; this is only ever a genuine backfill for
+// a legacy content/posts/*.json file, which never had one. Mirrors the
+// admin's own backfillPageName (derivePageLabel.ts) precisely: fills
+// name from title only when name is genuinely absent, never overwrites
+// an existing one (a page's name may deliberately differ from its
+// title - migrateV4ToV5's own unconditional set was safe only because
+// no content reaching it could already have a name).
+// migration-runner.ts's runMigrationsJob is what physically relocates
+// a legacy content/posts/<slug>.json file to content/pages/blog/<slug>.json
+// alongside this shape change - this function only ever transforms
+// content, never a path.
+function migrateV5ToV6(content: Record<string, unknown>): Record<string, unknown> {
+  if ('name' in content) {
+    return { ...content, schemaVersion: 6 };
+  }
+  const title = typeof content.title === 'string' ? content.title : '';
+  return { ...content, schemaVersion: 6, name: title };
+}
+
 export const migrations: MigrationMap = {
   1: migrateV1ToV2,
   2: migrateV2ToV3,
   3: migrateV3ToV4,
   4: migrateV4ToV5,
+  5: migrateV5ToV6,
 };

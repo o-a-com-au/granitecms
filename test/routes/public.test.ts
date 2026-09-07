@@ -114,13 +114,14 @@ test('an unpublished content/pages/404.json falls back to the plain JSON 404 rat
   }
 });
 
-test('/blog/<slug> serves a live, published post', async () => {
+test('/blog/<slug> serves a live, published page nested under /blog - an ordinary page path, carrying optional author/publishDate/tags', async () => {
   const { app, siteRoot, cleanup } = buildPublicTestServer();
   try {
-    writeJson(siteRoot, 'content/posts/hello-world.json', {
-      schemaVersion: 4,
+    writeJson(siteRoot, 'content/pages/blog/hello-world.json', {
+      schemaVersion: 6,
+      name: 'Hello World',
       title: 'Hello World',
-      type: 'post',
+      type: 'blog-article',
       layout: 'theme',
       published: true,
       author: 'Jane Editor',
@@ -139,12 +140,13 @@ test('/blog/<slug> serves a live, published post', async () => {
   }
 });
 
-test('/blog is a permanently reserved namespace: a page at content/pages/blog/x.json is unreachable at /blog/x', async () => {
+test('/blog is not a reserved namespace: a page at content/pages/blog/x.json is reachable at /blog/x', async () => {
   const { app, siteRoot, cleanup } = buildPublicTestServer();
   try {
     writeJson(siteRoot, 'content/pages/blog/x.json', {
-      schemaVersion: 4,
-      title: 'Shadowed Page',
+      schemaVersion: 6,
+      name: 'Nested Page',
+      title: 'Nested Page',
       type: 'page',
       layout: 'theme',
       published: true,
@@ -152,15 +154,15 @@ test('/blog is a permanently reserved namespace: a page at content/pages/blog/x.
     });
 
     const response = await app.inject({ method: 'GET', url: '/blog/x' });
-    assert.equal(response.statusCode, 404);
-    assert.ok(!response.body.includes('Shadowed Page'));
+    assert.equal(response.statusCode, 200);
+    assert.ok(response.body.includes('Nested Page'));
   } finally {
     await app.close();
     cleanup();
   }
 });
 
-test('a /blog/<slug> URL with no matching post renders the themed 404, same as a missing page', async () => {
+test('a /blog/<slug> URL with no matching page renders the themed 404, same as any other missing page', async () => {
   const { app, cleanup } = buildPublicTestServer();
   try {
     const response = await app.inject({ method: 'GET', url: '/blog/never-existed' });

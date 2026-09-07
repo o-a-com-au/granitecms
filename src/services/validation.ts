@@ -38,7 +38,6 @@ function readSchema(filename: string): object {
 const instanceSchema = readSchema('instance.schema.json');
 ajv.addSchema(instanceSchema);
 const validatePageEnvelope = ajv.compile(readSchema('page.schema.json'));
-const validatePostEnvelope = ajv.compile(readSchema('post.schema.json'));
 const validateMenuEnvelope = ajv.compile(readSchema('menu.schema.json'));
 const validateRedirectsEnvelope = ajv.compile(readSchema('redirects.schema.json'));
 const validateInstanceEnvelope = ajv.compile(instanceSchema);
@@ -162,10 +161,6 @@ export function validateInstance(
   return { valid: errors.length === 0, errors };
 }
 
-// Shared by validatePage and validatePost: both envelopes require an
-// identical sections/blocks recursion once their own envelope-level
-// shape is confirmed valid - genuinely load-bearing for two real
-// content types now, not a speculative abstraction.
 function validateSectionedContent(
   envelopeValidate: ValidateFunction,
   content: unknown,
@@ -191,10 +186,6 @@ export function validatePage(page: unknown, themeSchemas: ThemeSchemas): Validat
   return validateSectionedContent(validatePageEnvelope, page, themeSchemas);
 }
 
-export function validatePost(post: unknown, themeSchemas: ThemeSchemas): ValidationResult {
-  return validateSectionedContent(validatePostEnvelope, post, themeSchemas);
-}
-
 export function validateMenu(menu: unknown): ValidationResult {
   return runValidator(validateMenuEnvelope, menu);
 }
@@ -216,9 +207,6 @@ export function validateContent(
 ): ValidationResult {
   if (relativePath.startsWith('menus/')) {
     return validateMenu(content);
-  }
-  if (relativePath.startsWith('posts/')) {
-    return validatePost(content, themeSchemas);
   }
   return validatePage(content, themeSchemas);
 }

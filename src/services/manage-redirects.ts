@@ -3,7 +3,6 @@ import type { SiteConfig } from '../config.ts';
 import { commitPaths } from './git.ts';
 import type { CommitAuthor } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
-import { isBlogUrl, urlToPostPath } from './post-urls.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
 import {
   RedirectError,
@@ -48,22 +47,13 @@ export interface RedirectMutationResult {
   retargeted: RedirectEntry[];
 }
 
-// Not required for correctness (resolve-url.ts/resolve-blog-url.ts
-// already guarantee live content always wins over a redirect at the
-// same URL), but rejecting here avoids a marketing manager creating a
-// redirect that would silently never fire.
+// Not required for correctness (resolve-url.ts already guarantees live
+// content always wins over a redirect at the same URL), but rejecting
+// here avoids a marketing manager creating a redirect that would
+// silently never fire.
 function liveContentExistsAt(config: SiteConfig, url: string): boolean {
   const pageFile = sanitisePath(config.pagesRoot, urlToPagePath(url));
-  if (existsSync(pageFile)) {
-    return true;
-  }
-  if (isBlogUrl(url) && existsSync(config.postsRoot)) {
-    const postRelative = urlToPostPath(url);
-    if (postRelative !== null && existsSync(sanitisePath(config.postsRoot, postRelative))) {
-      return true;
-    }
-  }
-  return false;
+  return existsSync(pageFile);
 }
 
 function validateFromAndTo(from: string, to: string): void {

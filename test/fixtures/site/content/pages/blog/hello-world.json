@@ -1,5 +1,6 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 6,
+  "name": "Hello World",
   "title": "Hello World",
   "type": "post",
   "layout": "theme",

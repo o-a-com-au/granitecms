@@ -5,7 +5,6 @@ import { computeEtag } from './etag.ts';
 import { listFilesRecursively } from './fs-walk.ts';
 import { sanitisePath } from './path-safety.ts';
 import { pagePathToUrl } from './urls.ts';
-import { postPathToUrl } from './post-urls.ts';
 
 export type ContentReadReason = 'not-found';
 
@@ -65,16 +64,13 @@ interface PageSummaryShape {
 }
 
 // Both contentRoot-relative live paths and draftsRoot-relative draft
-// paths share the identical pages/posts/menus subroot prefix shape
+// paths share the identical pages/menus subroot prefix shape
 // (content/drafts/ mirrors content/'s own layout), so one function
 // handles both with no branching on which root an entry came from.
 // Menus have no public URL - there is no preview route for them.
 function computeContentUrl(relativePath: string): string | null {
   if (relativePath.startsWith('pages/')) {
     return pagePathToUrl(relativePath.slice('pages/'.length));
-  }
-  if (relativePath.startsWith('posts/')) {
-    return postPathToUrl(relativePath.slice('posts/'.length));
   }
   return null;
 }
@@ -124,20 +120,19 @@ function readSummary(fullPath: string): PageSummaryShape | null {
 // anywhere in the build plan - this is the only place a draft-only
 // page (never yet published) is discoverable at all.
 //
-// Deliberately three named walks (pages/posts/menus), not one broad
-// walk of contentRoot: since Group N nested draftsRoot and redirectsPath
+// Deliberately two named walks (pages/menus), not one broad walk of
+// contentRoot: since Group N nested draftsRoot and redirectsPath
 // inside contentRoot (content/drafts/, content/redirects.json), a
 // single broad contentRoot walk would descend into content/drafts/
 // too, double-listing draft files under two different relative-path
 // keys, and would pick up redirects.json as if it were a page. An
 // inclusion-based walk sidesteps both problems structurally, with no
-// exclusion list to maintain. base stays config.contentRoot for all
-// three (not each subroot) so the resulting relative paths ("pages/x.json")
+// exclusion list to maintain. base stays config.contentRoot for both
+// (not each subroot) so the resulting relative paths ("pages/x.json")
 // line up with draftPaths below for the hasDraft/hasLive union logic.
 export function listContent(config: SiteConfig, filters: ContentListFilters): ContentListEntry[] {
   const contentPaths = new Set([
     ...listFilesRecursively(config.pagesRoot, config.contentRoot, '.json'),
-    ...listFilesRecursively(config.postsRoot, config.contentRoot, '.json'),
     ...listFilesRecursively(config.menusRoot, config.contentRoot, '.json'),
   ]);
   const draftPaths = new Set(listFilesRecursively(config.draftsRoot, config.draftsRoot, '.json'));

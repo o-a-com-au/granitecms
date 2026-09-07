@@ -174,12 +174,12 @@ test('listContent filters by draft status', () => {
   }
 });
 
-test('listContent computes a url for pages, the index page, posts, and null for menus', () => {
+test('listContent computes a url for pages, the index page, a page nested under /blog, and null for menus', () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
   try {
     writeJson(siteRoot, 'content/pages/index.json', page('Home', 'page'));
     writeJson(siteRoot, 'content/pages/about/team.json', page('Team', 'page'));
-    writeJson(siteRoot, 'content/posts/my-slug.json', page('A Post', 'article'));
+    writeJson(siteRoot, 'content/pages/blog/my-slug.json', page('A Post', 'blog-article'));
     writeJson(siteRoot, 'content/menus/main.json', { schemaVersion: 1, items: [] });
     const config = loadSiteConfig(siteRoot);
 
@@ -189,7 +189,7 @@ test('listContent computes a url for pages, the index page, posts, and null for 
 
     assert.equal(byPath('pages/index.json')?.url, '/');
     assert.equal(byPath('pages/about/team.json')?.url, '/about/team');
-    assert.equal(byPath('posts/my-slug.json')?.url, '/blog/my-slug');
+    assert.equal(byPath('pages/blog/my-slug.json')?.url, '/blog/my-slug');
     assert.equal(byPath('menus/main.json')?.url, null);
   } finally {
     cleanup();

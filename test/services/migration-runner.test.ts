@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { existsSync } from 'node:fs';
 import { loadSiteConfig } from '../../src/config.ts';
+import { CURRENT_SCHEMA_VERSION, migrations as realMigrations } from '../../src/migrations/index.ts';
 import { MigrationError, runMigrations } from '../../src/services/migration-runner.ts';
 import type { MigrationMap } from '../../src/services/migration-runner.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
@@ -260,6 +262,104 @@ test('F4: a failed migration aborts the whole run with a clean working tree', as
     assert.equal(commitCount(siteRoot), before);
     assert.ok(aBefore.equals(readFileSync(join(config.pagesRoot, 'a.json'))));
     assert.ok(bBefore.equals(readFileSync(join(config.pagesRoot, 'b.json'))));
+  } finally {
+    cleanup();
+  }
+});
+
+test('a legacy content/posts/<slug>.json file is migrated and relocated to content/pages/blog/<slug>.json, with schemaVersion bumped and a missing "name" backfilled from title', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(
+      siteRoot,
+      'content/posts/hello-world.json',
+      JSON.stringify({
+        schemaVersion: 4,
+        title: 'Hello World',
+        type: 'post',
+        layout: 'theme',
+        published: true,
+        author: 'Jane Editor',
+        publishDate: '2026-07-27',
+        tags: ['news'],
+        sections: [],
+      }),
+    );
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+
+    await runMigrations(config, themeSchemas, realMigrations, CURRENT_SCHEMA_VERSION, author);
+
+    assert.ok(!existsSync(join(siteRoot, 'content', 'posts', 'hello-world.json')), 'the legacy path must be gone');
+    const relocated = JSON.parse(
+      readFileSync(join(config.pagesRoot, 'blog', 'hello-world.json'), 'utf-8'),
+    ) as Record<string, unknown>;
+    assert.equal(relocated.schemaVersion, CURRENT_SCHEMA_VERSION);
+    assert.equal(relocated.name, 'Hello World');
+    assert.equal(relocated.author, 'Jane Editor');
+    assert.equal(relocated.publishDate, '2026-07-27');
+    assert.deepEqual(relocated.tags, ['news']);
+    assert.equal(commitCount(siteRoot), before + 1);
+
+    const statuses = statusesInLastCommit(siteRoot);
+    assert.ok(
+      statuses.some((line) => line.startsWith('D') && line.includes('content/posts/hello-world.json')),
+      `expected the old path staged as deleted, got: ${statuses.join(', ')}`,
+    );
+    assert.ok(
+      statuses.some((line) => line.startsWith('A') && line.includes('content/pages/blog/hello-world.json')),
+      `expected the new path staged as added, got: ${statuses.join(', ')}`,
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test('F4 (write-phase, legacy post relocation): a real failure after a legacy post is relocated rolls back cleanly - the old path is restored, the new path is removed', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    const originalBytes = JSON.stringify({
+      schemaVersion: 4,
+      title: 'Hello World',
+      type: 'post',
+      layout: 'theme',
+      published: true,
+      author: 'Jane Editor',
+      publishDate: '2026-07-27',
+      tags: [],
+      sections: [],
+    });
+    writeAndCommit(siteRoot, 'content/posts/hello-world.json', originalBytes);
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+
+    // Same real-git-failure technique as the ordinary write-phase
+    // rollback test below - a stray .git/index.lock makes `git add`
+    // fail exactly as a genuine concurrent git operation would.
+    const lockPath = join(siteRoot, '.git', 'index.lock');
+    writeFileSync(lockPath, '');
+    try {
+      await assert.rejects(
+        runMigrations(config, themeSchemas, realMigrations, CURRENT_SCHEMA_VERSION, author),
+        (error: unknown) => error instanceof MigrationError && error.reason === 'commit-failed',
+      );
+    } finally {
+      rmSync(lockPath, { force: true });
+    }
+
+    assert.equal(commitCount(siteRoot), before, 'no commit should be created');
+    assert.ok(
+      existsSync(join(siteRoot, 'content', 'posts', 'hello-world.json')),
+      'the legacy path must be restored',
+    );
+    assert.equal(
+      readFileSync(join(siteRoot, 'content', 'posts', 'hello-world.json'), 'utf-8'),
+      originalBytes,
+    );
+    assert.ok(
+      !existsSync(join(config.pagesRoot, 'blog', 'hello-world.json')),
+      'the relocated path must be removed on rollback',
+    );
   } finally {
     cleanup();
   }

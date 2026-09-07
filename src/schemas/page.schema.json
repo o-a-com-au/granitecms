@@ -12,6 +12,12 @@
     "type": { "type": "string", "minLength": 1 },
     "layout": { "type": "string", "minLength": 1 },
     "published": { "type": "boolean" },
+    "author": { "type": "string", "minLength": 1 },
+    "publishDate": { "type": "string", "minLength": 1 },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "sections": {
       "type": "array",
       "items": { "$ref": "instance.schema.json" }
