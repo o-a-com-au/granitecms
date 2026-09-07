@@ -550,6 +550,53 @@ test('a theme field schema\'d "type": "string", "format": "date" is also indexed
   }
 });
 
+test('a rebuild yields periodically to the event loop rather than blocking it for its entire duration', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    // 60 files guarantees the loop crosses YIELD_EVERY_N_FILES (25) at
+    // least twice - real, not a single lucky yield.
+    for (let i = 0; i < 60; i += 1) {
+      writeJson(siteRoot, `content/pages/page-${i}.json`, page({ title: `Page ${i}` }));
+    }
+    const config = loadSiteConfig(siteRoot);
+
+    const marks: string[] = [];
+    const rebuildPromise = rebuildIndex(config).then(() => {
+      marks.push('rebuild-done');
+    });
+    // Scheduled via the real, global setImmediate BEFORE awaiting the
+    // rebuild - a fully synchronous rebuild runs its entire body to
+    // completion within one microtask turn (see write-queue.ts's own
+    // enqueue()), so on the old code NONE of these could ever fire
+    // before 'rebuild-done' was already recorded: Node only reaches
+    // queued macrotask (setImmediate) callbacks once every already-
+    // pending microtask has drained. At least one firing beforehand is
+    // direct, deterministic proof the rebuild actually yielded control
+    // mid-flight, not a timing-dependent race.
+    const immediates = Array.from(
+      { length: 5 },
+      (_, index) =>
+        new Promise<void>((resolve) => {
+          setImmediate(() => {
+            marks.push(`immediate-${index}`);
+            resolve();
+          });
+        }),
+    );
+
+    await Promise.all([rebuildPromise, ...immediates]);
+
+    const doneIndex = marks.indexOf('rebuild-done');
+    const earlyImmediates = marks.slice(0, doneIndex).filter((mark) => mark.startsWith('immediate-'));
+    assert.ok(
+      earlyImmediates.length > 0,
+      `expected at least one setImmediate to fire before the rebuild finished, got: ${marks.join(', ')}`,
+    );
+  } finally {
+    cleanup();
+  }
+});
+
 test('G4: the index file is gitignored and a rebuild creates no git changes', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {

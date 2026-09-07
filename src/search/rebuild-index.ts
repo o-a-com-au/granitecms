@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, renameSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
+import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import type { SiteConfig } from '../config.ts';
 import { listFilesRecursively } from '../services/fs-walk.ts';
 import { postPathToUrl } from '../services/post-urls.ts';
@@ -8,6 +9,15 @@ import { loadThemeSchemas } from '../services/theme-schemas.ts';
 import { pagePathToUrl } from '../services/urls.ts';
 import { enqueue } from '../services/write-queue.ts';
 import { openNodeSqliteDriver } from './drivers/node-sqlite-driver.ts';
+
+// How many content files the rebuild loop processes between yields to
+// the event loop (see the yield's own comment below for why this
+// exists at all). Large enough that setImmediate's own overhead is
+// negligible next to the real per-file work (a parse plus several
+// SQLite inserts); small enough that no single slice runs long enough
+// to meaningfully stall another request. Not a config knob - no
+// evidence yet this needs to be tunable per site.
+const YIELD_EVERY_N_FILES = 25;
 
 interface InstanceLike {
   id?: unknown;
@@ -282,8 +292,27 @@ async function rebuildIndexJob(config: SiteConfig): Promise<void> {
       ];
 
       driver.exec('BEGIN');
+      let filesExamined = 0;
       for (const { root, toUrl } of collections) {
         for (const relativePath of listFilesRecursively(root, root, '.json')) {
+          // A genuine macrotask yield (setImmediate, not a microtask like
+          // Promise.resolve()/queueMicrotask - Node drains every queued
+          // microtask before the event loop ever reaches its I/O phases,
+          // so a chain of only-microtask yields still fully blocks an
+          // incoming HTTP request from being processed). Without this,
+          // this loop's entire body - potentially thousands of files -
+          // runs as one uninterruptible synchronous block: since Node is
+          // single-threaded, that means every other request the server
+          // is handling (auth, content reads, publishes) stalls for the
+          // rebuild's whole duration, not just other search queries.
+          // Counted once per file examined regardless of collection or
+          // whether it ends up skipped below, so the cadence tracks
+          // total work done rather than the pages/posts split.
+          filesExamined += 1;
+          if (filesExamined % YIELD_EVERY_N_FILES === 0) {
+            await yieldToEventLoop();
+          }
+
           let page: PageForIndex;
           try {
             page = JSON.parse(readFileSync(join(root, relativePath), 'utf-8')) as PageForIndex;
