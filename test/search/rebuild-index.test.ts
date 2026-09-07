@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
 import { rebuildIndex } from '../../src/search/rebuild-index.ts';
@@ -165,6 +165,35 @@ test('a menu is never indexed - it has no public URL to point a search result at
 
     assert.deepEqual(queryIndex(config.searchIndexPath, 'menuindexterm'), []);
     assert.deepEqual(queryIndex(config.searchIndexPath, 'controlterm2'), [{ url: '/about', title: 'About' }]);
+  } finally {
+    cleanup();
+  }
+});
+
+test('a rebuild swaps the index atomically via a temp file + rename - no leftover temp file, and a second rebuild fully replaces rather than merges', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    writeJson(siteRoot, 'content/pages/about.json', page({ title: 'About', heading: 'aardvarks' }));
+    const config = loadSiteConfig(siteRoot);
+
+    await rebuildIndex(config);
+    assert.deepEqual(queryIndex(config.searchIndexPath, 'aardvarks'), [{ url: '/about', title: 'About' }]);
+
+    // A genuinely different second page, not just an edit of the first -
+    // proves the real index file is a full replacement of the previous
+    // build's contents, not an accumulation on top of it.
+    writeJson(siteRoot, 'content/pages/about.json', page({ title: 'About', heading: 'bumblebees' }));
+    await rebuildIndex(config);
+
+    assert.deepEqual(queryIndex(config.searchIndexPath, 'aardvarks'), []);
+    assert.deepEqual(queryIndex(config.searchIndexPath, 'bumblebees'), [{ url: '/about', title: 'About' }]);
+
+    // rebuildIndexJob's own temp file (searchIndexPath + '.tmp-<uuid>')
+    // is renamed over the real path on success, not left sitting
+    // alongside it - a stray one accumulating on every rebuild would be
+    // a real, silent disk leak on a long-running site.
+    const leftoverTmpFiles = readdirSync(config.dataRoot).filter((name) => name.includes('.tmp-'));
+    assert.deepEqual(leftoverTmpFiles, []);
   } finally {
     cleanup();
   }
