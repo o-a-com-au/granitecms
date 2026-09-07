@@ -21,6 +21,9 @@ interface PageForIndex {
   type?: unknown;
   published?: unknown;
   sections?: InstanceLike[];
+  author?: unknown;
+  publishDate?: unknown;
+  tags?: unknown;
 }
 
 interface ApiFieldRow {
@@ -66,16 +69,73 @@ function extractBody(instances: InstanceLike[] | undefined): string {
   return strings.join(' ');
 }
 
+// Epoch milliseconds for a date-like string - undefined if it doesn't
+// parse, so a malformed date is silently skipped rather than indexed
+// as a nonsensical NaN row (the same "malformed input skipped, not a
+// rebuild failure" tolerance every other part of this pipeline
+// already has for a bad file or a missing theme type).
+function parseDateValue(value: unknown): number | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+// Turns one raw value into ApiFieldRow entries for a given field key -
+// shared by both theme-flagged fields (extractInstanceApiFields below)
+// and the built-in post envelope fields (extractEnvelopeApiFields),
+// since both need the identical "what does this value actually mean
+// for indexing" logic. Three shapes:
+// - an array: one row per scalar element, all under the same
+//   fieldKey (e.g. a post's own "tags") - a plain "eq" filter then
+//   matches via the exact same mechanism a single-valued field already
+//   uses, no separate array-aware query logic needed anywhere else.
+// - a date-like string (isDateField true - a theme field schema'd
+//   "type": "string", "format": "date", reusing the existing format
+//   convention, or the post envelope's own publishDate): stored as an
+//   epoch-ms number in valueNumber, not text, so range operators work
+//   on it through the same numeric path a flagged price field uses.
+// - a plain scalar (string/number/boolean): stored in its own typed
+//   column. Anything else (object, null, undefined) has nothing
+//   sensible to store or compare and is silently skipped, the same way
+//   a malformed schema block already is elsewhere in this pipeline.
+function pushFieldValue(
+  blockType: string,
+  instanceId: string,
+  fieldKey: string,
+  value: unknown,
+  isDateField: boolean,
+  out: ApiFieldRow[],
+): void {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      pushFieldValue(blockType, instanceId, fieldKey, item, isDateField, out);
+    }
+    return;
+  }
+  if (typeof value === 'string' && isDateField) {
+    const epoch = parseDateValue(value);
+    if (epoch !== undefined) {
+      out.push({ blockType, instanceId, fieldKey, valueText: null, valueNumber: epoch, valueBool: null });
+    }
+    return;
+  }
+  if (typeof value === 'string') {
+    out.push({ blockType, instanceId, fieldKey, valueText: value, valueNumber: null, valueBool: null });
+  } else if (typeof value === 'number') {
+    out.push({ blockType, instanceId, fieldKey, valueText: null, valueNumber: value, valueBool: null });
+  } else if (typeof value === 'boolean') {
+    out.push({ blockType, instanceId, fieldKey, valueText: null, valueNumber: null, valueBool: value ? 1 : 0 });
+  }
+}
+
 // Reads schema.properties for the given instance's own type, keeping
 // only properties explicitly flagged "api": true (an unvalidated,
 // theme-authored JSON Schema keyword - same status as "format"/
 // "allowedBlocks", see docs/theme-authoring-guide.md and
 // services/validation.ts's own allowedBlockTypesOf) - and pairs each
-// with its actual value out of instance.settings. Only scalar values
-// are meaningful to index this way; an object/array-typed field
-// flagged "api": true has nothing sensible to store or compare, so
-// it's silently skipped, the same way a malformed schema block already
-// is elsewhere in this pipeline.
+// with its actual value out of instance.settings via pushFieldValue.
 function extractInstanceApiFields(instance: InstanceLike, schemaMap: Record<string, object>, out: ApiFieldRow[]): void {
   const type = typeof instance.type === 'string' ? instance.type : undefined;
   const id = typeof instance.id === 'string' ? instance.id : undefined;
@@ -91,18 +151,32 @@ function extractInstanceApiFields(instance: InstanceLike, schemaMap: Record<stri
     unknown
   >;
   for (const [key, propSchema] of Object.entries(properties as Record<string, unknown>)) {
-    if ((propSchema as { api?: unknown } | null)?.api !== true) {
+    const schema = propSchema as { api?: unknown; type?: unknown; format?: unknown } | null;
+    if (schema?.api !== true) {
       continue;
     }
-    const value = settings[key];
-    if (typeof value === 'string') {
-      out.push({ blockType: type, instanceId: id, fieldKey: key, valueText: value, valueNumber: null, valueBool: null });
-    } else if (typeof value === 'number') {
-      out.push({ blockType: type, instanceId: id, fieldKey: key, valueText: null, valueNumber: value, valueBool: null });
-    } else if (typeof value === 'boolean') {
-      out.push({ blockType: type, instanceId: id, fieldKey: key, valueText: null, valueNumber: null, valueBool: value ? 1 : 0 });
-    }
+    const isDateField = schema.type === 'string' && schema.format === 'date';
+    pushFieldValue(type, id, key, settings[key], isDateField, out);
   }
+}
+
+// Built-in post fields, auto-indexed with no "api": true needed - they
+// are intrinsic to what a post IS (post.schema.json), not something a
+// theme's own schema declares one way or the other. block_type
+// '__page__' is a sentinel (never a real theme type, which always
+// matches a *.liquid filename) marking these rows as envelope-level
+// rather than a real section/block instance; instanceId is the page's
+// own url - stable and unique enough, since there's exactly one
+// envelope per page.
+function extractEnvelopeApiFields(page: PageForIndex, url: string): ApiFieldRow[] {
+  const rows: ApiFieldRow[] = [];
+  if (page.type !== 'post') {
+    return rows;
+  }
+  pushFieldValue('__page__', url, 'author', page.author, false, rows);
+  pushFieldValue('__page__', url, 'publishDate', page.publishDate, true, rows);
+  pushFieldValue('__page__', url, 'tags', page.tags, false, rows);
+  return rows;
 }
 
 // Top-level page.sections entries are sections; every level of nested
@@ -235,7 +309,11 @@ async function rebuildIndexJob(config: SiteConfig): Promise<void> {
           const body = extractBody(page.sections);
           insert.run(url, title, body, pageType);
 
-          for (const row of extractApiFields(page.sections, themeSchemas.sections, themeSchemas.blocks)) {
+          const apiFields = [
+            ...extractApiFields(page.sections, themeSchemas.sections, themeSchemas.blocks),
+            ...extractEnvelopeApiFields(page, url),
+          ];
+          for (const row of apiFields) {
             insertField.run(url, row.blockType, row.instanceId, row.fieldKey, row.valueText, row.valueNumber, row.valueBool);
           }
         }

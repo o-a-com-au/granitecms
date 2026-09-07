@@ -408,6 +408,124 @@ test('pageType filters a field query to just that page type', async () => {
   }
 });
 
+test('a post\'s built-in author/publishDate/tags fields are auto-indexed, no "api": true needed', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    writeJson(siteRoot, 'content/posts/hello-world.json', {
+      schemaVersion: 4,
+      title: 'Hello World',
+      type: 'post',
+      layout: 'theme',
+      published: true,
+      author: 'Jane Editor',
+      publishDate: '2026-07-27',
+      tags: ['design', 'launch'],
+      sections: [],
+    });
+    const config = loadSiteConfig(siteRoot);
+
+    await rebuildIndex(config);
+
+    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'author', op: 'eq', value: 'Jane Editor' }), [
+      { url: '/blog/hello-world', title: 'Hello World', pageType: 'post' },
+    ]);
+    // Each tag is independently matchable - a query for either tag
+    // finds the same post, proving the array expanded into separate
+    // rows rather than being indexed as one opaque blob.
+    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'tags', op: 'eq', value: 'design' }), [
+      { url: '/blog/hello-world', title: 'Hello World', pageType: 'post' },
+    ]);
+    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'tags', op: 'eq', value: 'launch' }), [
+      { url: '/blog/hello-world', title: 'Hello World', pageType: 'post' },
+    ]);
+    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'tags', op: 'eq', value: 'unrelated' }), []);
+  } finally {
+    cleanup();
+  }
+});
+
+test('publishDate is indexed as a numeric epoch value, so range operators can query it like any other numeric field', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    writeJson(siteRoot, 'content/posts/old-post.json', {
+      schemaVersion: 4,
+      title: 'Old Post',
+      type: 'post',
+      layout: 'theme',
+      published: true,
+      author: 'Jane Editor',
+      publishDate: '2020-01-01',
+      tags: [],
+      sections: [],
+    });
+    writeJson(siteRoot, 'content/posts/new-post.json', {
+      schemaVersion: 4,
+      title: 'New Post',
+      type: 'post',
+      layout: 'theme',
+      published: true,
+      author: 'Jane Editor',
+      publishDate: '2026-01-01',
+      tags: [],
+      sections: [],
+    });
+    const config = loadSiteConfig(siteRoot);
+
+    await rebuildIndex(config);
+
+    const cutoff = Date.parse('2023-01-01').toString();
+    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'publishDate', op: 'gt', value: cutoff }), [
+      { url: '/blog/new-post', title: 'New Post', pageType: 'post' },
+    ]);
+    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'publishDate', op: 'lt', value: cutoff }), [
+      { url: '/blog/old-post', title: 'Old Post', pageType: 'post' },
+    ]);
+  } finally {
+    cleanup();
+  }
+});
+
+test('a page (not a post) has no author/publishDate/tags rows - envelope auto-indexing only ever applies to posts', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    writeJson(siteRoot, 'content/pages/about.json', page({ title: 'About' }));
+    const config = loadSiteConfig(siteRoot);
+
+    await rebuildIndex(config);
+
+    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'author', op: 'eq', value: 'anyone' }), []);
+  } finally {
+    cleanup();
+  }
+});
+
+test('a theme field schema\'d "type": "string", "format": "date" is also indexed as a numeric epoch value, same as publishDate', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    writeSectionSchema(siteRoot, 'event', {
+      type: 'object',
+      properties: { startsOn: { type: 'string', format: 'date', api: true } },
+    });
+    writeJson(siteRoot, 'content/pages/conference.json', {
+      schemaVersion: 1,
+      title: 'Conference',
+      type: 'page',
+      published: true,
+      sections: [{ id: 'sec-1', type: 'event', settings: { startsOn: '2026-09-10' } }],
+    });
+    const config = loadSiteConfig(siteRoot);
+
+    await rebuildIndex(config);
+
+    const epoch = Date.parse('2026-09-10').toString();
+    assert.deepEqual(queryFields(config.searchIndexPath, { fieldKey: 'startsOn', op: 'eq', value: epoch }), [
+      { url: '/conference', title: 'Conference', pageType: 'page' },
+    ]);
+  } finally {
+    cleanup();
+  }
+});
+
 test('G4: the index file is gitignored and a rebuild creates no git changes', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
