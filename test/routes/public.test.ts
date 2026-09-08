@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, rmSync, unlinkSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, rmSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { bootSite } from '../../src/boot.ts';
@@ -37,6 +37,114 @@ test('C1: a request for a published page URL serves the rendered live HTML', asy
     assert.equal(response.statusCode, 200);
     assert.equal(response.headers['content-type'], 'text/html; charset=utf-8');
     assert.ok(response.body.includes('About Us'));
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+// Proves an actual cache hit occurred, not just "the output happens to
+// look the same" - the file is rewritten with genuinely different
+// content, but its mtime is pinned to the exact same fixed timestamp
+// both before and after (utimesSync with an explicit Date, not
+// whatever the filesystem's own sub-millisecond write clock produces -
+// statSync's mtimeMs is a high-precision float that a plain "read the
+// mtime back and reset to it" round-trip does not reproduce exactly on
+// this filesystem, confirmed empirically before relying on this), so a
+// correct cache implementation must keep serving the old, cached HTML.
+// If this test ever starts seeing "Retitled", the cache stopped being
+// consulted (or started re-rendering unconditionally), which is the
+// real regression this is guarding against.
+test('a repeat request for an unchanged page is served from the render cache, not re-rendered', async () => {
+  const { app, siteRoot, cleanup } = buildPublicTestServer();
+  try {
+    const aboutPath = join(siteRoot, 'content', 'pages', 'about.json');
+    const original = JSON.parse(readFileSync(aboutPath, 'utf-8')) as Record<string, unknown>;
+    const fixedMtime = new Date('2026-01-01T00:00:00.000Z');
+    utimesSync(aboutPath, fixedMtime, fixedMtime);
+
+    const first = await app.inject({ method: 'GET', url: '/about' });
+    assert.equal(first.statusCode, 200);
+    assert.ok(first.body.includes('About Us'));
+
+    const mutated = { ...original, sections: [{ id: 'sec-hero', type: 'hero', settings: { heading: 'Retitled' } }] };
+    writeFileSync(aboutPath, JSON.stringify(mutated, null, 2));
+    utimesSync(aboutPath, fixedMtime, fixedMtime);
+
+    const second = await app.inject({ method: 'GET', url: '/about' });
+    assert.equal(second.statusCode, 200);
+    assert.ok(second.body.includes('About Us'), 'expected the stale cached content, not the rewritten file');
+    assert.ok(!second.body.includes('Retitled'));
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('editing a page (a real mtime change) invalidates its cache entry - the next request reflects the new content', async () => {
+  const { app, siteRoot, cleanup } = buildPublicTestServer();
+  try {
+    const aboutPath = join(siteRoot, 'content', 'pages', 'about.json');
+
+    const first = await app.inject({ method: 'GET', url: '/about' });
+    assert.ok(first.body.includes('About Us'));
+
+    writeFileSync(
+      aboutPath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          title: 'About',
+          published: true,
+          sections: [{ id: 'sec-hero', type: 'hero', settings: { heading: 'Genuinely New Heading' } }],
+        },
+        null,
+        2,
+      ),
+    );
+
+    const second = await app.inject({ method: 'GET', url: '/about' });
+    assert.equal(second.statusCode, 200);
+    assert.ok(second.body.includes('Genuinely New Heading'));
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+// Menus render into every page's layout (test/fixtures/site/theme/layouts/theme.liquid's
+// own {% for item in menus.main.items %}), so an edit to a menu file
+// has to invalidate every cached page, not just be tracked per-page -
+// this is exactly why the cache tracks a separate menus-wide mtime
+// alongside each page's own.
+test('editing a menu (which every page renders into its nav) invalidates every cached page too', async () => {
+  const { app, siteRoot, cleanup } = buildPublicTestServer();
+  try {
+    const menuPath = join(siteRoot, 'content', 'menus', 'main.json');
+
+    const first = await app.inject({ method: 'GET', url: '/about' });
+    assert.ok(first.body.includes('Blog'));
+    assert.ok(!first.body.includes('Renamed Nav Item'));
+
+    writeFileSync(
+      menuPath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          items: [
+            { label: 'Home', url: '/' },
+            { label: 'About', url: '/about' },
+            { label: 'Renamed Nav Item', url: '/blog/hello-world' },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+
+    const second = await app.inject({ method: 'GET', url: '/about' });
+    assert.equal(second.statusCode, 200);
+    assert.ok(second.body.includes('Renamed Nav Item'));
   } finally {
     await app.close();
     cleanup();

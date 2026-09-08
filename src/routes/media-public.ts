@@ -32,9 +32,15 @@ async function handleMediaRequest(
   // <base href> fix), making genuinely cross-origin browser requests
   // for what looks like a same-origin path. Consistent with this
   // route already being deliberately unauthenticated and public.
+  //
+  // Cache-Control: immutable, a full year - safe unconditionally
+  // because filenames are content-addressed (a hash of the file's own
+  // bytes, see media/filename.ts): a given URL's content can never
+  // change, so there is no invalidation case to ever design for here.
   reply
     .header('X-Content-Type-Options', 'nosniff')
     .header('Access-Control-Allow-Origin', '*')
+    .header('Cache-Control', 'public, max-age=31536000, immutable')
     .type(mimeTypeFor(relativePath))
     .send(bytes);
 }

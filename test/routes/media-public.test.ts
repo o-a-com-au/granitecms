@@ -31,6 +31,18 @@ test('a real uploaded file is served with the correct Content-Type and body byte
   }
 });
 
+test('the response carries an immutable, one-year Cache-Control - safe because filenames are content-addressed, so a given URL\'s bytes never change', async () => {
+  const { app, config, cleanup } = await buildMediaPublicTestServer();
+  try {
+    const { name } = await putMedia(config, 'photo.jpg', Buffer.from('hello'));
+    const response = await app.inject({ method: 'GET', url: `/media/${name}` });
+    assert.equal(response.headers['cache-control'], 'public, max-age=31536000, immutable');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
 test('the response carries X-Content-Type-Options: nosniff', async () => {
   const { app, config, cleanup } = await buildMediaPublicTestServer();
   try {

@@ -101,6 +101,7 @@ export function buildServer(
     themeTemplates: booted.themeTemplates,
     layouts: booted.layouts,
     engine: booted.engine,
+    renderCache: booted.renderCache,
   });
 
   // A more specific static-prefixed route than the public catch-all's

@@ -2,7 +2,8 @@ import { join } from 'node:path';
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { Liquid } from 'liquidjs';
 import type { SiteConfig } from '../config.ts';
-import { PageRenderError, renderPage } from '../renderer/render-page.ts';
+import type { RenderCache } from '../renderer/render-cache.ts';
+import { getMenusMtimeMs, getPageMtimeMs, PageRenderError, renderPage } from '../renderer/render-page.ts';
 import type { ThemeTemplates } from '../renderer/theme-templates.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
 import { resolveUrl } from '../services/resolve-url.ts';
@@ -13,6 +14,7 @@ export interface PublicRouteOptions {
   themeTemplates: ThemeTemplates;
   layouts: Record<string, string>;
   engine: Liquid;
+  renderCache: RenderCache;
 }
 
 // resolveUrl's relativePath is relative to pagesRoot (e.g. "about.json"),
@@ -56,6 +58,7 @@ async function handlePublicRequest(
   themeTemplates: ThemeTemplates,
   layouts: Record<string, string>,
   engine: Liquid,
+  renderCache: RenderCache,
 ): Promise<void> {
   // The public catch-all is registered without a /v1 prefix alongside
   // v1Routes (which has its own exact/prefixed routes). Fastify's
@@ -97,14 +100,30 @@ async function handlePublicRequest(
       return;
     }
 
-    const html = await renderPage(
-      config,
-      themeTemplates,
-      layouts,
-      engine,
-      toRenderPath(resolved.relativePath),
-      'public',
-    );
+    const renderPath = toRenderPath(resolved.relativePath);
+
+    // Validated against real filesystem state, not invalidated by
+    // hooking every write path (publish/unpublish/delete/move/batch) -
+    // see render-cache.ts's own comment for why. pageMtimeMs is null
+    // only if the file vanished between resolveUrl confirming it
+    // exists and this check (vanishingly unlikely) - falls through to
+    // an ordinary uncached render rather than treating that as
+    // fatal.
+    const pageMtimeMs = getPageMtimeMs(config, renderPath);
+    if (pageMtimeMs !== null) {
+      const menusMtimeMs = getMenusMtimeMs(config);
+      const cached = renderCache.get(renderPath);
+      if (cached && cached.pageMtimeMs === pageMtimeMs && cached.menusMtimeMs === menusMtimeMs) {
+        reply.type('text/html; charset=utf-8').send(cached.html);
+        return;
+      }
+      const html = await renderPage(config, themeTemplates, layouts, engine, renderPath, 'public');
+      renderCache.set(renderPath, { html, pageMtimeMs, menusMtimeMs });
+      reply.type('text/html; charset=utf-8').send(html);
+      return;
+    }
+
+    const html = await renderPage(config, themeTemplates, layouts, engine, renderPath, 'public');
     reply.type('text/html; charset=utf-8').send(html);
   } catch (error) {
     // A traversal attempt and an ordinary miss get the identical 404 -
@@ -138,6 +157,7 @@ export const publicRoutes: FastifyPluginAsync<PublicRouteOptions> = async (
       opts.themeTemplates,
       opts.layouts,
       opts.engine,
+      opts.renderCache,
     ),
   );
 };

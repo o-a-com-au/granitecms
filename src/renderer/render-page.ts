@@ -1,6 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import type { Liquid } from 'liquidjs';
 import type { SiteConfig } from '../config.ts';
+import { listFilesRecursively } from '../services/fs-walk.ts';
 import { loadMenus } from '../services/menus.ts';
 import { sanitisePath } from '../services/path-safety.ts';
 import type { ThemeTemplates } from './theme-templates.ts';
@@ -212,4 +213,42 @@ export async function renderPage(
 ): Promise<string> {
   const page = loadPageForRender(config, relativePath, mode);
   return renderLoadedPage(page, config, themeTemplates, layouts, engine);
+}
+
+// For public.ts's render cache: the page's own current mtime, so a
+// cached render can be validated against real filesystem state rather
+// than needing every write path (publish/unpublish/delete/move/batch)
+// to remember to invalidate something. null means "not cacheable this
+// time" (the file vanished between resolveUrl confirming it exists and
+// this call - vanishingly unlikely, not a hard failure) rather than
+// throwing, since a cache-freshness check is never the place to
+// surface a real error - the ordinary render path below still will.
+export function getPageMtimeMs(config: SiteConfig, relativePath: string): number | null {
+  try {
+    return statSync(sanitisePath(config.contentRoot, relativePath)).mtimeMs;
+  } catch {
+    return null;
+  }
+}
+
+// A menu edit affects every page's rendered nav, not just one page, so
+// the cache's freshness check needs one value covering all menus
+// together rather than per-page tracking. The max mtime across every
+// menu file serves that - any single menu changing bumps it. 0 (never
+// stale relative to anything) when there are no menus at all, matching
+// listFilesRecursively's own "missing directory returns []" behaviour.
+export function getMenusMtimeMs(config: SiteConfig): number {
+  let max = 0;
+  for (const relativePath of listFilesRecursively(config.menusRoot, config.menusRoot, '.json')) {
+    try {
+      const { mtimeMs } = statSync(sanitisePath(config.menusRoot, relativePath));
+      if (mtimeMs > max) {
+        max = mtimeMs;
+      }
+    } catch {
+      // Vanished between the directory walk and this stat (e.g. a
+      // concurrent delete) - doesn't contribute, not fatal.
+    }
+  }
+  return max;
 }

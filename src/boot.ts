@@ -2,6 +2,8 @@ import type { Liquid } from 'liquidjs';
 import type { SiteConfig } from './config.ts';
 import { loadSiteConfig } from './config.ts';
 import { createEngine } from './renderer/engine.ts';
+import type { RenderCache } from './renderer/render-cache.ts';
+import { createRenderCache } from './renderer/render-cache.ts';
 import type { ThemeTemplates } from './renderer/theme-templates.ts';
 import { loadLayouts, loadSnippets, loadThemeTemplates } from './renderer/theme-templates.ts';
 import type { StartupCheckOptions } from './services/startup-checks.ts';
@@ -18,6 +20,7 @@ export interface BootedSite {
   layouts: Record<string, string>;
   pageTemplates: PageTemplate[];
   engine: Liquid;
+  renderCache: RenderCache;
 }
 
 // The composition root: startup checks, config, and theme loading, in
@@ -45,5 +48,6 @@ export function bootSite(siteRoot: string, options?: StartupCheckOptions): Boote
   // page.
   const pageTemplates = loadPageTemplates(config.templatesRoot, themeSchemas);
   const engine = createEngine(snippets);
-  return { config, themeSchemas, themeTemplates, layouts, pageTemplates, engine };
+  const renderCache = createRenderCache();
+  return { config, themeSchemas, themeTemplates, layouts, pageTemplates, engine, renderCache };
 }
