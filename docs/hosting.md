@@ -4,7 +4,7 @@ This document is for a developer who has run `create-site` and now wants to run 
 
 ## Requirements
 
-- **Node >=22.6.0.** Enforced at boot (`services/startup-checks.ts` reads the floor from the agent's own `package.json`) - a site simply refuses to start on anything older.
+- **Node >=22.16.0.** Enforced at boot (`services/startup-checks.ts` reads the floor from the agent's own `package.json`) - a site simply refuses to start on anything older. This is higher than Node 22's own LTS baseline: `node:sqlite`'s FTS5 support (the search index's own full-text engine) isn't compiled in before 22.16.0, confirmed empirically by bisecting real Node builds - 22.6.0 through 22.15.x load `node:sqlite` fine but fail with `no such module: fts5` the moment a search rebuild runs.
 - **The `git` binary, on `PATH`, and the site root must already be a real git repository.** This is not a convenience feature - content, drafts and every publish are real git operations (`services/git.ts`), never a database. There is no fallback. Hosts without shell-exec and a `git` binary cannot run this at all.
 - **Persistent storage for the whole site root** (`content/`, `theme/`, `media/`, `vhost/data/`), not just `media/`. Drafts and publishes are commits made by the running server itself - if that disk isn't persistent, every commit since the last deploy is lost on restart.
 - No database, no required environment variables, no external service dependencies beyond the above.
@@ -62,7 +62,7 @@ Every shape below satisfies the same requirements above - a VPS just has a persi
 
 ### 1. VPS / bare metal
 
-Clone or copy the scaffolded site onto the machine, install Node 22.6+ and `git`, then `cd vhost && npm install && npm start` (see the installing section above for the pre-publish tarball step). `npm start` is also what several PaaS platforms run by default for a Node app with no other deploy config, so the same scaffold works unmodified there too. Run it under a process supervisor (systemd unit, `pm2`, etc.) so it restarts on crash or reboot, and put a reverse proxy (nginx, Caddy) in front for TLS - set `trustProxy: true` in `site.config.json` once you do. The disk is persistent by default; nothing extra needed for that.
+Clone or copy the scaffolded site onto the machine, install Node 22.16+ and `git`, then `cd vhost && npm install && npm start` (see the installing section above for the pre-publish tarball step). `npm start` is also what several PaaS platforms run by default for a Node app with no other deploy config, so the same scaffold works unmodified there too. Run it under a process supervisor (systemd unit, `pm2`, etc.) so it restarts on crash or reboot, and put a reverse proxy (nginx, Caddy) in front for TLS - set `trustProxy: true` in `site.config.json` once you do. The disk is persistent by default; nothing extra needed for that.
 
 ### 2. Docker / any container platform
 

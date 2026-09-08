@@ -163,6 +163,8 @@ Design notes:
 
 ## Group I: media (route surface only — scope explicitly open, see question 4 above)
 
+> **Superseded: real media storage was built in Phase 4, not as this stub.** The route-surface-only question above resolved in favour of building the real thing directly rather than a stub-then-replace step - `GET/POST/DELETE /v1/media` with a real local-filesystem storage driver (`src/media/drivers/local-fs-driver.ts`, commit `c7ff8f0`, "Add Media: local storage foundation") - so I1-I3 below were never proven as written and never will be; there is no "storage isn't wired up" state to prove against. The admin-side picker/library built on top of it is `docs/phase-3-checklist.md`'s own Group O. Left in place as a historical record of the original scope question, not rewritten.
+
 | # | Criterion | Proof |
 |---|---|---|
 | I1 | `GET /v1/media` is present and returns a well-formed response (empty list acceptable if storage isn't wired up this phase) | |
@@ -311,4 +313,4 @@ Design notes:
 
 ## Explicitly not in Phase 2 scope
 
-`better-sqlite3` as an optional SQLite driver. The build plan's own condition for adding it ("if the `node:sqlite` review point warrants it") isn't met: Phase 1's empirical research found `node:sqlite` fully working on this environment, FTS5 included, no experimental flags needed. Revisit only if a real performance need appears. The one still-open caveat from that research — it ran against Node v26.5.0, not the project's documented `engines.node` floor (`>=22.6.0`) — is Group J's responsibility to resolve before an actual `v0.x` publish, not before then.
+`better-sqlite3` as an optional SQLite driver. The build plan's own condition for adding it ("if the `node:sqlite` review point warrants it") isn't met: Phase 1's empirical research found `node:sqlite` fully working on this environment, FTS5 included, no experimental flags needed. Revisit only if a real performance need appears. ~~The one still-open caveat from that research — it ran against Node v26.5.0, not the project's documented `engines.node` floor (`>=22.6.0`) — is Group J's responsibility to resolve before an actual `v0.x` publish, not before then.~~ **Resolved (2026-09-08): the floor itself was wrong, not just unverified.** `node:sqlite` needs `--experimental-sqlite` below Node v22.13.0, and FTS5 isn't compiled in at all until v22.16.0 - confirmed by bisecting real Node builds, not assumed from release notes. `engines.node` moved from `>=22.6.0` to `>=22.16.0`; full write-up in `docs/cms-build-plan.md`'s SQLite section.

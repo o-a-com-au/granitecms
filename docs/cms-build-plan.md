@@ -50,7 +50,7 @@ Not every content type has a draft state. Pages go through the full draft-then-p
 
 The agent hard-checks its environment on boot and exits with a clear message if anything is missing, rather than failing mysteriously mid-operation:
 
-- Node 22 LTS or later
+- Node 22.16 or later (see the SQLite section below - `node:sqlite`'s FTS5 support isn't available before this patch)
 - git 2.x available on PATH, and the site root is a git repository with a usable identity config
 - Write access to the site root, and to `/media/` specifically for the default local-filesystem storage driver
 - If the object storage driver is configured instead: reachable bucket credentials
@@ -61,10 +61,12 @@ git stays a shelled-out dependency on the real binary. isomorphic-git is explici
 
 The search index uses SQLite through a thin driver interface owned by the agent, with two interchangeable implementations:
 
-- `node:sqlite` (built into Node 22+, supports FTS5) as the default, because it removes the native-compilation dependency entirely and keeps the package pure JS
+- `node:sqlite` (built into Node 22.16+, supports FTS5 from that patch onward - see the resolved review note below) as the default, because it removes the native-compilation dependency entirely and keeps the package pure JS
 - better-sqlite3 as an optional performance driver, loaded only if present
 
 The query layer is small and the index is disposable, so keeping the driver swappable costs almost nothing and buys full distribution freedom, including the option of a single-file esbuild bundle later. ~~Confirm `node:sqlite` FTS5 behaviour and performance are adequate~~ **Resolved in Phase 1: `node:sqlite` is the default.** Empirical research found it fully working, FTS5 included, no experimental flags needed (see `docs/phase-2-checklist.md`'s "Explicitly not in Phase 2 scope" note). `better-sqlite3` stays available as the optional driver behind the same interface, not the default.
+
+**Follow-up, resolved before any `v0.x` publish (the caveat both Phase 1's G1 and Phase 2's Group J deliberately left open):** the research above ran only against whatever Node happened to be installed at the time (v26.5.0), never against the documented `engines.node` floor itself. Checked directly by downloading and bisecting real Node builds rather than trusting release notes: `node:sqlite` needs `--experimental-sqlite` below v22.13.0 (nothing in this codebase ever passes that flag), and even with the flag supplied, FTS5 itself - `CREATE VIRTUAL TABLE ... USING fts5(...)` - isn't compiled in at all until **v22.16.0** (confirmed failing on v22.15.0, working on v22.16.0, both tested directly). The documented floor was `>=22.6.0`, meaning every version from 22.6.0 to 22.15.x would have hard-crashed the moment a search rebuild ran. `engines.node` is now `>=22.16.0` (`package.json`, enforced at boot by `startup-checks.ts`), matching what was actually verified rather than what was merely assumed to follow from "Node 22+ ships `node:sqlite`."
 
 ### Versioning and updates
 
@@ -78,7 +80,7 @@ The commercial context did change during Phase 2: a source-available, open-core 
 
 ## Tech stack
 
-- Runtime and language: Node.js 22+ with TypeScript, compiled to JS for distribution
+- Runtime and language: Node.js 22.16+ with TypeScript, compiled to JS for distribution
 - Web framework for the site agent: Fastify (plugin-based, JSON Schema validation built in)
 - Templating for sections and blocks: LiquidJS (sandboxed, plain text, git-diffable, render timeouts enforced, no dynamically registered tags or filters ever)
 - Search index: SQLite via a swappable driver interface, `node:sqlite` default, better-sqlite3 optional, FTS5, rebuilt from content files on demand. No vector planning now; because the index is disposable, adding sqlite-vec later is a rebuild, not a migration.
@@ -287,4 +289,4 @@ Not blocking anything, parked for later: **multiple starter themes for `create-s
 
 ## Definition of done for MVP
 
-A single site scaffold, on a clean machine with only Node 22+ and git installed, can: be set up by `git clone` plus `npm install` plus `node server.js`; store pages and sections as JSON with schema versions; hold draft and live states for a page; render live content via Liquid into a working website; render a draft in preview mode; promote a draft to live with a single authored git commit; record a redirect when a page moves; run its migration runner on a clean checkout; have its search index rebuilt from scratch with no native compilation required; and be moved to a brand new server by nothing more than `git clone` plus `npm install` plus starting the process, with media handled per the active storage driver: repointed by configuration for object storage, or separately copied (rsync, tar, a backup tool - `git clone` alone does not carry it) for the default local-filesystem driver, since `/media/` is deliberately not git-tracked either way. Separately, the agent package itself builds to compiled output and installs into a fresh scaffold without access to its TypeScript source.
+A single site scaffold, on a clean machine with only Node 22.16+ and git installed, can: be set up by `git clone` plus `npm install` plus `node server.js`; store pages and sections as JSON with schema versions; hold draft and live states for a page; render live content via Liquid into a working website; render a draft in preview mode; promote a draft to live with a single authored git commit; record a redirect when a page moves; run its migration runner on a clean checkout; have its search index rebuilt from scratch with no native compilation required; and be moved to a brand new server by nothing more than `git clone` plus `npm install` plus starting the process, with media handled per the active storage driver: repointed by configuration for object storage, or separately copied (rsync, tar, a backup tool - `git clone` alone does not carry it) for the default local-filesystem driver, since `/media/` is deliberately not git-tracked either way. Separately, the agent package itself builds to compiled output and installs into a fresh scaffold without access to its TypeScript source.
