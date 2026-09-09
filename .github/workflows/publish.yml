@@ -7,7 +7,7 @@ name: Publish to npm
 # workflow's own GitHub-issued OIDC token for a short-lived publish
 # credential (npm's "trusted publisher" flow). That trust relationship
 # has to be registered once on npmjs.com against this exact repo and
-# workflow filename before the first tag push - see docs/hosting.md's
+# workflow filename before the first tag push - see docs/guide-hosting.md's
 # publish-readiness notes.
 on:
   push:

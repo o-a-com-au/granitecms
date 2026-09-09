@@ -45,17 +45,8 @@ Granite CMS is the combination neither of those is:
 
 ## Quick start
 
-> **Not yet published to npm.** Until it is, install from a local build -
-> see [`docs/hosting.md`](docs/hosting.md#installing-o-acms-agent-today) for
-> the exact steps. Once published, this becomes:
->
-> ```
-> npx -p @o-a/cms-agent create-site my-site
-> ```
-
-Either way, the result is the same:
-
 ```
+npx -p @o-a/cms-agent create-site my-site
 cd my-site/vhost
 npm install
 npm start
@@ -99,7 +90,7 @@ install.
 
 - [`docs/guide-theme-authoring.md`](docs/guide-theme-authoring.md) - building a theme
 - [`docs/guide-content-authoring.md`](docs/guide-content-authoring.md) - the content model
-- [`docs/hosting.md`](docs/hosting.md) - running a site somewhere real
+- [`docs/guide-hosting.md`](docs/guide-hosting.md) - running a site somewhere real
 - [`docs/cms-build-plan.md`](docs/cms-build-plan.md) - full architecture and design rationale
 
 A friendlier, browsable documentation site (covering both this engine and

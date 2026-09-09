@@ -1,7 +1,7 @@
 # Generic and site-content-agnostic - this file never needs to change
 # per site. Runs identically via plain `docker build`/`docker run` on a
 # bare VPS, Fly, ECS, or any PaaS - nothing platform-specific is baked
-# in here (see docs/hosting.md for platform-specific deploy config,
+# in here (see docs/guide-hosting.md for platform-specific deploy config,
 # which always layers on top of this, never inside it).
 #
 # Lives in vhost/, not the site root, alongside the rest of the site's

@@ -1,6 +1,6 @@
 # Hosting a site
 
-This document is for a developer who has run `create-site` and now wants to run that site somewhere real. It covers what the runtime actually requires, how to install the agent today (before it is published to npm), and three genuinely different hosting shapes.
+This document is for a developer who has run `create-site` and now wants to run that site somewhere real. It covers what the runtime actually requires, installing dependencies, and three genuinely different hosting shapes.
 
 ## Requirements
 
@@ -9,33 +9,16 @@ This document is for a developer who has run `create-site` and now wants to run 
 - **Persistent storage for the whole site root** (`content/`, `theme/`, `media/`, `vhost/data/`), not just `media/`. Drafts and publishes are commits made by the running server itself - if that disk isn't persistent, every commit since the last deploy is lost on restart.
 - No database, no required environment variables, no external service dependencies beyond the above.
 
-## Installing `@o-a/cms-agent` today
+## Installing `@o-a/cms-agent`
 
-The package is not yet published to any registry (`package.json`'s `"private": true` - publishing is a deliberate future step, not yet taken). A freshly scaffolded site's `vhost/package.json` still pins a real dependency on it, so until publish happens, resolve it from a local tarball instead of a registry:
-
-```
-# In the agent's own source checkout:
-npm run build
-npm pack
-# Produces something like oa-cms-agent-0.0.0.tgz
-
-# Copy that tarball into your site (anywhere - vhost/ is a sensible spot), then:
-```
-
-```json
-{
-  "dependencies": {
-    "@o-a/cms-agent": "file:./cms-agent.tgz"
-  }
-}
-```
+`@o-a/cms-agent` is published to the public npm registry. A freshly scaffolded site's `vhost/package.json` already pins a real, exact-version dependency on it (never a `^` range - even a minor bump can be breaking pre-1.0), so a normal install just resolves it like any other dependency:
 
 ```
 cd vhost
 npm install
 ```
 
-This is exactly what `e2e/create-site-packaging.check.ts` (test J4) exercises end to end, so it's a proven path, not a workaround improvised for this doc. Once the package is published, this step disappears - a plain version range resolves from the registry like any other dependency, no other part of this workflow changes.
+`e2e/create-site-packaging.check.ts` (test J4) proves this end to end against a real `npm pack` + `npm install` + `node server.js` cycle, not just a unit test of the scaffolding logic.
 
 ## `site.config.json` reference
 
@@ -62,7 +45,7 @@ Every shape below satisfies the same requirements above - a VPS just has a persi
 
 ### 1. VPS / bare metal
 
-Clone or copy the scaffolded site onto the machine, install Node 22.16+ and `git`, then `cd vhost && npm install && npm start` (see the installing section above for the pre-publish tarball step). `npm start` is also what several PaaS platforms run by default for a Node app with no other deploy config, so the same scaffold works unmodified there too. Run it under a process supervisor (systemd unit, `pm2`, etc.) so it restarts on crash or reboot, and put a reverse proxy (nginx, Caddy) in front for TLS - set `trustProxy: true` in `site.config.json` once you do. The disk is persistent by default; nothing extra needed for that.
+Clone or copy the scaffolded site onto the machine, install Node 22.16+ and `git`, then `cd vhost && npm install && npm start`. `npm start` is also what several PaaS platforms run by default for a Node app with no other deploy config, so the same scaffold works unmodified there too. Run it under a process supervisor (systemd unit, `pm2`, etc.) so it restarts on crash or reboot, and put a reverse proxy (nginx, Caddy) in front for TLS - set `trustProxy: true` in `site.config.json` once you do. The disk is persistent by default; nothing extra needed for that.
 
 ### 2. Docker / any container platform
 
