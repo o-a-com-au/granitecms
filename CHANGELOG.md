@@ -2,6 +2,19 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
+## [0.2.2] - 2026-09-09
+
+Three gaps found by having a different AI agent build a real demo site from `AGENTS.md` and report back what it wished were different.
+
+### Fixed
+
+- **The search index now keeps itself current automatically.** Previously `GET /search.json` stayed empty forever on a fresh site and stale forever after a real edit - nothing ever rebuilt it except a caller manually hitting `POST /v1/search/rebuild`. It now rebuilds in the background after every publish/unpublish/delete/move/batch write, and once at boot if no index exists yet (the index is never git-tracked, so a fresh clone starts with none). Fire-and-forget in both cases - a slow or failed reindex never blocks or fails the write that triggered it.
+
+### Added
+
+- **Sections and blocks can now render `page.author`, `page.publishDate`, and `page.tags`** - the same built-in envelope a layout already got (previously just `page.title`), widened and made available to section/block templates too, not just layouts. Closes a real gap: these fields were already indexed for search but had no way to actually appear on the rendered page without duplicating the value into a settings field.
+- **A broken theme component now prints a boot warning instead of vanishing silently.** A section/block with no `{% schema %}` block, invalid JSON in it, or a required property with no valid default was already excluded from the theme (unchanged, still never a boot failure) - it just did so with zero output anywhere. `loadThemeSchemas` now names each excluded type and the specific reason.
+
 ## [0.2.1] - 2026-09-09
 
 ### Added
