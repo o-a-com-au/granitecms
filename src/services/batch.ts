@@ -8,6 +8,7 @@ import { PublishError, preparePublishDrafts } from './publish.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
 import type { ThemeSchemas } from './validation.ts';
 import { enqueue } from './write-queue.ts';
+import { reindexInBackground } from './reindex-on-write.ts';
 
 export type BatchOperation =
   | { type: 'draft-write'; path: string; content: unknown; expectedEtag: string }
@@ -210,5 +211,16 @@ export function runBatch(
   message: string,
   author: CommitAuthor,
 ): Promise<void> {
-  return enqueue(() => batchJob(config, themeSchemas, operations, publish, message, author));
+  const result = enqueue(() => batchJob(config, themeSchemas, operations, publish, message, author));
+  // One trigger for the whole batch, regardless of which operation
+  // types it contained (content-delete/move/publish affect the index,
+  // draft-write/draft-discard don't) - simpler and no real cost than
+  // inspecting `operations` to decide, since this never blocks the
+  // caller either way. See reindex-on-write.ts for why this is
+  // fire-and-forget, chained onto `result` rather than awaited here.
+  result.then(
+    () => reindexInBackground(config),
+    () => undefined,
+  );
+  return result;
 }

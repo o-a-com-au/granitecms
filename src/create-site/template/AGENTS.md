@@ -173,6 +173,8 @@ unless the design needs a focal point for a cropped image, in which case use `"f
 
 A public, unauthenticated, read-only endpoint - safe to call directly from a section's own client-side JavaScript with a plain `fetch()`, no token needed. Only ever returns already-published content. Query params: `q` (full-text), `filter=field:op:value` (repeatable, ANDed; `op` is `eq`/`gt`/`gte`/`lt`/`lte`), `pageType`, `sort` (`-publishDate` for newest-first), `limit`, `offset`. Useful for a blog listing, a filterable directory, or a live search box.
 
+The index behind this endpoint keeps itself current automatically - it rebuilds in the background after every publish/unpublish/delete/move, and once at boot if no index exists yet (a fresh clone, since the index itself is never git-tracked). No manual step is needed for a blog listing built on this endpoint to work on a freshly deployed site.
+
 ## Hard constraints - do not deviate from these
 
 - **No dynamically registered Liquid tags or filters, ever.** Only standard LiquidJS built-ins (`if`, `for`, `assign`, `render`, filters like `upcase`, `times`) plus the CMS-provided context objects described above. Never invent a custom tag.

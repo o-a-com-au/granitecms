@@ -10,6 +10,7 @@ import { addRedirect, loadRedirects, removeRedirectForPath, serialiseRedirects }
 import type { RedirectEntry } from './redirects.ts';
 import { pagePathToUrl, urlToPagePath } from './urls.ts';
 import { enqueue } from './write-queue.ts';
+import { reindexInBackground } from './reindex-on-write.ts';
 
 export type MoveReason =
   | 'source-not-found'
@@ -237,5 +238,10 @@ export function movePage(
   author: CommitAuthor,
   options: { createRedirect?: boolean } = {},
 ): Promise<void> {
-  return enqueue(() => movePageJob(config, fromUrl, toUrl, message, author, options));
+  const result = enqueue(() => movePageJob(config, fromUrl, toUrl, message, author, options));
+  result.then(
+    () => reindexInBackground(config),
+    () => undefined,
+  );
+  return result;
 }

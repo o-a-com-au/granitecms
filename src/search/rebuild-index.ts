@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, readFileSync, renameSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { setImmediate as yieldToEventLoop } from 'node:timers/promises';
 import type { SiteConfig } from '../config.ts';
@@ -359,4 +359,21 @@ async function rebuildIndexJob(config: SiteConfig): Promise<void> {
 // primitive, so reusing it for self-exclusion costs nothing.
 export function rebuildIndex(config: SiteConfig): Promise<void> {
   return enqueue(() => rebuildIndexJob(config));
+}
+
+// For startServer's own boot-time call: a search index is never
+// git-tracked (constraint 3 - a derived, disposable index), so a fresh
+// clone or a first-ever boot has no index file at all and GET
+// /search.json would stay permanently empty until some content write
+// happened to trigger reindex-on-write.ts, or a caller manually hit
+// POST /v1/search/rebuild. Guarded on existsSync rather than
+// unconditionally rebuilding on every restart - a currently-running
+// site's index is already kept fresh by every publish/unpublish/
+// delete/move/batch (reindex-on-write.ts), so an unconditional rebuild
+// here would just be redundant work on every ordinary restart.
+export function rebuildIndexIfMissing(config: SiteConfig): Promise<void> {
+  if (existsSync(config.searchIndexPath)) {
+    return Promise.resolve();
+  }
+  return rebuildIndex(config);
 }

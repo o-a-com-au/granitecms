@@ -14,6 +14,7 @@ import {
 } from './redirects.ts';
 import { pagePathToUrl } from './urls.ts';
 import { enqueue } from './write-queue.ts';
+import { reindexInBackground } from './reindex-on-write.ts';
 
 const PAGES_PREFIX = 'pages/';
 
@@ -221,5 +222,10 @@ export function deleteContent(
   message: string,
   author: CommitAuthor,
 ): Promise<void> {
-  return enqueue(() => deleteContentJob(config, relativePath, redirectTo, message, author));
+  const result = enqueue(() => deleteContentJob(config, relativePath, redirectTo, message, author));
+  result.then(
+    () => reindexInBackground(config),
+    () => undefined,
+  );
+  return result;
 }

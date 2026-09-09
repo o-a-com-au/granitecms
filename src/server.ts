@@ -15,6 +15,7 @@ import { CHECKPOINT_AUTHOR, runCheckpoint } from './services/checkpoint.ts';
 import type { DevTunnel } from './services/dev-tunnel.ts';
 import { startDevTunnel } from './services/dev-tunnel.ts';
 import { startIntervalJob } from './services/interval-job.ts';
+import { reindexOnBootIfMissing } from './services/reindex-on-write.ts';
 
 export interface BuildServerOptions {
   logger?: boolean;
@@ -240,6 +241,14 @@ export async function startServer(
   if (address !== null && typeof address !== 'string') {
     console.log(`Site running at http://127.0.0.1:${address.port}`);
   }
+
+  // A search index is never git-tracked (constraint 3), so a fresh
+  // clone or first-ever boot has no index file - without this,
+  // GET /search.json would stay empty until the first content write.
+  // Fire-and-forget, after the port is already bound: never blocks
+  // startup, and a slow/failed rebuild is never a reason the server
+  // itself fails to come up.
+  reindexOnBootIfMissing(booted.config);
 
   if (options.tunnel) {
     try {

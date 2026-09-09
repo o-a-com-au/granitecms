@@ -10,6 +10,7 @@ import { pagePathToUrl } from './urls.ts';
 import type { ThemeSchemas } from './validation.ts';
 import { validateContent } from './validation.ts';
 import { enqueue } from './write-queue.ts';
+import { reindexInBackground } from './reindex-on-write.ts';
 
 const PAGES_PREFIX = 'pages/';
 
@@ -327,7 +328,18 @@ export function publishDrafts(
   message: string,
   author: CommitAuthor,
 ): Promise<void> {
-  return enqueue(() => publishDraftsJob(config, themeSchemas, relativePaths, message, author));
+  const result = enqueue(() => publishDraftsJob(config, themeSchemas, relativePaths, message, author));
+  // Only on success - a failed publish changed nothing, so there's
+  // nothing to reindex. Chained onto `result` rather than awaited here:
+  // by the time this callback runs, the write-queue's own tail has
+  // already advanced past this job, so reindexInBackground's own
+  // enqueue()d rebuild queues cleanly behind it (see that function's
+  // own comment on why calling it any earlier would deadlock).
+  result.then(
+    () => reindexInBackground(config),
+    () => undefined,
+  );
+  return result;
 }
 
 export function unpublishPage(
@@ -336,5 +348,10 @@ export function unpublishPage(
   message: string,
   author: CommitAuthor,
 ): Promise<void> {
-  return enqueue(() => unpublishPageJob(config, relativePath, message, author));
+  const result = enqueue(() => unpublishPageJob(config, relativePath, message, author));
+  result.then(
+    () => reindexInBackground(config),
+    () => undefined,
+  );
+  return result;
 }

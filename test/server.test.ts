@@ -149,6 +149,49 @@ test('A1: the server boots by calling bootSite and starts a Fastify instance lis
   }
 });
 
+test('startServer triggers an initial reindex when no search index exists yet, so GET /search.json is not permanently blank on a fresh site', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeJson(siteRoot, 'vhost/site.config.json', { port: 0 });
+    writeJson(siteRoot, 'content/pages/quoll.json', {
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      name: 'Quoll',
+      title: 'Spotted Quoll',
+      type: 'page',
+      layout: 'theme',
+      published: true,
+      sections: [],
+    });
+
+    const app = await startServer(siteRoot, { logger: false });
+    try {
+      const address = app.server.address();
+      if (address === null || typeof address === 'string') {
+        throw new Error('expected a real bound network address');
+      }
+
+      // Fire-and-forget (see reindex-on-write.ts) - the index may not
+      // be built the instant the port opens, so poll rather than
+      // asserting on the very first request.
+      const deadline = Date.now() + 2000;
+      let found = false;
+      while (Date.now() < deadline && !found) {
+        const response = await fetch(`http://127.0.0.1:${address.port}/search.json?q=quoll`);
+        const body = (await response.json()) as { results: Array<{ title: string }> };
+        found = body.results.some((r) => r.title === 'Spotted Quoll');
+        if (!found) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+      }
+      assert.ok(found, 'GET /search.json never reflected the fresh site\'s own content - no boot-time reindex ran');
+    } finally {
+      await app.close();
+    }
+  } finally {
+    cleanup();
+  }
+});
+
 test('H3: an allowlisted IP reaches the API; a non-allowlisted IP gets 403 - real socket, not .inject() (request.ip is only meaningful over a real connection)', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
   try {
