@@ -99,6 +99,68 @@ test('D3: text settings containing HTML are escaped in output by default', async
   assert.ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
 });
 
+test('a section template can render the page envelope (author/publishDate/tags), not just its own settings', async () => {
+  const bylineThemeTemplates: ThemeTemplates = {
+    sections: {
+      byline: '{{ page.author }} / {{ page.publishDate }} / {% for tag in page.tags %}{{ tag }}{% endfor %}',
+    },
+    blocks: {},
+  };
+
+  const html = await renderSections(
+    {
+      schemaVersion: 1,
+      title: 'Article',
+      published: true,
+      layout: 'theme',
+      author: 'Jane Doe',
+      publishDate: '2026-08-20',
+      tags: ['news', 'launch'],
+      sections: [{ id: 'sec-1', type: 'byline', settings: {} }],
+    },
+    bylineThemeTemplates,
+    engine,
+  );
+
+  assert.ok(html.includes('Jane Doe / 2026-08-20 / newslaunch'));
+});
+
+test('a section template referencing the page envelope on a page with none of author/publishDate/tags set renders cleanly, not an error', async () => {
+  const bylineThemeTemplates: ThemeTemplates = {
+    sections: { byline: '[{{ page.author }}][{{ page.publishDate }}]{% for tag in page.tags %}{{ tag }}{% endfor %}' },
+    blocks: {},
+  };
+
+  const html = await renderSections(page([{ id: 'sec-1', type: 'byline', settings: {} }]), bylineThemeTemplates, engine);
+
+  assert.equal(html, '[][]');
+});
+
+test('a block template (not just a section) can also render the page envelope', async () => {
+  const withBlockByline: ThemeTemplates = {
+    sections: { wrapper: '{% for html in blocksHtml %}{{ html | raw }}{% endfor %}' },
+    blocks: { byline: '{{ page.author }}' },
+  };
+
+  const html = await renderSections(
+    {
+      ...page([
+        {
+          id: 'sec-1',
+          type: 'wrapper',
+          settings: {},
+          blocks: [{ id: 'blk-1', type: 'byline', settings: {} }],
+        },
+      ]),
+      author: 'Jane Doe',
+    },
+    withBlockByline,
+    engine,
+  );
+
+  assert.equal(html, 'Jane Doe');
+});
+
 test('D4: a template that loops forever is killed by the render timeout and returns an error, not a hung process', async () => {
   // engine.ts sets renderLimit: 50 (ms). A huge finite for-loop, run
   // through the real renderSections/renderInstance path (no {% render %}
@@ -214,6 +276,27 @@ test('public mode renders a real published live page', async () => {
 
     const html = await renderPage(config, themeTemplates, layouts, engine, 'about.json', 'public');
     assert.ok(html.includes('Live and published'));
+  } finally {
+    cleanup();
+  }
+});
+
+test('a layout can render the page envelope (author/publishDate/tags), not just page.title', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    const config = loadSiteConfig(siteRoot);
+    writeJson(siteRoot, 'content/article.json', {
+      ...page([{ id: 'sec-1', type: 'hero', settings: { heading: 'Body' } }]),
+      author: 'Jane Doe',
+      publishDate: '2026-08-20',
+      tags: ['news'],
+    });
+    const bylineLayouts = {
+      theme: '{{ page.title }} by {{ page.author }} on {{ page.publishDate }} ({% for tag in page.tags %}{{ tag }}{% endfor %}) - {{ content_for_layout | raw }}',
+    };
+
+    const html = await renderPage(config, themeTemplates, bylineLayouts, engine, 'article.json', 'public');
+    assert.ok(html.startsWith('Test page by Jane Doe on 2026-08-20 (news) - '));
   } finally {
     cleanup();
   }

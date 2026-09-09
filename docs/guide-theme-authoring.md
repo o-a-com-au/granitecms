@@ -77,9 +77,15 @@ Every other property is real, plain JSON Schema, validated with Ajv - there is n
 {{ section.id }}              the section instance's id (string)
 {{ section.settings.<key> }}  a setting value, per this section's own schema
 {% for html in blocksHtml %}{{ html | raw }}{% endfor %}   pre-rendered child blocks, if the section accepts blocks
+{{ page.title }}               the same built-in page envelope a layout gets - see the Layouts section below
+{{ page.author }}
+{{ page.publishDate }}
+{% for tag in page.tags %}{{ tag }}{% endfor %}
 ```
 
 `blocksHtml` is an array of already-rendered HTML strings (each block was rendered separately, recursively, before the section itself). It is **not** raw block data - a section template never loops over raw block settings directly, it only receives finished HTML per block and must output it with `| raw` (the engine auto-escapes `{{ }}` by default; `| raw` is the explicit, required opt-out for content that is already safe HTML). If a section doesn't use blocks, it can ignore `blocksHtml` entirely.
+
+`page` is available to block templates too (not just sections), identically. `author`/`publishDate`/`tags` are simply absent (not an error) on a page that doesn't set them - `{{ page.author }}` renders as empty string, `{% for tag in page.tags %}` loops zero times.
 
 ### Restricting which block types are allowed
 
@@ -162,9 +168,14 @@ Available variables in a layout template:
 
 ```liquid
 {{ content_for_layout | raw }}   the page's fully-rendered sections, concatenated - always needs | raw
-{{ page.title }}                 the page's title (this is the ONLY page field exposed to layouts - no access to page.sections or other fields directly)
+{{ page.title }}                 the page's title
+{{ page.author }}                the page's author, if set - empty string otherwise
+{{ page.publishDate }}           the page's publish date, if set - empty string otherwise
+{% for tag in page.tags %}...{% endfor %}   the page's tags, if any
 {{ menus.<name>.items }}         every menu in content/menus/, keyed by filename - loop with {% for item in menus.main.items %}{{ item.label }} -> {{ item.url }}{% endfor %}
 ```
+
+This `page` object (title plus the three optional built-in fields) is the only page data exposed anywhere in a theme - no access to `page.sections`, `page.layout`, or other fields, in a layout or a section/block. The same object is available identically inside section and block templates (see "Section markup" above) - useful for an article byline/date printed inside the page body rather than the surrounding layout chrome.
 
 ### Worked example - `layouts/theme.liquid`
 

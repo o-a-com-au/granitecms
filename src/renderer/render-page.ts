@@ -36,6 +36,27 @@ export interface PageContent {
   published: boolean;
   layout: string;
   sections: SectionOrBlockInstance[];
+  author?: string;
+  publishDate?: string;
+  tags?: string[];
+}
+
+// The built-in page fields exposed to templates - deliberately narrow,
+// the same "rendered surface, not raw data" boundary blocksHtml already
+// establishes for section/block content. Shared between the layout
+// scope and the section/block scope so both see identical fields
+// (previously layouts alone got `page.title`; sections got no `page`
+// at all, so a theme had nowhere to render a byline/date without
+// duplicating it into a settings field).
+interface PageEnvelope {
+  title: string;
+  author?: string;
+  publishDate?: string;
+  tags?: string[];
+}
+
+function pageEnvelope(page: PageContent): PageEnvelope {
+  return { title: page.title, author: page.author, publishDate: page.publishDate, tags: page.tags };
 }
 
 // Renders one section or block, recursively rendering any nested blocks
@@ -49,6 +70,7 @@ async function renderInstance(
   kind: 'section' | 'block',
   themeTemplates: ThemeTemplates,
   engine: Liquid,
+  page: PageEnvelope,
 ): Promise<string> {
   const templates = kind === 'section' ? themeTemplates.sections : themeTemplates.blocks;
   const template = templates[instance.type];
@@ -61,15 +83,18 @@ async function renderInstance(
 
   const blocksHtml: string[] = [];
   for (const block of instance.blocks ?? []) {
-    blocksHtml.push(await renderInstance(block, 'block', themeTemplates, engine));
+    blocksHtml.push(await renderInstance(block, 'block', themeTemplates, engine, page));
   }
 
   // Shopify-style scope shape: settings nested under the instance, not
   // flattened, so templates read section.settings.x / block.settings.x.
+  // `page` is the same built-in envelope a layout gets (title plus the
+  // optional author/publishDate/tags fields) - lets a section print a
+  // byline/date without duplicating it into a settings field.
   const scope =
     kind === 'section'
-      ? { section: { id: instance.id, type: instance.type, settings: instance.settings }, blocksHtml }
-      : { block: { id: instance.id, type: instance.type, settings: instance.settings }, blocksHtml };
+      ? { section: { id: instance.id, type: instance.type, settings: instance.settings }, blocksHtml, page }
+      : { block: { id: instance.id, type: instance.type, settings: instance.settings }, blocksHtml, page };
 
   try {
     return (await engine.parseAndRender(template, scope)) as string;
@@ -94,9 +119,10 @@ export async function renderSections(
   themeTemplates: ThemeTemplates,
   engine: Liquid,
 ): Promise<string> {
+  const envelope = pageEnvelope(page);
   const html: string[] = [];
   for (const section of page.sections) {
-    html.push(await renderInstance(section, 'section', themeTemplates, engine));
+    html.push(await renderInstance(section, 'section', themeTemplates, engine, envelope));
   }
   return html.join('');
 }
@@ -198,7 +224,7 @@ export async function renderLoadedPage(
   // outputEscape: 'escape' double-escapes it into literal text.
   return (await engine.parseAndRender(layoutTemplate, {
     content_for_layout: bodyHtml,
-    page: { title: page.title },
+    page: pageEnvelope(page),
     menus,
   })) as string;
 }

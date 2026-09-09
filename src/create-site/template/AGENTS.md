@@ -58,7 +58,7 @@ This scaffold already ships real, working examples worth reading before writing 
 {% endschema %}
 ```
 
-Available variables in a section: `section.id`, `section.settings.<key>`, and `blocksHtml` (an array of already-rendered child block HTML strings - a section never sees raw block data, only finished HTML, output with `{{ html | raw }}`). A block template gets the same shape: `block.id`, `block.settings.<key>`, and (rarely) its own `blocksHtml` if it nests further blocks.
+Available variables in a section: `section.id`, `section.settings.<key>`, `blocksHtml` (an array of already-rendered child block HTML strings - a section never sees raw block data, only finished HTML, output with `{{ html | raw }}`), and `page` - the same built-in envelope a layout gets (`page.title`, `page.author`, `page.publishDate`, `page.tags`; see "Content JSON model" below). A block template gets the same shape: `block.id`, `block.settings.<key>`, `page`, and (rarely) its own `blocksHtml` if it nests further blocks. `page.author`/`publishDate`/`tags` render as empty/absent, not an error, on a page that doesn't set them - useful for printing a byline/date inside the page body without duplicating the value into a settings field.
 
 **Every property listed in a schema's `"required"` array must also declare a `"default"`** that itself satisfies the property's own constraints (e.g. not `"default": ""` against `"minLength": 1`). A schema that violates this is silently excluded from the theme entirely - it simply won't be selectable, with no error printed anywhere obvious. If a new section/block isn't showing up, check this first.
 
@@ -70,7 +70,10 @@ To restrict which block types are allowed under a given section/block, add `"all
 
 ```liquid
 {{ content_for_layout | raw }}   the page's fully-rendered sections, concatenated
-{{ page.title }}                 the page's title (the ONLY page field exposed to layouts)
+{{ page.title }}                 the page's title
+{{ page.author }}                the page's author, if set
+{{ page.publishDate }}           the page's publish date, if set
+{% for tag in page.tags %}...{% endfor %}   the page's tags, if any
 {{ menus.<name>.items }}         every menu in content/menus/, keyed by filename
 ```
 
