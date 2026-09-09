@@ -60,7 +60,7 @@ The underlying index rebuilds itself in the background - after every publish/unp
 
 Every other property is real, plain JSON Schema, validated with Ajv - there is no bespoke type system beyond the `format` conventions above.
 
-**Every property listed in `"required"` must also declare a `"default"`**, and that default must itself satisfy the property's own constraints (a `"default": ""` against `"minLength": 1` does not count). This is what lets the admin pre-fill a newly-added section/block so it starts valid instead of empty. A type that violates this is silently excluded from the theme's registered schemas - the same way a malformed `{% schema %}` block already is - so it simply won't appear as an option in the admin until fixed. For example:
+**Every property listed in `"required"` must also declare a `"default"`**, and that default must itself satisfy the property's own constraints (a `"default": ""` against `"minLength": 1` does not count). This is what lets the admin pre-fill a newly-added section/block so it starts valid instead of empty. A type that violates this is excluded from the theme's registered schemas - the same way a malformed `{% schema %}` block already is - so it simply won't appear as an option in the admin until fixed. Never silent, either way: boot prints a warning naming the excluded type and the specific reason. For example:
 
 ```json
 {
