@@ -22,6 +22,13 @@ export interface ThemeSchemas {
   // expressed (there is no schema field for it - instance.schema.json's
   // own blocks property is fully generic, deliberately unrestricted).
   acceptsBlocks: { sections: Record<string, boolean>; blocks: Record<string, boolean> };
+  // One entry per section/block type theme-schemas.ts's loadThemeSchemas
+  // had to exclude (no {% schema %} block, invalid JSON in it, or a
+  // required property with no valid default) - previously silent.
+  // Optional so the many hand-built ThemeSchemas fixtures across the
+  // test suite (which have nothing to warn about) don't all need a new
+  // field just to keep typechecking.
+  warnings?: string[];
 }
 
 // strict: false because theme schema.json files are authored by theme

@@ -166,6 +166,16 @@ export async function startServer(
   const serverConfig = loadServerConfig(siteRoot);
   const app = buildServer(booted, serverConfig, options);
 
+  // Previously these three failure cases (missing/invalid {% schema %}
+  // block, or a required property with no valid default) were
+  // completely silent - a broken component just stopped being
+  // selectable, with nothing distinguishing "deliberately excluded"
+  // from "you have a typo". Never a boot failure (loadThemeSchemas's
+  // own contract), just no longer silent about it either.
+  for (const warning of booted.themeSchemas.warnings ?? []) {
+    console.warn(warning);
+  }
+
   const doCheckpoint = () => runCheckpoint(booted.config, CHECKPOINT_AUTHOR);
   const scheduler = startIntervalJob(doCheckpoint, serverConfig.checkpointIntervalMs, (error) => {
     app.log.error(error, 'background draft checkpoint failed');

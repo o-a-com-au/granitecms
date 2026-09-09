@@ -6,6 +6,7 @@ import { requiredFieldsHaveValidDefaults, type ThemeSchemas } from './validation
 interface TypeSchemas {
   schemas: Record<string, object>;
   acceptsBlocks: Record<string, boolean>;
+  warnings: string[];
 }
 
 // themeRoot is agent configuration (the configured site's theme
@@ -18,9 +19,13 @@ interface TypeSchemas {
 // loadFlatTemplates walk exactly (already established for snippets/
 // layouts), extended to extract the embedded {% schema %} block instead
 // of returning the raw file contents.
-function loadTypeSchemas(typesDir: string): TypeSchemas {
+//
+// kind is only used to word each warning ("Section" vs "Block") -
+// callers already know which directory they asked for.
+function loadTypeSchemas(typesDir: string, kind: 'Section' | 'Block'): TypeSchemas {
   const schemas: Record<string, object> = {};
   const acceptsBlocks: Record<string, boolean> = {};
+  const warnings: string[] = [];
 
   let entries: string[];
   try {
@@ -28,11 +33,12 @@ function loadTypeSchemas(typesDir: string): TypeSchemas {
       .filter((entry) => entry.isFile() && entry.name.endsWith('.liquid'))
       .map((entry) => entry.name);
   } catch {
-    return { schemas, acceptsBlocks };
+    return { schemas, acceptsBlocks, warnings };
   }
 
   for (const fileName of entries) {
     const type = fileName.slice(0, -'.liquid'.length);
+    const label = `${kind} type "${type}" (${fileName}) was excluded from the theme`;
     let source: string;
     try {
       source = readFileSync(join(typesDir, fileName), 'utf-8');
@@ -41,6 +47,7 @@ function loadTypeSchemas(typesDir: string): TypeSchemas {
     }
     const parsed = parseThemeComponentFile(source);
     if (!parsed) {
+      warnings.push(`${label}: no valid {% schema %} block found (missing, or not parseable JSON).`);
       continue;
     }
     // A type whose required settings fields lack usable defaults is
@@ -48,6 +55,7 @@ function loadTypeSchemas(typesDir: string): TypeSchemas {
     // never a boot failure, just excluded from what gets registered
     // (guide-theme-authoring.md, Group L).
     if (!requiredFieldsHaveValidDefaults(parsed.schema)) {
+      warnings.push(`${label}: a property listed in "required" has no valid "default" (see guide-theme-authoring.md).`);
       continue;
     }
     schemas[type] = parsed.schema;
@@ -57,15 +65,16 @@ function loadTypeSchemas(typesDir: string): TypeSchemas {
     acceptsBlocks[type] = parsed.markup.includes('blocksHtml');
   }
 
-  return { schemas, acceptsBlocks };
+  return { schemas, acceptsBlocks, warnings };
 }
 
 export function loadThemeSchemas(themeRoot: string): ThemeSchemas {
-  const sections = loadTypeSchemas(join(themeRoot, 'sections'));
-  const blocks = loadTypeSchemas(join(themeRoot, 'blocks'));
+  const sections = loadTypeSchemas(join(themeRoot, 'sections'), 'Section');
+  const blocks = loadTypeSchemas(join(themeRoot, 'blocks'), 'Block');
   return {
     sections: sections.schemas,
     blocks: blocks.schemas,
     acceptsBlocks: { sections: sections.acceptsBlocks, blocks: blocks.acceptsBlocks },
+    warnings: [...sections.warnings, ...blocks.warnings],
   };
 }

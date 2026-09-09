@@ -55,9 +55,51 @@ test('L2: a type whose required field has no valid default is excluded from the 
     assert.equal(schemas.sections['no-default'], undefined);
     assert.equal(schemas.acceptsBlocks.sections['no-default'], undefined);
     assert.ok(schemas.sections['has-default']);
+
+    // Previously this exclusion was completely silent - now it must
+    // name the excluded type and the specific reason, and must NOT
+    // warn about the sibling type that loaded fine.
+    assert.ok(schemas.warnings?.some((w) => w.includes('no-default') && w.includes('no valid "default"')));
+    assert.ok(!schemas.warnings?.some((w) => w.includes('has-default')));
   } finally {
     cleanup();
   }
+});
+
+test('a section file with no {% schema %} block at all is excluded with a warning naming it', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    mkdirSync(join(siteRoot, 'theme', 'sections'), { recursive: true });
+    writeFileSync(join(siteRoot, 'theme', 'sections', 'no-schema.liquid'), '<h1>Just markup, no schema block</h1>\n');
+
+    const schemas = loadThemeSchemas(join(siteRoot, 'theme'));
+    assert.equal(schemas.sections['no-schema'], undefined);
+    assert.ok(schemas.warnings?.some((w) => w.includes('no-schema') && w.includes('no valid {% schema %} block')));
+  } finally {
+    cleanup();
+  }
+});
+
+test('a block whose {% schema %} block is not valid JSON is excluded with a warning naming it', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    mkdirSync(join(siteRoot, 'theme', 'blocks'), { recursive: true });
+    writeFileSync(
+      join(siteRoot, 'theme', 'blocks', 'broken-json.liquid'),
+      '<p>Broken</p>\n{% schema %}\n{ this is not valid json\n{% endschema %}\n',
+    );
+
+    const schemas = loadThemeSchemas(join(siteRoot, 'theme'));
+    assert.equal(schemas.blocks['broken-json'], undefined);
+    assert.ok(schemas.warnings?.some((w) => w.startsWith('Block type "broken-json"') && w.includes('no valid {% schema %} block')));
+  } finally {
+    cleanup();
+  }
+});
+
+test('a theme with no excluded types at all has an empty warnings array, not a missing one', () => {
+  const schemas = loadThemeSchemas(fixtureTheme);
+  assert.deepEqual(schemas.warnings, []);
 });
 
 test('acceptsBlocks is false for a section that never mentions blocksHtml', () => {
