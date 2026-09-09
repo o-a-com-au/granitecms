@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
+## [0.2.1] - 2026-09-09
+
+### Added
+
+- **A new `AGENTS.md` in every scaffolded site**, onboarding an AI coding agent to this specific CMS's conventions: theme folder structure, the section/block `{% schema %}` pattern with worked examples, the `format` field-hint table, the current content JSON model, image handling, `GET /search.json`, and the hard constraints. Self-contained - no external link, since generated content shouldn't depend on a live docs site being reachable.
+
 ## [0.2.0] - 2026-09-09
 
 ### Breaking changes
