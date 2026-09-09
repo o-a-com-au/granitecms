@@ -346,7 +346,7 @@ Raised by the project owner: prebuilt page templates in the theme folder (a blog
 Design notes:
 
 - **`slugify` (title -> URL-safe path suggestion) was extracted from `PageMetadataPanel.tsx`'s own slug-rename field into a shared `pages/slugify.ts`**, not duplicated - the second genuine use (this modal's own Title-to-Path suggestion) is what makes it a real shared utility rather than a premature one, matching this codebase's own established "the second use justifies the abstraction" rule of thumb.
-- **`schemaVersion` on a newly-created page is a hardcoded `5`** (`docs/guide-content-authoring.md`'s own "always 5 for newly-authored content"), not read from a template's own file or from a live capabilities call - every page this modal creates, template or blank, is authored fresh right now, so it always gets the current version regardless of what an older template file happens to declare.
+- **`schemaVersion` on a newly-created page is a hardcoded `6`** (`docs/guide-content-authoring.md`'s own "always 6 for newly-authored content"; bumped from `5` on 2026-09-09 alongside the post/page-merge migration), not read from a template's own file or from a live capabilities call - every page this modal creates, template or blank, is authored fresh right now, so it always gets the current version regardless of what an older template file happens to declare.
 - **v1 scope cut, deliberate**: every page created through this modal is flat under `pages/` - no nested-page creation (a page with children) yet. `path -> url` is a trivial string strip (`pages/x.json -> /x`), not the agent's own general `urlToPagePath`, which this modal deliberately doesn't reimplement admin-side.
 
 ## Group R: GET /v1/search - one unified, public query API
