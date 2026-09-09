@@ -38,6 +38,7 @@ test('N: scaffoldSite produces content/(pages,menus,drafts,redirects.json), them
     assert.ok(existsSync(join(targetDir, 'vhost', 'package.json')));
     assert.ok(existsSync(join(targetDir, 'vhost', 'server.js')));
     assert.ok(existsSync(join(targetDir, 'media')), 'media/ is a real top-level folder, sibling to content/theme/vhost');
+    assert.ok(existsSync(join(targetDir, 'AGENTS.md')), 'onboards AI coding agents to this site\'s own theme/content conventions');
     assert.ok(existsSync(join(targetDir, '.gitignore')));
     // The template's own "gitignore" (no dot) must never leak into the
     // scaffold verbatim - only the renamed .gitignore should exist.
