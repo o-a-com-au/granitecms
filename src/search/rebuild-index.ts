@@ -142,7 +142,7 @@ function pushFieldValue(
 // Reads schema.properties for the given instance's own type, keeping
 // only properties explicitly flagged "api": true (an unvalidated,
 // theme-authored JSON Schema keyword - same status as "format"/
-// "allowedBlocks", see docs/theme-authoring-guide.md and
+// "allowedBlocks", see docs/guide-theme-authoring.md and
 // services/validation.ts's own allowedBlockTypesOf) - and pairs each
 // with its actual value out of instance.settings via pushFieldValue.
 function extractInstanceApiFields(instance: InstanceLike, schemaMap: Record<string, object>, out: ApiFieldRow[]): void {

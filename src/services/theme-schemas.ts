@@ -46,14 +46,14 @@ function loadTypeSchemas(typesDir: string): TypeSchemas {
     // A type whose required settings fields lack usable defaults is
     // skipped the same way a malformed schema block already is -
     // never a boot failure, just excluded from what gets registered
-    // (theme-authoring-guide.md, Group L).
+    // (guide-theme-authoring.md, Group L).
     if (!requiredFieldsHaveValidDefaults(parsed.schema)) {
       continue;
     }
     schemas[type] = parsed.schema;
     // The only place "does this type support nested blocks" is ever
     // expressed - a markup convention (does the template loop
-    // blocksHtml), not a schema field (theme-authoring-guide.md).
+    // blocksHtml), not a schema field (guide-theme-authoring.md).
     acceptsBlocks[type] = parsed.markup.includes('blocksHtml');
   }
 

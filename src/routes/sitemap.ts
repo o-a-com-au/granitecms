@@ -41,7 +41,7 @@ function buildSitemapUrls(config: SiteConfig): string[] {
   for (const relativePath of listFilesRecursively(config.pagesRoot, config.pagesRoot, '.json')) {
     // The 404 page must never be listed as a real crawlable URL,
     // regardless of its own published flag - it's a fallback
-    // convention (docs/content-authoring-guide.md), not real content.
+    // convention (docs/guide-content-authoring.md), not real content.
     if (relativePath === '404.json') {
       continue;
     }

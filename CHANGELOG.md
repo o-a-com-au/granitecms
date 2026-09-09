@@ -27,4 +27,4 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ### Documentation
 
-- Caught up `theme-authoring-guide.md` on several already-shipped theme field conventions that were undocumented or stale: `format: "richtext"`, `format: "image"` (with focal-point support), `format: "color"`'s `swatches` keyword, the range field format, the consolidated toggle/select field formats.
+- Caught up `guide-theme-authoring.md` (then named `theme-authoring-guide.md`) on several already-shipped theme field conventions that were undocumented or stale: `format: "richtext"`, `format: "image"` (with focal-point support), `format: "color"`'s `swatches` keyword, the range field format, the consolidated toggle/select field formats.

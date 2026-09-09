@@ -27,7 +27,7 @@ Anything placed under `theme/root/` is mirrored verbatim at the site's bare root
 
 Google's `<meta name="google-site-verification">` method needs no special handling at all - add the tag directly to `theme/layouts/theme.liquid` (or whichever layout renders `<head>`) like any other static markup.
 
-`GET /sitemap.xml` is a separate, built-in dynamic route, not something to place a file for - it's generated fresh on every request from whatever pages/posts are currently `published: true` (see `docs/content-authoring-guide.md`), so it's always accurate without needing regeneration on publish/unpublish. It always takes priority over a same-named static file at `theme/root/sitemap.xml`, if one exists.
+`GET /sitemap.xml` is a separate, built-in dynamic route, not something to place a file for - it's generated fresh on every request from whatever pages are currently `published: true` (see `docs/guide-content-authoring.md`), so it's always accurate without needing regeneration on publish/unpublish. It always takes priority over a same-named static file at `theme/root/sitemap.xml`, if one exists.
 
 ## Sections and blocks
 
@@ -214,7 +214,7 @@ A page's content JSON references sections/blocks by their type identifier (the f
 
 ```json
 {
-  "schemaVersion": 4,
+  "schemaVersion": 6,
   "title": "Home",
   "type": "page",
   "layout": "theme",

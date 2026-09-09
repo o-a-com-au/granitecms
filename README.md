@@ -35,13 +35,13 @@ Granite CMS is the combination neither of those is:
 
 - **Developers** build the theme: Liquid layouts, sections, and blocks,
   each with an embedded JSON Schema for its settings. Start with
-  [`docs/theme-authoring-guide.md`](docs/theme-authoring-guide.md).
+  [`docs/guide-theme-authoring.md`](docs/guide-theme-authoring.md).
 - **Content editors / marketing managers** never touch this repository at
   all - they work entirely through a separate admin application (see
   [Companion projects](#companion-projects) below), browsing pages,
   editing sections, and publishing through the API this package exposes.
   The content model itself is documented in
-  [`docs/content-authoring-guide.md`](docs/content-authoring-guide.md).
+  [`docs/guide-content-authoring.md`](docs/guide-content-authoring.md).
 
 ## Quick start
 
@@ -76,7 +76,7 @@ and the site's own serving configuration lives under `vhost/`:
 
 ```
 my-site/
-  content/   pages, posts, menus, redirects, drafts
+  content/   pages, menus, redirects, drafts
   theme/     layouts, sections, blocks, snippets, assets, root, templates
   media/     uploaded files - gitignored, backed up separately
   vhost/     site.config.json, package.json, server.js
@@ -97,8 +97,8 @@ install.
 
 ## Documentation
 
-- [`docs/theme-authoring-guide.md`](docs/theme-authoring-guide.md) - building a theme
-- [`docs/content-authoring-guide.md`](docs/content-authoring-guide.md) - the content model
+- [`docs/guide-theme-authoring.md`](docs/guide-theme-authoring.md) - building a theme
+- [`docs/guide-content-authoring.md`](docs/guide-content-authoring.md) - the content model
 - [`docs/hosting.md`](docs/hosting.md) - running a site somewhere real
 - [`docs/cms-build-plan.md`](docs/cms-build-plan.md) - full architecture and design rationale
 
