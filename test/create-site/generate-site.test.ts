@@ -63,6 +63,17 @@ test('N: scaffoldSite produces content/(pages,menus,drafts,redirects.json), them
   }
 });
 
+test('scaffoldSite writes an explicit port in site.config.json, matching the real default, not left absent', () => {
+  const { targetDir, cleanup } = tmpTargetDir();
+  try {
+    scaffoldSite(targetDir);
+    const config = JSON.parse(readFileSync(join(targetDir, 'vhost', 'site.config.json'), 'utf-8')) as { port: number };
+    assert.equal(config.port, 3000);
+  } finally {
+    cleanup();
+  }
+});
+
 test('scaffoldSite generates a real starter token: a valid sha256 hash in site.config.json, the raw value returned once', () => {
   const { targetDir, cleanup } = tmpTargetDir();
   try {

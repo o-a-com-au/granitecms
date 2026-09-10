@@ -100,6 +100,13 @@ export function scaffoldSite(targetDir: string): { raw: string } {
     join(vhostDir, 'site.config.json'),
     JSON.stringify(
       {
+        // Written explicitly, matching server-config.ts's own
+        // DEFAULT_PORT, rather than left absent - a real value here
+        // is a visible, editable config knob; an absent key is
+        // invisible until something else is already using the
+        // default port, at which point the failure is a raw
+        // EADDRINUSE crash instead of an obvious setting to change.
+        port: 3000,
         tokens: [{ hash: token.hash, scopes: ['content', 'theme', 'media'] }],
       },
       null,
