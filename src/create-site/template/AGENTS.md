@@ -298,6 +298,22 @@ Uploads go through `POST /v1/media` (multipart, requires a token with `media` sc
 
 unless the design needs a focal point for a cropped image, in which case use `"format": "image"` (see the table above) instead of a plain string.
 
+If you're writing starter content before a server is even running - so `POST /v1/media` isn't reachable yet - use the `seed-media` CLI instead of placing images under `theme/root/`. It computes the exact same content-addressed filename a real upload would, so the result is indistinguishable from one:
+
+```
+npx seed-media <site-directory> photo.jpg another.png
+# photo.jpg -> /media/photo-3f9a2b7c1e04.jpg
+# another.png -> /media/another-91cd4a08f2b1.png
+```
+
+Then use the printed URL exactly like a real upload's:
+
+```json
+{ "type": "string", "default": "/media/photo-3f9a2b7c1e04.jpg" }
+```
+
+This is only for seeding starter content offline - once a server is running, a later image change from an editor still goes through `POST /v1/media` or the admin's media library as normal.
+
 ## `GET /search.json`
 
 A public, unauthenticated, read-only endpoint - safe to call directly from a section's own client-side JavaScript with a plain `fetch()`, no token needed. Only ever returns already-published content. Query params: `q` (full-text), `filter=field:op:value` (repeatable, ANDed; `op` is `eq`/`gt`/`gte`/`lt`/`lte`), `pageType`, `sort` (`-publishDate` for newest-first), `limit`, `offset`. Useful for a blog listing, a filterable directory, or a live search box.

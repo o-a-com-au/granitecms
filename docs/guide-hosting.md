@@ -39,6 +39,8 @@ All fields are optional. A missing file, or a missing field within it, falls bac
 
 `media/` is deliberately not git-tracked (it's binary, user-uploaded content, not source). Only one storage driver exists today - local filesystem. There is no object-storage (S3-compatible) driver yet, so backing up `media/` is entirely the operator's own responsibility on any host, container-based or not.
 
+To seed starter media into a site directly - before deploying, without a server running - use `seed-media <site-directory> <path> [<path> ...]` (one of this package's own installed bin commands, alongside `create-site` and `mint-token`). It computes the same content-addressed filename a real `POST /v1/media` upload would, so the result is indistinguishable from one. It enforces the same image-type allowlist as the real upload route (no SVGs); a disallowed file is skipped, not a reason to abort the rest of the batch.
+
 ## Three supported hosting shapes
 
 Every shape below satisfies the same requirements above - a VPS just has a persistent disk by default where a container needs an explicit volume.

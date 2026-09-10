@@ -2,6 +2,7 @@ import { extname } from 'node:path';
 import multipart from '@fastify/multipart';
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import type { SiteConfig } from '../config.ts';
+import { ALLOWED_UPLOAD_EXTENSIONS } from '../media/filename.ts';
 import { ManageMediaError, deleteMedia, listMedia, putMedia } from '../media/manage-media.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
 import { WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
@@ -13,16 +14,6 @@ export interface MediaRouteOptions {
   tokens: TokenEntry[];
   maxUploadBytes: number;
 }
-
-// Images only - confirmed with the user, not a general document
-// library. Checked against the *original* uploaded filename, not the
-// client-supplied mimetype header (trivially spoofable) and not the
-// stored content-addressed filename (built only after this check
-// passes, from the same already-validated extension). .svg is
-// rejected regardless of this list even though it's technically an
-// image format - docs/cms-build-plan.md's own "SVG rejected outright,
-// not sanitised" decision.
-const ALLOWED_UPLOAD_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
 
 function sendManageMediaError(reply: FastifyReply, error: ManageMediaError): void {
   if (error.reason === 'not-found') {
@@ -43,6 +34,10 @@ async function handleUploadMedia(request: FastifyRequest, reply: FastifyReply, c
     return;
   }
 
+  // Checked against the *original* uploaded filename, not the
+  // client-supplied mimetype header (trivially spoofable) and not the
+  // stored content-addressed filename (built only after this check
+  // passes, from the same already-validated extension).
   const extension = extname(data.filename).toLowerCase();
   if (!ALLOWED_UPLOAD_EXTENSIONS.has(extension)) {
     reply.code(415).send({

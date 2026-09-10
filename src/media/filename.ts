@@ -23,6 +23,20 @@ import { basename, extname } from 'node:path';
 // not a second, independently-invented convention.
 const HASH_LENGTH = 12;
 
+// Images only - confirmed with the user, not a general document
+// library. .svg is rejected regardless of this list even though it's
+// technically an image format - docs/cms-build-plan.md's own "SVG
+// rejected outright, not sanitised" decision (a real stored-XSS path
+// otherwise: mime-types.ts maps .svg to a real image/svg+xml content
+// type, and an SVG loaded as a top-level navigation, not just <img>-
+// embedded, can execute a script it carries).
+//
+// Exported from here, not left as routes/media.ts's own private
+// constant, specifically so seed-media.ts (an offline tool with no
+// HTTP request to validate) enforces the exact same rule rather than
+// a second, independently-maintained copy of it.
+export const ALLOWED_UPLOAD_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
+
 export function buildMediaFilename(originalFilename: string, bytes: Buffer): string {
   const hash = createHash('sha256').update(bytes).digest('hex').slice(0, HASH_LENGTH);
   const base = basename(originalFilename, extname(originalFilename));

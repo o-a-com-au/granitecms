@@ -24,7 +24,8 @@
   "bin": {
     "create-site": "dist/create-site/cli.js",
     "mint-token": "dist/create-site/mint-token-cli.js",
-    "check-site": "dist/site-check/cli.js"
+    "check-site": "dist/site-check/cli.js",
+    "seed-media": "dist/media/seed-media-cli.js"
   },
   "files": [
     "dist"
