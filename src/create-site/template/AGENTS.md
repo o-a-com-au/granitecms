@@ -97,8 +97,25 @@ Every setting is plain JSON Schema (`string`, `integer`, `number`, `boolean`, `a
 | `toggle` | `boolean` | Switch instead of a checkbox (same underlying data) |
 | (none) | `boolean` | Plain checkbox |
 | (none) | `string` + `"enum"` | Segmented tabs (few short options) or a `<select>` (more/longer) - decided automatically, not choosable |
+| (none) | `array` + `items.type: "string"` | Repeatable list of text lines, with add/remove/drag-to-reorder - `minItems`/`maxItems` bound how many lines the admin UI allows; `items.minLength`/`items.maxLength` apply per line. `items` shapes other than a plain string aren't a recognised widget yet |
 
 A `format` on the wrong `type` (e.g. `image` on a `string`) is a mistake, not something the admin guesses around - it silently falls back to a plain widget for that type.
+
+A multi-line field (e.g. an animated headline, one line per array entry) uses the array shape above rather than a single `format: "textarea"` string - each line is edited and reordered independently:
+
+```json
+{
+  "type": "array",
+  "minItems": 1,
+  "maxItems": 4,
+  "items": { "type": "string", "minLength": 1 },
+  "default": ["New section"]
+}
+```
+
+```liquid
+{% for line in section.settings.heading %}<span>{{ line }}</span>{% endfor %}
+```
 
 A separate keyword, `"api": true`, can be added to any scalar property to expose its value through `GET /search.json` for structured filtering, independent of full-text search - see that section below.
 
