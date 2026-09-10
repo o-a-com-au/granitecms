@@ -68,6 +68,14 @@ The Docker image above works as-is on any platform that (a) builds from a `Docke
 
 What this explicitly does **not** cover: "any shared hosting." A host that can't run a persistent process, exec `git`, or mount a real disk (typical of classic shared PHP-style hosting) cannot run this today.
 
+## Dev-mode theme watching
+
+`npm run dev` (`node --watch-path=../theme server.js`) restarts the server automatically whenever a file under `theme/` changes - edit a section's markup or a layout, save, refresh the browser, no manual restart. This is Node's own `--watch-path` flag, not custom code: the server already handles `SIGTERM` gracefully (draft checkpoint flush, tunnel cleanup), which is exactly the signal Node's watch mode sends on a restart.
+
+Deliberately scoped to `theme/` only - `content/`/`drafts/` are already read fresh on every request (pages, menus, and the render cache are all re-checked per request or keyed on file mtime), so a content edit already shows up on the next request with no restart needed. Watching `content/` too would only cause a pointless restart on every draft autosave.
+
+Combine with `--tunnel` if needed: `node --watch-path=../theme server.js --tunnel`.
+
 ## Local dev tunnel
 
 `npm run tunnel` (or `node server.js --tunnel` directly) exposes a locally-running site through a public HTTPS URL (via `localtunnel`), printed to stdout on boot. This is for pointing a hosted admin at a site you're actively developing locally - fast iteration on theme/content, without deploying anywhere - not a hosting mechanism in its own right.

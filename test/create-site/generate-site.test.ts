@@ -119,6 +119,7 @@ test('scaffoldSite pins @o-a/cms-agent to the exact installed version, and sets 
     assert.ok(!pkg.dependencies['@o-a/cms-agent'].startsWith('^'), 'the dependency must be pinned exact, not a range');
     assert.equal(pkg.scripts.start, 'node server.js');
     assert.equal(pkg.scripts.tunnel, 'node server.js --tunnel');
+    assert.equal(pkg.scripts.dev, 'node --watch-path=../theme server.js');
   } finally {
     cleanup();
   }

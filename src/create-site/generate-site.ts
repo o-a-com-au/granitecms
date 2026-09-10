@@ -129,9 +129,20 @@ export function scaffoldSite(targetDir: string): { raw: string } {
         // straight to one of those (no Dockerfile in the loop) simply
         // wouldn't boot. "tunnel" mirrors the --tunnel flag create-site
         // already tells the operator about in its own next-steps output.
+        // "dev" is Node's own --watch-path, not custom fs-watching code
+        // - confirmed empirically that it both picks up changes to a
+        // plain file under a watched directory that's never imported
+        // (theme/*.liquid is only ever read via readFileSync) and sends
+        // a real SIGTERM on restart, which server.js's own shutdown
+        // handling already listens for. "../theme" because npm run dev
+        // runs with cwd vhost/, a sibling of theme/. Deliberately not
+        // content/ - that's already read fresh on every request, so
+        // watching it would only cause pointless restarts on every
+        // content edit.
         scripts: {
           start: 'node server.js',
           tunnel: 'node server.js --tunnel',
+          dev: 'node --watch-path=../theme server.js',
         },
         dependencies: {
           // Pinned exact, never a ^range - at v0.x even a minor bump

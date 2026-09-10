@@ -319,6 +319,9 @@ From `vhost/`:
 ```
 npm start          # boots the site on the port set in vhost/site.config.json
 npm run tunnel      # same, plus a public tunnel URL for sharing a preview
+npm run dev         # same, plus auto-restart whenever a theme/ file changes - use this one while iterating
 ```
+
+`npm run dev` only watches `theme/` - content changes (via the API) already show up on the next request with no restart needed, so there's nothing to gain watching `content/` too.
 
 Then request the page you changed (`curl http://localhost:<port>/<path>`, or open it in a browser) and confirm it actually renders as expected before considering a change finished - a page that fails schema validation or references a non-existent section type won't crash the server, but the specific page/component involved will misbehave silently.
