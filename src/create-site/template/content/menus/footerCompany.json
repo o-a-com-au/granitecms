@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 6,
   "items": [
     { "label": "About", "url": "/about" },
     { "label": "Careers", "url": "/careers" },

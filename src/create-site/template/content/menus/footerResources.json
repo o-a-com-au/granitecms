@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 6,
   "items": [
     { "label": "Documentation", "url": "/docs" },
     { "label": "Theme authoring guide", "url": "/docs/themes" },
