@@ -97,9 +97,38 @@ Every setting is plain JSON Schema (`string`, `integer`, `number`, `boolean`, `a
 | `toggle` | `boolean` | Switch instead of a checkbox (same underlying data) |
 | (none) | `boolean` | Plain checkbox |
 | (none) | `string` + `"enum"` | Segmented tabs (few short options) or a `<select>` (more/longer) - decided automatically, not choosable |
-| (none) | `array` + `items.type: "string"` | Repeatable list of text lines, with add/remove/drag-to-reorder - `minItems`/`maxItems` bound how many lines the admin UI allows; `items.minLength`/`items.maxLength` apply per line. `items` shapes other than a plain string aren't a recognised widget yet |
+| (none) | `array` + `items.type: "string"` | Repeatable list of text lines, with add/remove/drag-to-reorder - `minItems`/`maxItems` bound how many lines the admin UI allows; `items.minLength`/`items.maxLength` apply per line |
+| (none) | `array` + `items.type: "object", items.format: "image"` | A gallery: a grid of image thumbnails, add via the media picker, remove/drag-to-reorder - `minItems`/`maxItems` bound how many images the admin UI allows. Each item is exactly `{ "url": "...", "focalX": 0.5, "focalY": 0.5 }`, the same shape a lone `format: "image"` field stores - **no other properties are supported on a gallery item** (see "This is a closed set" below) |
 
 A `format` on the wrong `type` (e.g. `image` on a `string`) is a mistake, not something the admin guesses around - it silently falls back to a plain widget for that type.
+
+### This is a closed set - do not invent a new field shape
+
+**The table above is exhaustive.** These are the only setting shapes the admin has a real editor for. A setting whose shape doesn't match one of these rows exactly still technically works - Ajv validates it, the content saves - but the admin can only offer a raw JSON textarea for it, which is a bad editing experience for a human, not a fallback to design around. Never invent a new combination of `type`/`format`/`items` hoping the admin will render something sensible for it; if a design need doesn't map onto one of these rows, use the pattern below instead of a wider array shape.
+
+**A repeating item with more than one independent field is a block, never an array-shaped setting.** For example, a "before/after" or "lightbox" style section needing several frames, each with its own image *and* a caption *and* a timestamp, is not `"type": "array", "items": { "type": "object", "properties": { "image": ..., "caption": ..., "time": ... } } }` - that shape has no admin widget and never will (it's an open-ended amount of nested field types, not a closed set like the table above). Model it as a block type instead:
+
+```liquid
+{# theme/blocks/frame.liquid #}
+<figure class="lightstudy__frame">
+  <img src="{{ block.settings.image.url }}" alt="{{ block.settings.caption }}">
+  <figcaption><span class="numeral">{{ block.settings.time }}</span> {{ block.settings.caption }}</figcaption>
+</figure>
+{% schema %}
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["image", "caption", "time"],
+  "properties": {
+    "image": { "type": "object", "format": "image", "default": { "url": "", "focalX": 0.5, "focalY": 0.5 } },
+    "caption": { "type": "string", "minLength": 1, "default": "The room in a particular light" },
+    "time": { "type": "string", "minLength": 1, "default": "12:00" }
+  }
+}
+{% endschema %}
+```
+
+Then the parent section just loops `blocksHtml`, exactly as it already does for any other block type - see "Section markup" above. This gets real add/remove/drag-to-reorder and a proper per-field settings form (image picker, text inputs) for every one of `image`/`caption`/`time` independently, for free - a single array setting never gets that, no matter how its `items` schema is shaped.
 
 A multi-line field (e.g. an animated headline, one line per array entry) uses the array shape above rather than a single `format: "textarea"` string - each line is edited and reordered independently:
 
@@ -200,6 +229,7 @@ The index behind this endpoint keeps itself current automatically - it rebuilds 
 - **One file, one type, no subfolders** inside `layouts/`, `sections/`, `blocks/`, `snippets/` - and the filename must match `^[a-z0-9][a-z0-9-]*$` exactly.
 - **The `{% schema %}` block must be valid, parseable JSON.** A malformed or missing schema fails the whole component, not just the settings half.
 - **`additionalProperties: false` applies everywhere in content JSON** - don't add a field "just in case"; anything not in the tables above fails validation.
+- **Never invent a new setting field shape.** The "Field format hints" table is the complete, closed list of what the admin can actually edit - a plain type, a type plus one of the listed `format` values, `array` of plain strings, or `array` of plain images. A repeating item with more than one field of its own (an image plus a caption, a date, anything else) is a block type, not a wider array setting - see "This is a closed set" above.
 
 ## Previewing your work
 
