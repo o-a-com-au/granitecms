@@ -52,6 +52,31 @@ Each file has two parts:
 
 Every one of these `format` values is a UI hint only - Ajv runs with `strict: false` and no `ajv-formats`, so none of them (including the standard `uri`/`date` ones) are actually validated server-side. Use `pattern`/`minLength`/etc. on the same property for real validation. A `format` paired with the wrong `type` (e.g. `format: "image"` on a `string`) is a theme-authoring mistake, not something the admin guesses around - it silently falls through to whatever plain-type widget that shape would otherwise get.
 
+### Minimal form - prefer this
+
+None of the bullets above need `"additionalProperties"`, `"required"`, `"default"`, or nested `"properties"` describing an object's own shape to actually trigger their widget - that machinery only matters once real content-validation strictness or a guaranteed starting value is actually needed (see below), not by default. Every type/format combination at its floor:
+
+```json
+"heading": { "type": "string" }
+"columns": { "type": "integer" }
+"enabled": { "type": "boolean" }
+"enabled": { "type": "boolean", "format": "toggle" }
+"bio": { "type": "string", "format": "textarea" }
+"body": { "type": "string", "format": "richtext" }
+"link": { "type": "string", "format": "uri" }
+"publishDate": { "type": "string", "format": "date" }
+"accent": { "type": "string", "format": "color" }
+"align": { "type": "string", "enum": ["left", "center", "right"] }
+"fontSize": { "type": "integer", "format": "range", "minimum": 12, "maximum": 24 }
+"poster": { "type": "object", "format": "image" }
+"tags": { "type": "array", "items": { "type": "string" } }
+"gallery": { "type": "array", "items": { "type": "object", "format": "image" } }
+```
+
+`fontSize`'s `minimum`/`maximum` are the one exception - not optional boilerplate, `range` genuinely doesn't trigger without both. A custom display label uses the standard JSON Schema `"title"` keyword (`"title": "Section Heading"`) - omit it and the property key auto-humanizes instead (`backgroundImage` -> "Background Image").
+
+Reach for `"required"` + `"default"` (plus, for real content-validation strictness, `"additionalProperties": false`/`minLength`/`pattern`/etc.) only once a field genuinely must always have a value from the moment a component is added - skip both and it starts empty/unset, a valid state for every type above. See "Every property listed in `required`..." below for the one thing to get right if you do: a required field's `default` is validated against that field's own *full* schema, `minItems`/`minLength` included - `"default": []` against `"minItems": 1` fails exactly as surely as `"default": ""` against `"minLength": 1` does.
+
 **This list of shapes is exhaustive - do not invent a new one.** A setting shape that doesn't match one of the bullets above still validates and saves (Ajv doesn't care), but the admin has no dedicated widget for it and falls back to a raw JSON textarea - a bad editing experience, not a fallback worth designing around. In particular, a repeating item with more than one field of its own - an image plus a caption plus a date, say - is not `"type": "array", "items": { "type": "object", "properties": { ... several fields ... } } }`. That shape has no admin widget and never will (it's an open-ended amount of possible nested field types, not a closed set like the shapes above). Model it as a **block type** instead: a `theme/blocks/<name>.liquid` file with its own settings schema (image/caption/date as three ordinary properties, each following the rules above), nested under whichever section renders the repeating list via `blocksHtml`. Blocks already get real add/remove/drag-to-reorder and a proper per-field settings form for every one of their own properties, independently, for free - a single array setting never gets that no matter how its `items` schema is shaped.
 
 A second, unrelated custom keyword can be added to any individual property: `"api": true` exposes that field's value through the agent's own search index, independent of full-text search - see `GET /search.json`, the agent's one public, unversioned query endpoint. Scalar values (`string`/`number`/`boolean`) are indexed as their own typed value; an array of scalars (e.g. a tags-like field) is indexed too, one entry per element, so a plain equality filter matches any one of them; an `object`-typed property flagged this way is silently ignored, the same way a mismatched `format` is. A `"type": "string", "format": "date"` field is stored as a numeric value (not text), so range operators (`gt`/`lt`/etc) work on it - the same conversion `publishDate` (below) already gets automatically. For example, `"price": { "type": "number", "api": true }` makes `GET /search.json?filter=price:lt:50` return every page with at least one instance of that field under 50 - each block/section instance is indexed independently (not collapsed per page), so a page with several matching instances still only needs one to qualify. Like `format`/`swatches`/`allowedBlocks`, this is a plain, unvalidated JSON Schema keyword - Ajv ignores it entirely (`strict: false`).

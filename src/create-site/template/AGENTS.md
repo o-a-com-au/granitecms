@@ -102,6 +102,87 @@ Every setting is plain JSON Schema (`string`, `integer`, `number`, `boolean`, `a
 
 A `format` on the wrong `type` (e.g. `image` on a `string`) is a mistake, not something the admin guesses around - it silently falls back to a plain widget for that type.
 
+### Minimal form - prefer this
+
+Every type/format combination above needs nothing beyond what triggers it - no `additionalProperties`, no `required`, no `default`, no nested `properties` describing an object's own shape. None of that is what makes the admin recognise a field; it only matters if you actually need the stricter validation or a guaranteed starting value (see below). Default to the minimal form:
+
+```json
+"heading": {
+  "type": "string"
+}
+
+"columns": {
+  "type": "integer"
+}
+
+"enabled": {
+  "type": "boolean"
+}
+
+"enabled": {
+  "type": "boolean",
+  "format": "toggle"
+}
+
+"bio": {
+  "type": "string",
+  "format": "textarea"
+}
+
+"body": {
+  "type": "string",
+  "format": "richtext"
+}
+
+"link": {
+  "type": "string",
+  "format": "uri"
+}
+
+"publishDate": {
+  "type": "string",
+  "format": "date"
+}
+
+"accent": {
+  "type": "string",
+  "format": "color"
+}
+
+"align": {
+  "type": "string",
+  "enum": ["left", "center", "right"]
+}
+
+"fontSize": {
+  "type": "integer",
+  "format": "range",
+  "minimum": 12,
+  "maximum": 24
+}
+
+"poster": {
+  "type": "object",
+  "format": "image"
+}
+
+"tags": {
+  "type": "array",
+  "items": { "type": "string" }
+}
+
+"gallery": {
+  "type": "array",
+  "items": { "type": "object", "format": "image" }
+}
+```
+
+`fontSize`'s `minimum`/`maximum` are the one exception - they're not optional boilerplate, the `range` widget genuinely doesn't trigger without both.
+
+A custom display label uses the standard JSON Schema `"title"` keyword (`"title": "Section Heading"`) - skip it and the property key auto-humanizes instead (`backgroundImage` -> "Background Image"), which is why none of the examples above bother with one.
+
+Only reach for `"required"` + `"default"` (and, for stricter content validation, `"additionalProperties": false` on an object/`minLength`/`pattern`/etc.) when a field genuinely must always have a value from the moment a component is added - skip both and it just starts empty/unset, which is a valid state for every type above. See "Worked example - a section" above for what that fuller form looks like once it's actually needed, and remember the L1 rule if you do use it: a required field's `default` is validated against that field's *own* full schema, including `minItems`/`minLength`/etc. - `"default": []` against `"minItems": 1` fails just as surely as an empty string against `"minLength": 1` does.
+
 ### This is a closed set - do not invent a new field shape
 
 **The table above is exhaustive.** These are the only setting shapes the admin has a real editor for. A setting whose shape doesn't match one of these rows exactly still technically works - Ajv validates it, the content saves - but the admin can only offer a raw JSON textarea for it, which is a bad editing experience for a human, not a fallback to design around. Never invent a new combination of `type`/`format`/`items` hoping the admin will render something sensible for it; if a design need doesn't map onto one of these rows, use the pattern below instead of a wider array shape.
