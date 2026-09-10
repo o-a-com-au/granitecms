@@ -66,6 +66,31 @@ test('L2: a type whose required field has no valid default is excluded from the 
   }
 });
 
+test('a section whose required-field schema has an unresolvable $ref is excluded with a warning, not a thrown exception that would crash the whole boot', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot();
+  try {
+    mkdirSync(join(siteRoot, 'theme', 'sections'), { recursive: true });
+    writeFileSync(
+      join(siteRoot, 'theme', 'sections', 'bad-ref.liquid'),
+      '<img src="{{ section.settings.poster.url }}">\n{% schema %}\n' +
+        JSON.stringify({
+          type: 'object',
+          $defs: { image: { type: 'object', properties: { url: { type: 'string' } } } },
+          required: ['poster'],
+          properties: { poster: { $ref: '#/$defs/image', default: { url: '/images/a.jpg' } } },
+        }) +
+        '\n{% endschema %}\n',
+    );
+
+    assert.doesNotThrow(() => loadThemeSchemas(join(siteRoot, 'theme')));
+    const schemas = loadThemeSchemas(join(siteRoot, 'theme'));
+    assert.equal(schemas.sections['bad-ref'], undefined);
+    assert.ok(schemas.warnings?.some((w) => w.includes('bad-ref')));
+  } finally {
+    cleanup();
+  }
+});
+
 test('a section file with no {% schema %} block at all is excluded with a warning naming it', () => {
   const { siteRoot, cleanup } = createTmpSiteRoot();
   try {
