@@ -138,11 +138,14 @@ export function scaffoldSite(targetDir: string): { raw: string } {
         // runs with cwd vhost/, a sibling of theme/. Deliberately not
         // content/ - that's already read fresh on every request, so
         // watching it would only cause pointless restarts on every
-        // content edit.
+        // content edit. "check" is check-site, the package's own
+        // installed CLI bin - runs from vhost/ (site-check/cli.ts's own
+        // assumed cwd relationship), same pattern as start/tunnel/dev.
         scripts: {
           start: 'node server.js',
           tunnel: 'node server.js --tunnel',
           dev: 'node --watch-path=../theme server.js',
+          check: 'check-site',
         },
         dependencies: {
           // Pinned exact, never a ^range - at v0.x even a minor bump

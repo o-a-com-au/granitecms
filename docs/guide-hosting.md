@@ -76,6 +76,12 @@ Deliberately scoped to `theme/` only - `content/`/`drafts/` are already read fre
 
 Combine with `--tunnel` if needed: `node --watch-path=../theme server.js --tunnel`.
 
+## Site health checks
+
+`npm run check` (`check-site`, one of this package's own installed bin commands) renders every published page for real and reports three classes of problem in one pass: any theme component excluded at boot (the same warnings a normal boot already prints to the console); any `<img src>`/`srcset`/`<a href>` in the rendered output pointing at a `/media/`, `/assets/`, or root-static file that doesn't exist on disk; and any internal link that doesn't resolve to a real, published page. Exits non-zero on any finding, so it's usable in CI, not just interactively.
+
+This is a full render crawl, not a static content scan - it exists specifically to catch problems that only exist in rendered output, like a `srcset` width nothing was actually generated for. A theme/content combination can be individually well-formed and still produce a broken image at one breakpoint; nothing about validating either side alone would ever surface that.
+
 ## Local dev tunnel
 
 `npm run tunnel` (or `node server.js --tunnel` directly) exposes a locally-running site through a public HTTPS URL (via `localtunnel`), printed to stdout on boot. This is for pointing a hosted admin at a site you're actively developing locally - fast iteration on theme/content, without deploying anywhere - not a hosting mechanism in its own right.

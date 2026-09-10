@@ -35,7 +35,13 @@ function isPublished(contentRoot: string, relativePath: string): boolean {
 // never authoritative", see cms-build-plan.md). A saved sitemap would
 // go stale the moment anything is published or unpublished; this
 // can't.
-function buildSitemapUrls(config: SiteConfig): string[] {
+// Exported for site-check/run-check.ts's own reuse - it needs the
+// identical "every published page's own URL" walk this route already
+// does, and duplicating it would be the exact kind of drift this
+// codebase avoids elsewhere (see slugify.ts's own "second use
+// justifies the abstraction" precedent, cited directly in this
+// project's own admin sibling repo).
+export function buildSitemapUrls(config: SiteConfig): string[] {
   const urls: string[] = [];
 
   for (const relativePath of listFilesRecursively(config.pagesRoot, config.pagesRoot, '.json')) {

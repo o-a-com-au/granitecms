@@ -79,6 +79,7 @@ test('J4: a real npm pack + npm install + node server.js boots a scaffolded site
     for (const expected of [
       'dist/index.js',
       'dist/create-site/cli.js',
+      'dist/site-check/cli.js',
       'dist/schemas/page.schema.json',
       'dist/schemas/menu.schema.json',
       'dist/schemas/instance.schema.json',

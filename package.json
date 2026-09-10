@@ -23,7 +23,8 @@
   },
   "bin": {
     "create-site": "dist/create-site/cli.js",
-    "mint-token": "dist/create-site/mint-token-cli.js"
+    "mint-token": "dist/create-site/mint-token-cli.js",
+    "check-site": "dist/site-check/cli.js"
   },
   "files": [
     "dist"

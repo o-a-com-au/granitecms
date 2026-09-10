@@ -325,3 +325,15 @@ npm run dev         # same, plus auto-restart whenever a theme/ file changes - u
 `npm run dev` only watches `theme/` - content changes (via the API) already show up on the next request with no restart needed, so there's nothing to gain watching `content/` too.
 
 Then request the page you changed (`curl http://localhost:<port>/<path>`, or open it in a browser) and confirm it actually renders as expected before considering a change finished - a page that fails schema validation or references a non-existent section type won't crash the server, but the specific page/component involved will misbehave silently.
+
+## Checking your work: `npm run check`
+
+From `vhost/`, with the site's dependencies already installed (no need for the server to be running):
+
+```
+npm run check
+```
+
+Renders every published page for real and reports, in one pass: any theme component excluded at boot (same warnings the server itself prints, see "Minimal form" above); any `<img src>`/`srcset`/`<a href>` in the rendered HTML pointing at a `/media/`, `/assets/`, or root-static file that doesn't actually exist on disk; and any internal link that doesn't point at a real, published page. Exits non-zero if it finds anything - safe to run after generating content, not just as a manual spot-check.
+
+This catches the specific failure mode a snippet like `responsive-image` can introduce silently: a `widths` list that includes a size nothing was actually uploaded/generated for renders a perfectly normal-looking page with one broken image at that breakpoint - nothing about the page itself is wrong, so nothing else would ever flag it.
