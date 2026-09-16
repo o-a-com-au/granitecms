@@ -172,6 +172,7 @@ The site agent is the only thing a site exposes to the outside world. Deliberate
 - `DELETE /v1/drafts/:path` – discard a draft.
 - `POST /v1/publish` – body lists one or more draft paths plus a commit message. Validates, promotes draft to live, removes drafts, creates one commit, all or nothing. The authenticated user becomes the git author.
 - `POST /v1/unpublish/:path` – flip the published flag and commit.
+- `POST /v1/publish-page/:path` – flip the published flag back on and commit. The exact twin of unpublish, and deliberately distinct from `POST /v1/publish`: that one promotes drafts, so it cannot reach a page that is live but unpublished (there is no draft to promote), and using it would publish any unrelated pending edits along with the flag.
 - `DELETE /v1/content/:path` – delete a live page (commits, and records a redirect if a target is supplied).
 - `POST /v1/content/move` – move or rename a page or subtree; moves files, rewrites child paths, appends to `redirects.json`, commits as one unit.
 - `GET /v1/content` – list content, optionally filtered by type, path prefix, or draft status.

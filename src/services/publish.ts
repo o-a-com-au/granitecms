@@ -321,6 +321,63 @@ async function unpublishPageJob(
   }
 }
 
+// The exact twin of unpublishPageJob above, flipping the same flag the
+// other way: reads the live file, sets published true, commits. Kept as
+// its own job rather than a parameterised shared one - the two read
+// identically but say opposite things, and a boolean argument at every
+// call site ("publishPage(config, path, true)") reads far worse than
+// two named functions.
+//
+// Deliberately does NOT validate against the theme schemas, matching
+// unpublish rather than publishDrafts: this only ever touches content
+// that is already live, and was therefore already validated when it was
+// published in the first place. publishDrafts validates because it
+// promotes a draft, which may never have been checked before.
+//
+// Like unpublish, never touches a draft. A page with unpublished edits
+// pending keeps them, and this only changes whether what is already
+// live is publicly visible.
+async function publishPageJob(
+  config: SiteConfig,
+  relativePath: string,
+  message: string,
+  author: CommitAuthor,
+): Promise<void> {
+  const livePath = sanitisePath(config.contentRoot, relativePath);
+
+  let original: Buffer;
+  try {
+    original = readFileSync(livePath);
+  } catch {
+    throw new PublishError('page-not-found', `No live page found at "${relativePath}"`);
+  }
+
+  const parsed = JSON.parse(original.toString('utf-8')) as Record<string, unknown>;
+  parsed.published = true;
+  const updated = Buffer.from(JSON.stringify(parsed, null, 2));
+
+  // Same minimal inline restore unpublishPageJob uses, and for the same
+  // reason - one file, no draft, so the two-file publish rollback()
+  // above would need an unused draft slot for no benefit.
+  try {
+    writeFileSync(livePath, updated);
+    commitPaths(config.siteRoot, [livePath], message, author);
+  } catch (error) {
+    try {
+      writeFileSync(livePath, original);
+    } catch {
+      throw new PublishError(
+        'rollback-failed',
+        'Publishing this page failed and rolling back afterwards also failed; the working tree may be inconsistent and needs manual inspection',
+        { cause: error },
+      );
+    }
+    const reason = error instanceof GitOperationError ? 'commit-failed' : 'write-failed';
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new PublishError(reason, `Publishing this page failed: ${errorMessage}`, { cause: error });
+  }
+}
+
 export function publishDrafts(
   config: SiteConfig,
   themeSchemas: ThemeSchemas,
@@ -349,6 +406,22 @@ export function unpublishPage(
   author: CommitAuthor,
 ): Promise<void> {
   const result = enqueue(() => unpublishPageJob(config, relativePath, message, author));
+  result.then(
+    () => reindexInBackground(config),
+    () => undefined,
+  );
+  return result;
+}
+
+// Twin of unpublishPage - same queue, same background reindex (a page
+// becoming visible changes the index exactly as much as one leaving it).
+export function publishPage(
+  config: SiteConfig,
+  relativePath: string,
+  message: string,
+  author: CommitAuthor,
+): Promise<void> {
+  const result = enqueue(() => publishPageJob(config, relativePath, message, author));
   result.then(
     () => reindexInBackground(config),
     () => undefined,

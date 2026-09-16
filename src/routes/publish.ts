@@ -3,7 +3,7 @@ import type { SiteConfig } from '../config.ts';
 import { isValidCommitAuthor } from '../services/git.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
 import { WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
-import { PublishError, publishDrafts, unpublishPage } from '../services/publish.ts';
+import { PublishError, publishDrafts, publishPage, unpublishPage } from '../services/publish.ts';
 import { requireScope } from '../services/token-auth.ts';
 import type { ThemeSchemas } from '../services/validation.ts';
 import type { TokenEntry } from '../server-config.ts';
@@ -38,12 +38,15 @@ function parsePublishBody(body: unknown): PublishBody | null {
   return { paths, message, author };
 }
 
-interface UnpublishBody {
+// Shared by /unpublish/* and /publish-page/* - both take the identical
+// { message, author } body, since the path itself carries which way the
+// published flag is being flipped.
+interface PublishedFlagBody {
   message: string;
   author: { name: string; email: string };
 }
 
-function parseUnpublishBody(body: unknown): UnpublishBody | null {
+function parsePublishedFlagBody(body: unknown): PublishedFlagBody | null {
   if (typeof body !== 'object' || body === null) {
     return null;
   }
@@ -110,7 +113,7 @@ export const publishRoutes: FastifyPluginAsync<PublishRouteOptions> = async (
     '/unpublish/*',
     { preHandler: requireScope(opts.tokens, 'content'), config: WRITE_ROUTE_RATE_LIMIT },
     async (request, reply) => {
-      const parsed = parseUnpublishBody(request.body);
+      const parsed = parsePublishedFlagBody(request.body);
       if (!parsed) {
         reply.code(400).send({
           statusCode: 400,
@@ -128,6 +131,45 @@ export const publishRoutes: FastifyPluginAsync<PublishRouteOptions> = async (
         // PathSafetyError has no .statusCode - left uncaught it falls
         // through to the global handler's sanitised 500, the same gap
         // every other route touching a :path already guards against.
+        if (error instanceof PathSafetyError) {
+          reply.code(404).send({ statusCode: 404, error: 'Not Found', message: 'No content at that path' });
+          return;
+        }
+        if (error instanceof PublishError) {
+          replyForPublishError(reply, error);
+          return;
+        }
+        throw error;
+      }
+    },
+  );
+
+  // The twin of /unpublish/* above: sets published:true on a live page
+  // in place and commits. Deliberately separate from /publish, which
+  // promotes drafts - a page that is live but unpublished has no draft
+  // to promote, so /publish cannot reach it at all (draft-not-found),
+  // and promoting a draft would publish every pending edit along with
+  // the flag. This only ever changes the one boolean.
+  fastify.post(
+    '/publish-page/*',
+    { preHandler: requireScope(opts.tokens, 'content'), config: WRITE_ROUTE_RATE_LIMIT },
+    async (request, reply) => {
+      const parsed = parsePublishedFlagBody(request.body);
+      if (!parsed) {
+        reply.code(400).send({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: 'Expected { message: string, author: { name, email } }',
+        });
+        return;
+      }
+
+      const relativePath = (request as FastifyRequest<{ Params: { '*': string } }>).params['*'];
+      try {
+        await publishPage(opts.config, relativePath, parsed.message, parsed.author);
+        reply.send({ ok: true });
+      } catch (error) {
+        // Same PathSafetyError guard as every other :path route here.
         if (error instanceof PathSafetyError) {
           reply.code(404).send({ statusCode: 404, error: 'Not Found', message: 'No content at that path' });
           return;

@@ -7,7 +7,7 @@ import { loadSiteConfig } from '../../src/config.ts';
 import { saveDraft } from '../../src/services/drafts.ts';
 import { computeEtag } from '../../src/services/etag.ts';
 import { movePage } from '../../src/services/move.ts';
-import { PublishError, publishDrafts, unpublishPage } from '../../src/services/publish.ts';
+import { PublishError, publishDrafts, publishPage, unpublishPage } from '../../src/services/publish.ts';
 import type { ThemeSchemas } from '../../src/services/validation.ts';
 import { createTmpSiteRoot, redirectTargetFor, writeAndCommit } from '../helpers/tmp-site.ts';
 
@@ -122,6 +122,68 @@ test('C8 (mechanics only, renderer 404 half proven in Group D): unpublish sets p
     assert.equal(updated.published, false);
     assert.equal(commitCount(siteRoot), before + 1);
     assert.equal(log(siteRoot, '%an'), author.name);
+  } finally {
+    cleanup();
+  }
+});
+
+test('publishPage sets published:true on a live page in place and commits with the supplied author', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'content/about.json', JSON.stringify({ ...page('About'), published: false }));
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+
+    await publishPage(config, 'about.json', 'publish about', author);
+
+    const updated = JSON.parse(readFileSync(join(config.contentRoot, 'about.json'), 'utf-8')) as {
+      published: boolean;
+      title: string;
+    };
+    assert.equal(updated.published, true);
+    assert.equal(updated.title, 'About', 'nothing but the published flag changes');
+    assert.equal(commitCount(siteRoot), before + 1);
+    assert.equal(log(siteRoot, '%an'), author.name);
+  } finally {
+    cleanup();
+  }
+});
+
+test('publishPage leaves a pending draft alone - it only changes what is already live', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    // A real live file exists here, so saveDraft demands its actual
+    // ETag - NO_PRIOR_FILE_ETAG only satisfies the null-etag case where
+    // neither a draft nor a live file exists yet.
+    const livePage = { ...page('About'), published: false };
+    writeAndCommit(siteRoot, 'content/about.json', JSON.stringify(livePage));
+    const config = loadSiteConfig(siteRoot);
+    await saveDraft(config, themeSchemas, 'about.json', page('Edited in a draft'), liveEtag(livePage));
+
+    await publishPage(config, 'about.json', 'publish about', author);
+
+    // The whole point of a flag flip over promoting the draft: unrelated
+    // pending edits must not go live as a side effect.
+    assert.ok(existsSync(join(config.draftsRoot, 'about.json')), 'the draft should survive untouched');
+    const live = JSON.parse(readFileSync(join(config.contentRoot, 'about.json'), 'utf-8')) as { title: string };
+    assert.equal(live.title, 'About', 'the live file keeps its own title, not the draft\'s');
+  } finally {
+    cleanup();
+  }
+});
+
+test('publishPage on a path with no live page is page-not-found, never a silent success', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    writeAndCommit(siteRoot, 'README.md', 'seed');
+    const config = loadSiteConfig(siteRoot);
+    const before = commitCount(siteRoot);
+
+    await assert.rejects(
+      () => publishPage(config, 'never-existed.json', 'publish nothing', author),
+      (error: unknown) => error instanceof PublishError && error.reason === 'page-not-found',
+    );
+    assert.equal(commitCount(siteRoot), before, 'a failed flip creates no commit');
   } finally {
     cleanup();
   }

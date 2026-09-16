@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
+## [Unreleased]
+
+### Added
+
+- **`POST /v1/publish-page/:path`**: sets `published: true` on a live page in place and commits - the exact twin of the existing `POST /v1/unpublish/:path`. Deliberately separate from `POST /v1/publish`, which promotes drafts: a page that is live but unpublished has no draft to promote, so publish could not reach it at all, and promoting a draft would push every pending edit live alongside the flag. Like unpublish, it never touches a draft, so a page with unpublished edits keeps them.
+
 ## [0.2.2] - 2026-09-09
 
 Three gaps found by having a different AI agent build a real demo site from `AGENTS.md` and report back what it wished were different.

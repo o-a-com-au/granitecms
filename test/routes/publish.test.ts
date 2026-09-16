@@ -131,6 +131,102 @@ test('POST /v1/publish with no token is rejected with 401', async () => {
   }
 });
 
+test('POST /v1/publish-page/:path sets published:true on a live page and commits', async () => {
+  const { app, siteRoot, cleanup } = buildPublishTestServer();
+  try {
+    const config = bootSite(siteRoot).config;
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About', 'page', false)));
+    const before = commitCount(siteRoot);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/publish-page/pages/about.json',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { message: 'publish about', author },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const updated = JSON.parse(readFileSync(join(config.pagesRoot, 'about.json'), 'utf-8')) as {
+      published: boolean;
+    };
+    assert.equal(updated.published, true);
+    assert.equal(commitCount(siteRoot), before + 1);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('POST /v1/publish-page/:path returns 404 for a page that is not live, rather than creating one', async () => {
+  const { app, cleanup } = buildPublishTestServer();
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/publish-page/pages/never-existed.json',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { message: 'x', author },
+    });
+    assert.equal(response.statusCode, 404);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('POST /v1/publish-page/:path rejects a malformed body with 400', async () => {
+  const { app, siteRoot, cleanup } = buildPublishTestServer();
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About', 'page', false)));
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/publish-page/pages/about.json',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { message: '' },
+    });
+    assert.equal(response.statusCode, 400);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('POST /v1/publish-page/:path without a token is rejected', async () => {
+  const { app, siteRoot, cleanup } = buildPublishTestServer();
+  try {
+    writeAndCommit(siteRoot, 'content/pages/about.json', JSON.stringify(page('About', 'page', false)));
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/publish-page/pages/about.json',
+      headers: { 'content-type': 'application/json' },
+      payload: { message: 'publish about', author },
+    });
+    assert.equal(response.statusCode, 401);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('a path traversal attempt against POST /v1/publish-page/:path fails safely, never a 500', async () => {
+  const { app, cleanup } = buildPublishTestServer();
+  try {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/publish-page/../../../etc/passwd',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json' },
+      payload: { message: 'nope', author },
+    });
+    assert.notEqual(response.statusCode, 500, 'a traversal attempt must never reach the sanitised 500 handler');
+    assert.ok(
+      response.statusCode === 404 || response.statusCode === 400,
+      `expected a safe rejection, got ${response.statusCode}`,
+    );
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
 test('F2: POST /v1/unpublish/:path sets published:false and commits', async () => {
   const { app, siteRoot, cleanup } = buildPublishTestServer();
   try {
