@@ -439,6 +439,28 @@ Design notes:
 - **A 404 meant two completely different things, and the wrong one was reported.** Found immediately in real use (not by a test): publishing against `demo-architecture`, still on the released 0.2.2, failed with "No live page at this path" - which blamed the content when the live file was present and correct, and the real cause was a site with no such route. The two are distinguishable without guessing: Fastify's not-found body names the route, the agent's names the page. Worth the brittleness of reading that message, because the misleading version sent a real debugging session down the wrong path and would do the same to any third party on an older agent.
 - **`unpublishSitePage` was finally called.** It had been written, proven and left deliberately unused since 2026-08-04 against exactly this feature arriving.
 
+## Group V: safeguards on the home and 404 pages
+
+Raised directly by the project owner after Group U shipped: should there be safeguards around what can be done to Home and 404. There should have been already - and Group U had just widened the hole, since "Set as Draft" was offered on every row including Home, two clicks from the row menu, behind a confirmation whose wording ("it stops being visible on the live website") reads as routine and reversible.
+
+Before this, `pages/index.json` had five ways to break the site root and only one was guarded (it was excluded as a parent). Delete, Set as Draft, slug rename and drag-to-reparent were all offered with no special handling at either layer - the agent has no write-path protection for either page, and `isValidDropTarget`/`canRename` checked structure and dirty-state but never page identity. The failure is silent from the admin's side: `/` falls through to `sendNotFound`, which renders the themed 404 perfectly well, and the page tree still looks correct.
+
+| # | Criterion | Proof |
+|---|---|---|
+| V1 | The two paths, and the rules about them, live in one module rather than being spread across the components that enforce them - `NON_PARENT_PAGE_PATHS` moved here out of `NewPageModal.tsx` | `packages/web/src/pages/protectedPages.ts`; `packages/web/test/pages/protectedPages.test.ts` (including that a page merely *named* index.json or 404.json elsewhere in the tree is ordinary) |
+| V2 | Home offers neither Delete nor Set as Draft - omitted, not disabled, the same way it already drops "Add Child Page" (`InstanceRowAction` has no disabled state) | `PagesHubPage.test.tsx :: offers neither Delete nor Set as Draft on Home` |
+| V3 | Publish is never withheld, even on Home: it is not the dangerous direction, and it is the way back if Home has somehow ended up a draft | `PagesHubPage.test.tsx :: still offers Publish on a Home page that has somehow ended up a draft - the way back out` |
+| V4 | The 404 page keeps both actions and warns instead - losing it degrades to a plain JSON error body rather than breaking, which `sendNotFound` handles deliberately | `PagesHubPage.test.tsx :: keeps Delete and Set as Draft on the 404 page, which degrades rather than breaks`; warning text via `notFoundPageWarning` in both confirmations |
+| V5 | Neither page can be dragged elsewhere, and neither can take a child | `PagesTabPanel.test.tsx :: refuses to drag Home under another page`, `:: refuses to drop an ordinary page onto Home, which cannot be a parent` |
+| V6 | Neither page's slug can be changed - the field, its Update button and the rename messages are not rendered at all for those two paths (requested directly, after first shipping as a disabled field with an explanation: with no control to explain, the explanation was noise) | `PageMetadataPanel.test.tsx :: hides the Slug field entirely on Home, along with its Update button`, `:: hides the Slug field on the 404 page too`, `:: leaves an ordinary page renameable` (the positive control - an ordinary page still has both) |
+
+Design notes:
+
+- **Guard the draft direction, not both.** Publishing Home is harmless and often the fix; only the flip towards draft, delete, rename and move are destructive. An earlier framing of this lumped publish and unpublish together, which would have removed the only route back from a mis-set homepage.
+- **Home blocks, 404 warns.** They are not equally fragile: no `index.json` means the site root serves a 404 with no fallback, while no `404.json` falls back to a plain JSON error body by explicit design (`sendNotFound` catches *any* failure rendering it). Identical treatment would have been wrong in one direction or the other.
+- **Admin-only, deliberately.** The agent stays permissive: it is a generic API, a self-hoster may legitimately run a site with no homepage, and `POST /v1/unpublish/pages/index.json` still works from curl. The admin is where the accidental clicks happen. Revisit if a second client ever appears.
+- **The cost**: there is now no UI route to retire a homepage. Judged correct - that is site teardown, not editing - and it remains possible through the agent API.
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.
