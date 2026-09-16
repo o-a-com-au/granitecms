@@ -35,9 +35,10 @@ This scaffold already ships real, working examples worth reading before writing 
 1. Break the design into distinct repeating/reusable visual components. Each one becomes a `theme/sections/<name>.liquid` (a self-contained region of a page) or `theme/blocks/<name>.liquid` (a smaller item nested inside a section, e.g. one card in a grid, one FAQ row).
 2. Each file has two parts: ordinary Liquid/HTML markup, and a `{% schema %} ... {% endschema %}` block containing a single JSON object - a settings description using *only* the JSON Schema draft-07 keywords listed below, never the full spec. The schema block is stripped out before rendering, so a real Liquid tag never sees it - place it anywhere in the file (convention: at the end).
 
-**Only these keywords are supported**: `type`, `properties`, `required`, `additionalProperties`, `default`, `minLength`, `maxLength`, `minimum`, `maximum`, `pattern`, `enum`, `items`, `minItems`, `maxItems`, plus the custom `format`/`title`/`allowedBlocks`/`api`/`swatches`/`step`/`unit` keywords documented below. **Never `$ref`, `$defs`, `definitions`, `allOf`, `anyOf`, `oneOf`, `not`, or `if`/`then`/`else`** - every property's schema must be fully self-contained, written out in full where it's used. If the same shape (e.g. an image object) repeats across several properties or several component files, write it out each time rather than trying to share/reference a definition - there is no cross-referencing mechanism here, in a single schema block or across files, regardless of what standard JSON Schema itself supports elsewhere.
+**Only these keywords are supported**: `type`, `properties`, `required`, `additionalProperties`, `default`, `minLength`, `maxLength`, `minimum`, `maximum`, `pattern`, `enum`, `items`, `minItems`, `maxItems`, plus the custom `format`/`title`/`description`/`allowedBlocks`/`api`/`swatches`/`step`/`unit` keywords documented below. **Never `$ref`, `$defs`, `definitions`, `allOf`, `anyOf`, `oneOf`, `not`, or `if`/`then`/`else`** - every property's schema must be fully self-contained, written out in full where it's used. If the same shape (e.g. an image object) repeats across several properties or several component files, write it out each time rather than trying to share/reference a definition - there is no cross-referencing mechanism here, in a single schema block or across files, regardless of what standard JSON Schema itself supports elsewhere.
 3. Once the theme components exist, compose an actual page by writing a file under `content/pages/` whose `sections` array references those types by filename, with a `settings` object matching each one's schema (see "Content JSON model" below).
-4. Preview the result before considering the task done - see "Previewing your work".
+4. **For any page type the site will have more than one of** - a project, an article, a case study, a team member - also write a starting point for it under `theme/templates/<name>.json`. This is easy to skip and worth not skipping: without a template, every new page an editor creates starts completely blank, and they have to rebuild the same section stack by hand every time. A template is just a real page file kept in a different folder - the same shape as anything under `content/pages/` (`schemaVersion`, `name`, `title`, `type`, `layout`, `published`, `sections`), validated identically, using the section types this theme already defines. Its `"title"` is the label an editor picks from, so name it for the page type (`"Project"`, `"Article"`), never `"Untitled"`. Fill each section's settings with short placeholder copy rather than leaving them empty - a template is a starting point to edit, not a blank form. A template that fails validation is skipped silently at boot, so preview a page built from it.
+5. Preview the result before considering the task done - see "Previewing your work".
 
 ### Worked example - a section
 
@@ -65,6 +66,23 @@ Available variables in a section: `section.id`, `section.settings.<key>`, `block
 **Every property listed in a schema's `"required"` array must also declare a `"default"`** that itself satisfies the property's own constraints (e.g. not `"default": ""` against `"minLength": 1`). A schema that violates this - or one with no `{% schema %}` block at all, or invalid JSON inside it - is excluded from the theme entirely (it simply won't be selectable), but never silently: boot prints a warning naming the type and the specific reason. If a new section/block isn't showing up, check the server's console output first.
 
 To restrict which block types are allowed under a given section/block, add `"allowedBlocks": ["button", "logo-mark"]` alongside `"properties"` in its schema - omit it entirely for no restriction (the default).
+
+### Naming a section or block for the admin
+
+Give every section and block a `"title"` and a `"description"`, as plain annotations on the schema object alongside `"properties"`:
+
+```json
+{
+  "title": "Image band",
+  "description": "A full width photograph with an optional caption.",
+  "type": "object",
+  "properties": { }
+}
+```
+
+Neither affects validation. The admin's "Add a Section" dialog lists one row per type showing the title with the description beside it, so a type with no description shows a bare name and an editor has to guess what it is for. Omit the `"title"` and the type's filename is shown instead (`image-band`), which reads as code, not as a choice.
+
+Write the description as one short sentence about what the section **is**, not which fields it has - the fields are already visible the moment the section is added. "A full width photograph with an optional caption" is useful; "Heading, image and caption fields" is not.
 
 ### Layouts
 
