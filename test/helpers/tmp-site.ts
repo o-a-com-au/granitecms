@@ -34,6 +34,19 @@ export function createTmpSiteRoot(
 
   if (options.git) {
     execFileSync('git', ['init', '--quiet'], { cwd: siteRoot });
+    // Turn off automatic garbage collection in fixture repos. `git
+    // commit` can spawn a detached `git gc --auto` that keeps writing
+    // into .git after the commit command has already returned, which
+    // then races this fixture's own cleanup below: rmSync walks the
+    // tree, gc creates a file in a directory rmSync has just emptied,
+    // and the remove fails with ENOTEMPTY. Seen as a genuinely
+    // intermittent failure (roughly one run in five) in the
+    // commit-heavy move tests, always in teardown rather than in an
+    // assertion. gc.autoDetach alone would only make the gc run in the
+    // foreground; gc.auto 0 stops it being scheduled at all, which is
+    // what a short-lived fixture repo wants.
+    execFileSync('git', ['config', 'gc.auto', '0'], { cwd: siteRoot });
+    execFileSync('git', ['config', 'gc.autoDetach', 'false'], { cwd: siteRoot });
   }
 
   if (options.contentDirs) {
@@ -49,7 +62,12 @@ export function createTmpSiteRoot(
 
   return {
     siteRoot,
-    cleanup: () => rmSync(siteRoot, { recursive: true, force: true }),
+    // maxRetries as well as the gc.auto fix above, not instead of it:
+    // Node retries specifically on EBUSY/EMFILE/ENFILE/ENOTEMPTY/EPERM
+    // with a linear backoff, which covers any other process that
+    // happens to touch the tree mid-delete (a watcher, an indexer)
+    // rather than only the git gc case now ruled out at the source.
+    cleanup: () => rmSync(siteRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 }),
   };
 }
 
