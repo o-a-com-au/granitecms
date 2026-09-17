@@ -23,8 +23,15 @@ import { basename, extname } from 'node:path';
 // not a second, independently-invented convention.
 const HASH_LENGTH = 12;
 
-// Images only - confirmed with the user, not a general document
-// library. .svg is rejected regardless of this list even though it's
+// Images and short videos - not a general document library. Video was
+// added deliberately (confirmed with the user) for silent looping
+// clips used where a hero image would otherwise go; long-form video
+// belongs on YouTube/Vimeo and needs nothing from here. The upload cap
+// (site.config.json's media.maxUploadBytes, 10MB by default) is what
+// keeps that distinction honest - it comfortably fits a well-compressed
+// 10-15s loop and comfortably rejects a real film.
+//
+// .svg is rejected regardless of this list even though it's
 // technically an image format - docs/cms-build-plan.md's own "SVG
 // rejected outright, not sanitised" decision (a real stored-XSS path
 // otherwise: mime-types.ts maps .svg to a real image/svg+xml content
@@ -35,7 +42,7 @@ const HASH_LENGTH = 12;
 // constant, specifically so seed-media.ts (an offline tool with no
 // HTTP request to validate) enforces the exact same rule rather than
 // a second, independently-maintained copy of it.
-export const ALLOWED_UPLOAD_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
+export const ALLOWED_UPLOAD_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm']);
 
 export function buildMediaFilename(originalFilename: string, bytes: Buffer): string {
   const hash = createHash('sha256').update(bytes).digest('hex').slice(0, HASH_LENGTH);

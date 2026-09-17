@@ -128,6 +128,66 @@ test('POST /v1/media with a valid image returns 201 with {name, size, url}, and 
   }
 });
 
+test('POST /v1/media accepts an .mp4 - short silent loops are a supported media kind, not just images', async () => {
+  const { app, cleanup } = buildMediaTestServer();
+  try {
+    const { payload, contentType } = buildMultipartBody('loop.mp4', 'video/mp4', Buffer.from('fake-mp4-bytes'));
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/media',
+      headers: { authorization: `Bearer ${MEDIA_TOKEN}`, 'content-type': contentType },
+      payload,
+    });
+
+    assert.equal(response.statusCode, 201);
+    const body = response.json() as { name: string; url: string };
+    // Content-addressed exactly like an image - the naming scheme is
+    // format-agnostic, so video needed nothing new here.
+    assert.match(body.name, /^loop-[0-9a-f]{12}\.mp4$/);
+
+    const fetched = await app.inject({ method: 'GET', url: body.url });
+    assert.equal(fetched.statusCode, 200);
+    assert.equal(fetched.headers['content-type'], 'video/mp4');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('POST /v1/media accepts a .webm', async () => {
+  const { app, cleanup } = buildMediaTestServer();
+  try {
+    const { payload, contentType } = buildMultipartBody('loop.webm', 'video/webm', Buffer.from('fake-webm'));
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/media',
+      headers: { authorization: `Bearer ${MEDIA_TOKEN}`, 'content-type': contentType },
+      payload,
+    });
+    assert.equal(response.statusCode, 201);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('POST /v1/media still rejects a .mov - widening to video did not open the allowlist generally', async () => {
+  const { app, cleanup } = buildMediaTestServer();
+  try {
+    const { payload, contentType } = buildMultipartBody('clip.mov', 'video/quicktime', Buffer.from('fake-mov'));
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/media',
+      headers: { authorization: `Bearer ${MEDIA_TOKEN}`, 'content-type': contentType },
+      payload,
+    });
+    assert.equal(response.statusCode, 415);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
 test('POST /v1/media with an .svg file is rejected with 415, and nothing is written to disk', async () => {
   const { app, cleanup } = buildMediaTestServer();
   try {

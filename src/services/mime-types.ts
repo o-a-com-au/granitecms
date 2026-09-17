@@ -23,6 +23,13 @@ export const MIME_TYPES: Record<string, string> = {
   '.gif': 'image/gif',
   '.svg': 'image/svg+xml',
   '.webp': 'image/webp',
+  // Video: without these an uploaded .mp4 serves as the
+  // DEFAULT_MIME_TYPE below (application/octet-stream), which every
+  // browser treats as "download this" rather than playing it - and
+  // media-public.ts sets X-Content-Type-Options: nosniff, so nothing
+  // rescues it by sniffing. Same failure robots.txt already hit.
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
   '.ico': 'image/x-icon',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',

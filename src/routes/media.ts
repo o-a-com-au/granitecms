@@ -43,7 +43,7 @@ async function handleUploadMedia(request: FastifyRequest, reply: FastifyReply, c
     reply.code(415).send({
       statusCode: 415,
       error: 'Unsupported Media Type',
-      message: `"${extension}" is not an accepted image type`,
+      message: `"${extension}" is not an accepted media type`,
     });
     return;
   }

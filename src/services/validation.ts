@@ -37,17 +37,17 @@ export interface ThemeSchemas {
 const ajv = new Ajv({ allErrors: true, strict: false });
 
 // The six format values guide-theme-authoring.md/AGENTS.md actually
-// document (richtext/image/textarea/uri/date/color/range/toggle - uri
-// and date are real standard JSON Schema formats already understood
+// document (richtext/image/video/textarea/uri/date/color/range/toggle -
+// uri and date are real standard JSON Schema formats already understood
 // without this) are still, correctly, UI hints only: registering them
 // as a literal no-op format (the `true` here, not a real validator
 // function) doesn't make Ajv enforce anything about them, it only
 // stops it printing "unknown format \"x\" ignored" for values that are
 // completely expected. A theme author's genuine typo (e.g. "iamge")
 // still isn't in this list, so it still warns - this only silences the
-// six we ourselves tell theme authors to use, not unknown-format
+// ones we ourselves tell theme authors to use, not unknown-format
 // warnings in general.
-for (const format of ['richtext', 'image', 'textarea', 'color', 'range', 'toggle']) {
+for (const format of ['richtext', 'image', 'textarea', 'color', 'range', 'toggle', 'video']) {
   ajv.addFormat(format, true);
 }
 
