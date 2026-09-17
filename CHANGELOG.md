@@ -2,6 +2,19 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
+## [0.4.0] - 2026-09-17
+
+### Added
+
+- **The media library now accepts and serves video** (`.mp4` and `.webm`), for the short silent loops that stand in for a hero image rather than long-form video. Same 10MB cap as any other upload - anything longer belongs on YouTube or Vimeo, embedded. `.svg` stays rejected (it is never sanitised, so it is a stored-XSS path when loaded as a top-level navigation), and `.mov` with it, since QuickTime frequently will not play in Chrome or Firefox at all.
+- **Real HTTP Range support on `/media/*`**: `Accept-Ranges: bytes` on every response, a `206` with `Content-Range` for a satisfiable range, and a `416` for one starting past the end. This is not a bandwidth optimisation. Safari and iOS open a `<video>` with `Range: bytes=0-1` and refuse to play at all without a `206` in reply, so hosted video simply did not work before this. A suffix range (`bytes=-500`) correctly means the *last* 500 bytes rather than the first, an end past the last byte is clamped rather than rejected (browsers routinely overshoot), and a multi-range request falls back to sending the whole file rather than answering with an incorrect multipart body.
+- **`format: "video"`** is now a recognised UI hint on an `"type": "object"` setting, storing `{ url, poster }`. The admin renders a video picker with a poster picker for it, in place of the raw-JSON fallback an unrecognised object shape otherwise gets.
+
+### Documentation
+
+- **The scaffold's `AGENTS.md` now says where images actually go.** An agent building a real site from it put every image in the site root, twice running. `assets/` is now described as design assets only, the workflow names the `seed-media` step and `npm run check` explicitly, and the Images section leads with where images live. It also states plainly that one image is one file and one URL, and that the CMS does not generate resized variants - previously left to inference.
+- **`format: "video"` is documented in both `AGENTS.md` and `guide-theme-authoring.md`.** Both present their format table as an exhaustive, closed set ("never invent a new setting field shape"), so leaving the new value out did not merely omit it - it actively told theme authors the field did not exist.
+
 ## [0.3.1] - 2026-09-17
 
 ### Fixed
