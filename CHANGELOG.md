@@ -2,7 +2,7 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
-## [Unreleased]
+## [0.3.0] - 2026-09-17
 
 ### Added
 
