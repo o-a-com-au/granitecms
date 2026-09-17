@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
+## [0.3.1] - 2026-09-17
+
+### Fixed
+
+- **The scaffold's own `AGENTS.md` now explains what a page's `type` does.** It was described only as "free-form", with nothing saying that a template's `type` is inherited by every page created from it, or that the value is what `GET /search.json?pageType=...` filters on. An Article template left at `"type": "page"` therefore produces articles no blog index can find - and because it still validates and previews perfectly, nothing signals the mistake. Documentation only; no code change.
+
 ## [0.3.0] - 2026-09-17
 
 ### Added
