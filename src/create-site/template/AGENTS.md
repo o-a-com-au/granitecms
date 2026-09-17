@@ -110,6 +110,7 @@ Every setting is plain JSON Schema (`string`, `integer`, `number`, `boolean`, `a
 |---|---|---|
 | `richtext` | `string` | Rich-text editor; render with `{{ ... | raw }}`, not plain `{{ }}` |
 | `image` | `object` | Image picker with focal point; object shape is exactly `{ "url": "...", "focalX": 0.5, "focalY": 0.5 }` - render `{{ section.settings.<field>.url }}` |
+| `video` | `object` | Video picker for a short, silent background loop; object shape is exactly `{ "url": "...", "poster": "..." }` - render the `url` as the `<video>` source and always set `poster="{{ section.settings.<field>.poster }}"`, since the poster is what shows before the clip loads and whenever it cannot play. Only `.mp4`/`.webm` can be uploaded, under the same 10MB media cap - long-form video belongs on YouTube/Vimeo as an embed, not here. No focal point: a loop is played as a background rather than cropped around a subject |
 | `textarea` | `string` | Multi-line `<textarea>` |
 | `uri` | `string` | `<input type="url">` |
 | `date` | `string` | `<input type="date">`, value as `YYYY-MM-DD` |
@@ -185,6 +186,11 @@ Every type/format combination above needs nothing beyond what triggers it - no `
 "poster": {
   "type": "object",
   "format": "image"
+}
+
+"backgroundLoop": {
+  "type": "object",
+  "format": "video"
 }
 
 "tags": {

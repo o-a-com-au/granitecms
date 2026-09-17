@@ -36,7 +36,7 @@ export interface ThemeSchemas {
 // everywhere (see theme-schemas.ts).
 const ajv = new Ajv({ allErrors: true, strict: false });
 
-// The six format values guide-theme-authoring.md/AGENTS.md actually
+// The nine format values guide-theme-authoring.md/AGENTS.md actually
 // document (richtext/image/video/textarea/uri/date/color/range/toggle -
 // uri and date are real standard JSON Schema formats already understood
 // without this) are still, correctly, UI hints only: registering them
