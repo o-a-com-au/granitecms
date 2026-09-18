@@ -146,6 +146,17 @@ export function scaffoldSite(targetDir: string): { raw: string } {
           tunnel: 'node server.js --tunnel',
           dev: 'node --watch-path=../theme server.js',
           check: 'check-site',
+          // seed-media is the package's own installed CLI bin, exposed
+          // as a script for exactly the same reason check is: there is
+          // no package.json or node_modules at the SITE root, only here
+          // in vhost/, so the obvious-looking `npx seed-media` run from
+          // the site directory resolves nothing locally, goes to the
+          // public registry for a package by that name and dies with
+          // E404 - while still exiting 0. That is not hypothetical: it
+          // is what sent a generated site's images into theme/root/
+          // instead of media/. Run it from here as
+          // `npm run seed-media -- .. <file>`.
+          'seed-media': 'seed-media',
         },
         dependencies: {
           // Pinned exact, never a ^range - at v0.x even a minor bump

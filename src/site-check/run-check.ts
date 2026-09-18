@@ -4,8 +4,9 @@ import { renderPage } from '../renderer/render-page.ts';
 import { PathSafetyError, sanitisePath } from '../services/path-safety.ts';
 import { buildSitemapUrls } from '../routes/sitemap.ts';
 import { urlToPagePath } from '../services/urls.ts';
+import { ALLOWED_UPLOAD_EXTENSIONS } from '../media/filename.ts';
 
-export type CheckFindingKind = 'schema' | 'render-error' | 'missing-asset' | 'broken-link';
+export type CheckFindingKind = 'schema' | 'render-error' | 'missing-asset' | 'broken-link' | 'misplaced-media';
 
 export interface CheckFinding {
   kind: CheckFindingKind;
@@ -28,24 +29,52 @@ export interface CheckResult {
 // "the schema surface here is narrow and flat... a library would be
 // heavier than the problem warrants" precedent for the equivalent
 // choice on the admin side.
-const ATTR_PATTERN = /\b(?:src|href)="([^"]*)"|\bsrcset="([^"]*)"/g;
+// poster is included deliberately: a video's poster is a real content
+// image and was not being checked at all before.
+const ATTR_PATTERN = /\b(src|href|poster|srcset)="([^"]*)"/g;
 
-function extractReferences(html: string): string[] {
-  const refs: string[] = [];
+interface Reference {
+  url: string;
+  attribute: string;
+}
+
+function extractReferences(html: string): Reference[] {
+  const refs: Reference[] = [];
   for (const match of html.matchAll(ATTR_PATTERN)) {
-    const [, single, srcset] = match;
-    if (single !== undefined) {
-      refs.push(single);
-    } else if (srcset !== undefined) {
-      for (const entry of srcset.split(',')) {
+    const attribute = match[1] ?? '';
+    const value = match[2] ?? '';
+    if (attribute !== 'srcset') {
+      refs.push({ url: value, attribute });
+    } else {
+      for (const entry of value.split(',')) {
         const url = entry.trim().split(/\s+/)[0];
         if (url) {
-          refs.push(url);
+          refs.push({ url, attribute });
         }
       }
     }
   }
   return refs;
+}
+
+// Any scheme at all that is not http(s). The previous version listed
+// data: explicitly and nothing else, so mailto: (and tel:, and anything
+// future) fell through to the static-file branch below and was reported
+// as a missing file under theme/root/, purely because the text after
+// the "@" contains a dot. One real site produced 39 such findings and
+// not one true one, which is worse than no check: it teaches whoever
+// reads the output to ignore it.
+function hasExternalScheme(ref: string): boolean {
+  return ref.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(ref);
+}
+
+// A content photograph or clip, as opposed to a design asset. Keyed off
+// the same extension list the media upload route accepts, so the two
+// cannot drift; .svg is absent from it, which is what keeps an inline
+// logo or icon from being mistaken for misplaced content.
+function isUploadableMedia(path: string): boolean {
+  const lower = path.toLowerCase();
+  return [...ALLOWED_UPLOAD_EXTENSIONS].some((extension) => lower.endsWith(extension));
 }
 
 // True for a root-relative static path that looks like a real file
@@ -74,6 +103,18 @@ function checkStaticReference(
   rootLabel: string,
   pageUrl: string,
 ): void {
+  // sanitisePath realpaths its root unconditionally, so a site that has
+  // no media/, theme/assets/ or theme/root/ directory at all threw a
+  // raw ENOENT out of the whole check rather than reporting anything -
+  // the check crashing with a stack trace on exactly the sites most
+  // likely to hold a broken reference. A root that does not exist means
+  // the file underneath it does not exist either, which is an ordinary
+  // finding, not an error.
+  if (!existsSync(root)) {
+    findings.push({ kind: 'missing-asset', message: `${originalPath} does not exist under ${rootLabel}`, pageUrl });
+    return;
+  }
+
   try {
     const filePath = sanitisePath(root, relativePath);
     if (!existsSync(filePath)) {
@@ -86,6 +127,14 @@ function checkStaticReference(
     }
     throw error;
   }
+}
+
+// The file exists, so nothing else would ever flag it - which is
+// precisely why this needs saying. A content image outside media/ is
+// invisible to the media library, cannot be replaced by an editor, and
+// is not what the CMS manages.
+function misplacedMessage(path: string, where: string): string {
+  return `${path} is a content image served from ${where} - it belongs in media/ (run \`npm run seed-media -- .. <file>\` from vhost/ and use the /media/... URL it prints)`;
 }
 
 export async function runSiteCheck(siteRoot: string): Promise<CheckResult> {
@@ -115,16 +164,25 @@ export async function runSiteCheck(siteRoot: string): Promise<CheckResult> {
       continue;
     }
 
-    for (const ref of extractReferences(html)) {
-      if (ref.startsWith('http://') || ref.startsWith('https://') || ref.startsWith('data:') || ref.startsWith('//')) {
+    for (const { url: ref, attribute } of extractReferences(html)) {
+      if (hasExternalScheme(ref)) {
         continue;
       }
       const path = ref.split(/[?#]/)[0] ?? ref;
+      // Only src/srcset/poster can carry a content image. An href is a
+      // link or a favicon, and flagging those would make this useless.
+      const rendersMedia = attribute !== 'href' && isUploadableMedia(path);
       if (path.startsWith('/media/')) {
         checkStaticReference(findings, booted.config.mediaRoot, path.slice('/media/'.length), path, 'media/', pageUrl);
       } else if (path.startsWith('/assets/')) {
+        if (rendersMedia) {
+          findings.push({ kind: 'misplaced-media', message: misplacedMessage(path, 'theme/assets/'), pageUrl });
+        }
         checkStaticReference(findings, booted.config.assetsRoot, path.slice('/assets/'.length), path, 'theme/assets/', pageUrl);
       } else if (looksLikeStaticFile(path)) {
+        if (rendersMedia) {
+          findings.push({ kind: 'misplaced-media', message: misplacedMessage(path, 'theme/root/'), pageUrl });
+        }
         checkStaticReference(findings, booted.config.rootMirrorRoot, path.slice(1), path, 'theme/root/', pageUrl);
       } else if (path !== '' && !publishedUrlSet.has(path)) {
         findings.push({ kind: 'broken-link', message: `${path} does not point at a published page`, pageUrl });

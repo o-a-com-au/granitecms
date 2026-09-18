@@ -13,6 +13,7 @@ const KIND_LABELS: Record<CheckFindingKind, string> = {
   'render-error': 'Render error',
   'missing-asset': 'Missing asset',
   'broken-link': 'Broken link',
+  'misplaced-media': 'Misplaced media',
 };
 
 function printGrouped(findings: CheckFinding[]): void {
