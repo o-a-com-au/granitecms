@@ -1,6 +1,14 @@
 <section data-section-id="{{ section.id }}">
   <div class="container">
     <div class="cta-banner reveal">
+      {% if section.settings.backgroundLoop.url %}
+        {% render 'responsive-media',
+             media: section.settings.backgroundLoop,
+             kind: 'video',
+             field: 'backgroundLoop',
+             ratio: '21 / 9',
+             class: 'cta-banner__media' %}
+      {% endif %}
       <div class="cta-banner__inner">
         <h2>{{ section.settings.heading }}</h2>
         {% if section.settings.subheading %}<p>{{ section.settings.subheading }}</p>{% endif %}
@@ -20,7 +28,8 @@
   "required": ["heading"],
   "properties": {
     "heading": { "type": "string", "minLength": 1, "default": "Ready to get started?" },
-    "subheading": { "type": "string" }
+    "subheading": { "type": "string" },
+    "backgroundLoop": { "type": "object", "format": "video" }
   },
   "allowedBlocks": ["button"]
 }

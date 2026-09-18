@@ -6,7 +6,18 @@
       {% if section.settings.subheading %}<p>{{ section.settings.subheading }}</p>{% endif %}
       <div class="hero__actions">{% for html in blocksHtml %}{{ html | raw }}{% endfor %}</div>
     </div>
-    {% if section.settings.codeSnippet %}
+    {% if section.settings.image.url %}
+      {% render 'responsive-media',
+           media: section.settings.image,
+           kind: 'image',
+           field: 'image',
+           alt: section.settings.heading,
+           ratio: '4 / 3',
+           loading: 'eager',
+           priority: true,
+           need: 'The main hero image',
+           class: 'hero__media reveal' %}
+    {% elsif section.settings.codeSnippet %}
       <div class="code-panel reveal">
         <div class="code-panel__bar">
           <span></span><span></span><span></span>
@@ -28,6 +39,7 @@
     "eyebrow": { "type": "string" },
     "heading": { "type": "string", "minLength": 1, "default": "New Section" },
     "subheading": { "type": "string" },
+    "image": { "type": "object", "format": "image" },
     "codeTitle": { "type": "string" },
     "codeSnippet": { "type": "string" }
   },

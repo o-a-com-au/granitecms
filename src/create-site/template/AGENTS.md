@@ -319,13 +319,32 @@ Each entry in `sections` requires `id` (any non-empty string, unique within the 
 
 **One image is one file and one URL. The CMS does not generate resized variants, and you must not hand-build them.** Do not produce fixed-width copies of a photo, do not write a `srcset` listing several generated files, and do not add a build step that emits them. Server-side resizing is a deliberately deferred feature - there is no image processing in the CMS at all - so hand-made variants are files nothing manages: the media library cannot show them as one image, and an editor replacing the picture gets the original swapped while every variant silently keeps the old photo. Reference the single `/media/` URL and let the browser scale it, with CSS (`max-width: 100%`, `object-fit`) doing the responsive work. `width`/`height` attributes and `loading="lazy"` are worth setting; multiple sources are not available.
 
-Once a server is running, uploads go through `POST /v1/media` (multipart, requires a token with `media` scope) or the admin's own media library UI - never write directly into `media/` from an agent, since the CMS names files by content hash. A successful upload returns `{ "url": "/media/<name>" }`. In theme content, an image is just a plain string setting holding that URL:
+Once a server is running, uploads go through `POST /v1/media` (multipart, requires a token with `media` scope) or the admin's own media library UI - never write directly into `media/` from an agent, since the CMS names files by content hash. A successful upload returns `{ "url": "/media/<name>" }`. In theme content, **an image is a `format: "image"` object setting, never a plain string** - and a short silent loop is a `format: "video"` one:
 
 ```json
-{ "type": "string", "default": "" }
+"image": { "type": "object", "format": "image" }
 ```
 
-unless the design needs a focal point for a cropped image, in which case use `"format": "image"` (see the table above) instead of a plain string.
+This is not a stylistic preference. The admin's picker, the focal point, and drag-and-drop replacement all work on that object shape (`{ "url", "focalX", "focalY" }`; a video stores `{ "url", "poster" }`). A plain string setting gets a bare text box and nothing else - and since dropping an image writes the object shape, dragging onto a field declared as a string fails validation outright. Use a plain string only for a path that is never editable content, such as a theme asset bundled under `theme/assets/`.
+
+### Making an image or video droppable
+
+Render every content image and video through the `responsive-media` snippet the scaffold ships in `theme/snippets/` - see `hero.liquid` and `cta-banner.liquid` for working call sites:
+
+```liquid
+{% if section.settings.image.url %}
+  {% render 'responsive-media',
+       media: section.settings.image,
+       kind: 'image',
+       field: 'image',
+       alt: 'What is actually in the picture',
+       ratio: '16 / 9' %}
+{% endif %}
+```
+
+The snippet puts `data-cms-media="<field>"` on the element it renders (plus `data-cms-image` for images). **That attribute is the whole contract.** The admin finds a drop target by searching the previewed page for it, and uses its value to know which setting to write the new URL into, so `field` must match the schema property name exactly. A hand-written `<img>` without it renders perfectly and is simply never droppable - a silent gap, because nothing about the page looks wrong, which is exactly how a real generated site shipped with every image un-editable.
+
+Guard the call on the url, as above. An unset image renders nothing at all rather than a placeholder: a theme cannot tell whether it is rendering for the admin preview or the public site, so an editor-only affordance would show to real visitors. The first image is set through the Fields panel's own picker; drag-and-drop replaces it from then on.
 
 If you're writing starter content before a server is even running - so `POST /v1/media` isn't reachable yet - use the `seed-media` CLI instead of placing images under `theme/root/`. It computes the exact same content-addressed filename a real upload would, so the result is indistinguishable from one:
 

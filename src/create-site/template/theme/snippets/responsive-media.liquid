@@ -1,0 +1,107 @@
+{%- comment -%}
+  responsive-media - the only way a content image or video should reach a page.
+
+  Renders a `format: "image"` or `format: "video"` setting, and marks the
+  result as a drag-and-drop target so an editor can drag a file from the
+  admin's media library straight onto it in the live preview.
+
+    {% render 'responsive-media',
+         media: section.settings.image,   the whole setting object, not .url
+         kind: 'image',                   'image' or 'video'
+         field: 'image',                  REQUIRED - the settings key this
+                                          renders, which is what a drop writes
+                                          back to
+         alt: 'What is actually in the picture',
+         ratio: '16 / 9',                 any CSS aspect-ratio value
+         loading: 'eager',                'eager' above the fold, else lazy
+         priority: true,                  adds fetchpriority=high
+         need: 'Wide shot of the still house',   shown in the empty slot
+         class: 'extra-class' %}
+
+  Why `field` matters
+  -------------------
+  The admin finds a drop target by looking for data-cms-media, and uses its
+  value to know which setting to write the new URL into. Get it wrong and the
+  drop silently writes to the wrong field; omit it and the image simply is not
+  droppable. It must match the schema property name exactly.
+
+  An empty slot is NOT a drop target (decided directly). A theme has no way to
+  tell whether it is rendering for the admin preview or for the public site -
+  the renderer does not expose that - so an editor-only affordance would leak
+  onto the live site as a dashed box in front of real visitors. Guard the call
+  instead, exactly as hero.liquid and cta-banner.liquid do:
+
+    {% if section.settings.image.url %}{% render 'responsive-media', ... %}{% endif %}
+
+  so a section with nothing set renders nothing at all. Set the first image
+  through the Fields panel's own picker; drag-and-drop then replaces it.
+
+  No srcset, on purpose
+  ---------------------
+  The CMS names uploaded files by a hash of their own bytes, so a resized
+  variant gets a completely different name - "photo-480w.webp" is not
+  derivable from "photo-3f9a2b7c1e04.jpg". Hand-built variant URLs therefore
+  point at files that do not exist, which renders a page that looks perfectly
+  fine except at one breakpoint. Do not add a srcset here. One image is one
+  file and one URL; let CSS do the responsive work.
+{%- endcomment -%}
+{%- assign media_kind = kind | default: 'image' -%}
+{%- assign media_field = field | default: 'image' -%}
+{%- assign media_url = media.url -%}
+{%- capture ratio_style -%}--media-ratio: {{ ratio | default: '3 / 2' }};{%- endcapture -%}
+
+{%- if media_url == nil or media_url == '' -%}
+  {%- comment -%}
+    Reached only if a caller renders this without guarding on a url - the
+    scaffold's own call sites guard, so this never appears on a real page.
+    Kept as a graceful fallback for a theme that genuinely wants a visible
+    placeholder, and deliberately carrying NO drag attributes: see above.
+  {%- endcomment -%}
+  <div class="media media--empty {{ class }}"
+       style="{{ ratio_style }}"
+       role="img"
+       aria-label="Placeholder. {{ need | default: alt }}">
+    <span class="media__hint">{{ need | default: alt | default: 'Drag a file here' }}</span>
+  </div>
+{%- elsif media_kind == 'video' -%}
+  {%- comment -%}
+    No data-cms-image on a video: an older admin understands only that
+    attribute and would write an image-shaped value ({url, focalX, focalY})
+    over this field's own {url, poster}. Better it ignores the slot entirely
+    than corrupts it.
+
+    A background loop is muted and looping by definition, so it may autoplay.
+    The poster is what shows before the clip loads and wherever it will not
+    play at all, which is why it is worth setting rather than optional.
+  {%- endcomment -%}
+  <div class="media {{ class }}{% if media.poster and media.poster != '' %} media--has-poster{% endif %}"
+       style="{{ ratio_style }}{% if media.poster and media.poster != '' %} --media-poster: url('{{ media.poster }}');{% endif %}"
+       data-cms-media="{{ media_field }}"
+       data-cms-media-kind="video">
+    <video
+      src="{{ media_url }}"
+      {% if media.poster and media.poster != '' %}poster="{{ media.poster }}"{% endif %}
+      autoplay
+      muted
+      loop
+      playsinline
+      preload="metadata"
+      {% if alt and alt != '' %}aria-label="{{ alt }}"{% else %}aria-hidden="true"{% endif %}></video>
+  </div>
+{%- else -%}
+  {%- assign fx = media.focalX | default: 0.5 | times: 100 | round: 1 -%}
+  {%- assign fy = media.focalY | default: 0.5 | times: 100 | round: 1 -%}
+  <div class="media {{ class }}"
+       style="{{ ratio_style }}"
+       data-cms-media="{{ media_field }}"
+       data-cms-media-kind="image"
+       data-cms-image="{{ media_field }}">
+    <img
+      src="{{ media_url }}"
+      alt="{{ alt }}"
+      loading="{{ loading | default: 'lazy' }}"
+      decoding="async"
+      {% if priority %}fetchpriority="high"{% endif %}
+      style="object-position: {{ fx }}% {{ fy }}%;">
+  </div>
+{%- endif -%}

@@ -1000,6 +1000,74 @@ section {
 }
 
 /* ----- CTA banner ----- */
+/* responsive-media snippet -------------------------------------------
+   One wrapper for both an image and a video, so a section does not care
+   which it was given. The aspect ratio comes in as a custom property
+   from the snippet's own `ratio` parameter. */
+.media {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: var(--media-ratio, 3 / 2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.media img,
+.media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The empty slot. Visibly a placeholder rather than a broken image, and
+   still a drop target - dragging a file onto it is how it gets filled. */
+.media--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.media__hint {
+  max-width: 22ch;
+  text-align: center;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  opacity: 0.6;
+}
+
+/* An autoplaying loop is motion the viewer did not ask for, and no
+   amount of CSS can stop a video element autoplaying - but hiding it
+   and painting its own poster in its place gets the same result, so a
+   reduced-motion viewer sees the still rather than the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .media--has-poster {
+    background-image: var(--media-poster);
+    background-size: cover;
+    background-position: center;
+  }
+
+  .media--has-poster video {
+    display: none;
+  }
+}
+
+.hero__media {
+  width: 100%;
+}
+
+/* Sits behind the banner's own copy rather than beside it. */
+.cta-banner__media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  opacity: 0.35;
+}
+
 .cta-banner {
   background: var(--color-dark);
   color: var(--color-dark-ink);
@@ -1019,6 +1087,8 @@ section {
 }
 
 .cta-banner__inner {
+  position: relative;
+  z-index: 1;
   position: relative;
   z-index: 1;
   max-width: 560px;
