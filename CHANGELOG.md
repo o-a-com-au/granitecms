@@ -2,6 +2,16 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
+## [0.5.1] - 2026-09-19
+
+### Fixed
+
+- **`seed-media` could not be run the way every document said to run it.** `npx seed-media . <file>` from the site directory never worked: there is no `package.json` or `node_modules` at the site root - the CMS is installed under `vhost/` - so npx resolves nothing locally, asks the public registry for a package called "seed-media" and fails with a 404, *while still exiting 0*. A generated site consequently put all 28 of its images in `theme/root/images/`, because the one documented route into `media/` was a dead end that reported no error. The generated `vhost/package.json` now exposes a `seed-media` script, exactly as it already did for `check`, and both documents give the working form: `npm run seed-media -- .. <file>` from `vhost/`.
+- **`npm run check` now reports a content image or video served from `theme/root/` or `theme/assets/`** as a `misplaced-media` finding. This had no other way of being noticed: the file exists, so the page renders perfectly, and the only symptom is that the media library never shows the image and an editor can never replace it. The rule keys off the same extension list the upload route accepts, so the two cannot drift, and only examines `src`/`srcset`/`poster` - an `href` is a link or a favicon, and `.svg` is absent from that list, so a site's own icon and an inline logo are not mistaken for misplaced photographs.
+- **A `mailto:` link was reported as a missing file**, because the text after the "@" contains a dot and so looked like a filename. One real site produced 39 such findings and not a single true one - output that noisy trains whoever reads it to ignore the check entirely. Any non-http scheme (`mailto:`, `tel:`, and anything future) is now skipped.
+- **A video's `poster` was never checked at all.** It is a real content image reference and is now scanned alongside `src` and `srcset`.
+- **A site with no `media/`, `theme/assets/` or `theme/root/` directory crashed the check** with a raw `ENOENT` instead of reporting the missing file, because path sanitisation resolves its root argument unconditionally. The guard fell over on exactly the sites most likely to hold a broken reference. A root directory that does not exist now means the file does not exist, which is an ordinary finding.
+
 ## [0.5.0] - 2026-09-18
 
 ### Added
