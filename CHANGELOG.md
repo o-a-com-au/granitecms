@@ -2,6 +2,21 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
+## [0.5.0] - 2026-09-18
+
+### Added
+
+- **Every scaffolded site now ships `theme/snippets/responsive-media.liquid`**, and the scaffold uses it: `hero` gains an image setting and `cta-banner` a short silent background loop. It renders a `format: "image"` or `format: "video"` setting and marks the result as a drag-and-drop target, so an editor can drag a file from the admin's media library straight onto the picture in the live preview. Until now the scaffold shipped no image snippet at all, and not one of its sections or blocks even had an image setting, so a theme author had nothing to copy.
+  - It deliberately builds no `srcset`. Uploaded files are named by a hash of their own bytes, so a resized variant's name is not derivable from the original's URL - hand-built variant URLs point at files that do not exist, producing a page that looks perfect except at one breakpoint, which is precisely the failure `npm run check` exists to catch.
+  - An unset image renders nothing at all rather than a placeholder. A theme cannot tell whether it is rendering for the admin preview or for the public site, so an editor-only affordance would show to real visitors.
+  - A video slot emits `data-cms-media`/`data-cms-media-kind` but never `data-cms-image`. An admin predating video support understands only the older attribute and would write an image-shaped value (`{ url, focalX, focalY }`) straight over the field's own `{ url, poster }` - better it ignores the slot than corrupts it.
+
+### Fixed
+
+- **The attribute that makes an image editable was documented nowhere.** Drag-and-drop finds a drop target purely by looking for `data-cms-image` in the previewed page, and no document in this project mentioned it. A real generated site consequently shipped with every image un-editable: the theme rendered perfectly, images simply were not droppable, and nothing about the page looked wrong. `AGENTS.md` and `guide-theme-authoring.md` now both spell out the contract, and do so at each point an image actually comes up rather than in one section near the end.
+- **`AGENTS.md` said an image "is just a plain string setting"**, treating `format: "image"` as the exception for when a focal point is wanted. That is backwards: a drop writes an object, so a string-declared field fails validation outright. The object form is now the documented default, and the `seed-media` example that still produced a plain string has been corrected to match.
+- **Both guides told authors to hand-write the markup** - `{{ section.settings.<field>.url }}` for an image, a bare `<video>` for a loop. Both now point at the snippet, including the format table rows, the worked example a section is copied from, and the snippets section itself.
+
 ## [0.4.0] - 2026-09-17
 
 ### Added
