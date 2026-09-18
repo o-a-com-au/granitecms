@@ -38,7 +38,7 @@ This scaffold already ships real, working examples worth reading before writing 
 **Only these keywords are supported**: `type`, `properties`, `required`, `additionalProperties`, `default`, `minLength`, `maxLength`, `minimum`, `maximum`, `pattern`, `enum`, `items`, `minItems`, `maxItems`, plus the custom `format`/`title`/`description`/`allowedBlocks`/`api`/`swatches`/`step`/`unit` keywords documented below. **Never `$ref`, `$defs`, `definitions`, `allOf`, `anyOf`, `oneOf`, `not`, or `if`/`then`/`else`** - every property's schema must be fully self-contained, written out in full where it's used. If the same shape (e.g. an image object) repeats across several properties or several component files, write it out each time rather than trying to share/reference a definition - there is no cross-referencing mechanism here, in a single schema block or across files, regardless of what standard JSON Schema itself supports elsewhere.
 3. Once the theme components exist, compose an actual page by writing a file under `content/pages/` whose `sections` array references those types by filename, with a `settings` object matching each one's schema (see "Content JSON model" below).
 4. **For any page type the site will have more than one of** - a project, an article, a case study, a team member - also write a starting point for it under `theme/templates/<name>.json`. This is easy to skip and worth not skipping: without a template, every new page an editor creates starts completely blank, and they have to rebuild the same section stack by hand every time. A template is just a real page file kept in a different folder - the same shape as anything under `content/pages/` (`schemaVersion`, `name`, `title`, `type`, `layout`, `published`, `sections`), validated identically, using the section types this theme already defines. Its `"title"` is the label an editor picks from, so name it for the page type (`"Project"`, `"Article"`), never `"Untitled"`. **Set its `"type"` to that kind too** (`"project"`, `"article"`) - not `"page"`. Every page an editor creates from a template inherits the template's own `type`, and that value is what listings filter on, so an Article template left at `"type": "page"` silently produces articles no blog index can find. This is easy to get wrong because the template still validates and previews perfectly either way; nothing fails, the listing is simply always empty. Fill each section's settings with short placeholder copy rather than leaving them empty - a template is a starting point to edit, not a blank form. A template that fails validation is skipped silently at boot, so preview a page built from it.
-5. **Put every image through `seed-media` before referencing it - never copy image files into the repo by hand.** Photographs and other content images do not belong in the site root, in `theme/root/`, or in `theme/assets/`; they belong in `media/`, under a content-addressed filename the CMS generates. Run `npx seed-media . <file>...` from the site directory and use the `/media/...` URL it prints. See "Images" below for the detail and for how this changes once a server is running. Getting this wrong is quiet rather than loud: the page still renders, the image is simply missing.
+5. **Put every image through `seed-media` before referencing it - never copy image files into the repo by hand.** Photographs and other content images do not belong in the site root, in `theme/root/`, or in `theme/assets/`; they belong in `media/`, under a content-addressed filename the CMS generates. Run `npx seed-media . <file>...` from the site directory and use the `/media/...` URL it prints, as the `url` of a `format: "image"` setting rendered through the `responsive-media` snippet - never a hand-written `<img>`. See "Images" below for the detail and for how this changes once a server is running. Getting this wrong is quiet rather than loud: the page still renders, the image is simply missing.
 6. Preview the result, then run `npm run check` before considering the task done - it renders every page for real and fails on any image or link pointing at a file that does not exist, which is the fastest way to catch a misplaced image. See "Previewing your work".
 
 ### Worked example - a section
@@ -47,6 +47,14 @@ This scaffold already ships real, working examples worth reading before writing 
 <section class="hero" data-section-id="{{ section.id }}">
   <h1>{{ section.settings.heading }}</h1>
   {% if section.settings.subheading %}<p>{{ section.settings.subheading }}</p>{% endif %}
+  {% if section.settings.image.url %}
+    {% render 'responsive-media',
+         media: section.settings.image,
+         kind: 'image',
+         field: 'image',
+         alt: section.settings.heading,
+         ratio: '16 / 9' %}
+  {% endif %}
   <div class="hero__blocks">{% for html in blocksHtml %}{{ html | raw }}{% endfor %}</div>
 </section>
 {% schema %}
@@ -56,7 +64,8 @@ This scaffold already ships real, working examples worth reading before writing 
   "required": ["heading"],
   "properties": {
     "heading": { "type": "string", "minLength": 1, "default": "New section" },
-    "subheading": { "type": "string" }
+    "subheading": { "type": "string" },
+    "image": { "type": "object", "format": "image" }
   }
 }
 {% endschema %}
@@ -102,6 +111,8 @@ Write the description as one short sentence about what the section **is**, not w
 
 Flat `.liquid` files in `snippets/`, invoked with `{% render 'name', param1: value %}` - never `{% include %}`. A snippet only sees parameters explicitly passed to it; the calling scope never leaks in.
 
+This scaffold ships one you must use: **`snippets/responsive-media.liquid`, through which every content image and video is rendered.** It emits the attribute that lets an editor drag a file from the media library straight onto the picture in the live preview. See "Making an image or video droppable" below, and `theme/sections/hero.liquid` / `theme/sections/cta-banner.liquid` for real call sites.
+
 ## Field format hints
 
 Every setting is plain JSON Schema (`string`, `integer`, `number`, `boolean`, `array`, with `minLength`/`minimum`/`enum`/etc. for real validation). One extra keyword, `"format"`, is a UI hint only (never validated server-side) that the admin reads to choose a richer input widget:
@@ -109,8 +120,8 @@ Every setting is plain JSON Schema (`string`, `integer`, `number`, `boolean`, `a
 | `format` | On type | Effect |
 |---|---|---|
 | `richtext` | `string` | Rich-text editor; render with `{{ ... | raw }}`, not plain `{{ }}` |
-| `image` | `object` | Image picker with focal point; object shape is exactly `{ "url": "...", "focalX": 0.5, "focalY": 0.5 }` - render `{{ section.settings.<field>.url }}` |
-| `video` | `object` | Video picker for a short, silent background loop; object shape is exactly `{ "url": "...", "poster": "..." }` - render the `url` as the `<video>` source and always set `poster="{{ section.settings.<field>.poster }}"`, since the poster is what shows before the clip loads and whenever it cannot play. Only `.mp4`/`.webm` can be uploaded, under the same 10MB media cap - long-form video belongs on YouTube/Vimeo as an embed, not here. No focal point: a loop is played as a background rather than cropped around a subject |
+| `image` | `object` | Image picker with focal point; object shape is exactly `{ "url": "...", "focalX": 0.5, "focalY": 0.5 }`. **Render it with `{% render 'responsive-media' %}`, never a hand-written `<img>`** - see "Making an image or video droppable" below |
+| `video` | `object` | Video picker for a short, silent background loop; object shape is exactly `{ "url": "...", "poster": "..." }`. **Render it with `{% render 'responsive-media' %}`, never a hand-written `<video>`** - see "Making an image or video droppable" below. The snippet sets the poster for you, which matters because the poster is what shows before the clip loads and whenever it cannot play. Only `.mp4`/`.webm` can be uploaded, under the same 10MB media cap - long-form video belongs on YouTube/Vimeo as an embed, not here. No focal point: a loop is played as a background rather than cropped around a subject |
 | `textarea` | `string` | Multi-line `<textarea>` |
 | `uri` | `string` | `<input type="url">` |
 | `date` | `string` | `<input type="date">`, value as `YYYY-MM-DD` |
@@ -342,6 +353,31 @@ Render every content image and video through the `responsive-media` snippet the 
 {% endif %}
 ```
 
+A video is the same call with `kind: 'video'` and the video setting - the snippet handles the `<video>`, the poster and the autoplay/muted/loop attributes itself:
+
+```liquid
+{% if section.settings.backgroundLoop.url %}
+  {% render 'responsive-media',
+       media: section.settings.backgroundLoop,
+       kind: 'video',
+       field: 'backgroundLoop',
+       ratio: '21 / 9' %}
+{% endif %}
+```
+
+Parameters:
+
+| Parameter | Effect |
+|---|---|
+| `media` | **Required.** The whole setting object, not its `.url` - the snippet reads `url`, and `focalX`/`focalY` or `poster` from it |
+| `field` | **Required.** The schema property name this renders. A drop writes the new URL back to exactly this key, so a wrong value silently writes to the wrong setting |
+| `kind` | `'image'` (the default) or `'video'` |
+| `alt` | Real alt text describing what is in the picture. On a video it becomes an `aria-label`; omit it for a purely decorative loop and the clip is marked `aria-hidden` instead |
+| `ratio` | Any CSS `aspect-ratio` value, e.g. `'16 / 9'`. Defaults to `'3 / 2'` |
+| `loading` | `'eager'` for anything above the fold, otherwise omit - it defaults to `lazy`. Lazy-loading a hero image delays the largest thing on the page |
+| `priority` | `true` adds `fetchpriority="high"`. The hero image only, never more than one per page |
+| `class` | Extra classes on the wrapper element |
+
 The snippet puts `data-cms-media="<field>"` on the element it renders (plus `data-cms-image` for images). **That attribute is the whole contract.** The admin finds a drop target by searching the previewed page for it, and uses its value to know which setting to write the new URL into, so `field` must match the schema property name exactly. A hand-written `<img>` without it renders perfectly and is simply never droppable - a silent gap, because nothing about the page looks wrong, which is exactly how a real generated site shipped with every image un-editable.
 
 Guard the call on the url, as above. An unset image renders nothing at all rather than a placeholder: a theme cannot tell whether it is rendering for the admin preview or the public site, so an editor-only affordance would show to real visitors. The first image is set through the Fields panel's own picker; drag-and-drop replaces it from then on.
@@ -354,10 +390,14 @@ npx seed-media <site-directory> photo.jpg another.png
 # another.png -> /media/another-91cd4a08f2b1.png
 ```
 
-Then use the printed URL exactly like a real upload's:
+Then use the printed URL as the `url` of a `format: "image"` setting, exactly like a real upload's - not as a plain string:
 
 ```json
-{ "type": "string", "default": "/media/photo-3f9a2b7c1e04.jpg" }
+"image": {
+  "type": "object",
+  "format": "image",
+  "default": { "url": "/media/photo-3f9a2b7c1e04.jpg", "focalX": 0.5, "focalY": 0.5 }
+}
 ```
 
 This is only for seeding starter content offline - once a server is running, a later image change from an editor still goes through `POST /v1/media` or the admin's media library as normal.
