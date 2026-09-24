@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
+## [Unreleased]
+
+### Added
+
+- **`npm run pull` copies a running site's content and media into a local one** (`pull-site`, a new bin): `CMS_TOKEN=<token> npm run pull -- <url>` from `vhost/`. Pages, menus, drafts and redirects are mirrored and missing media downloaded, through the `/v1/` API, so it works wherever the site is hosted. The theme is never touched and nothing is committed. It refuses while `content/` has uncommitted changes (`--force` overrides), refuses a live site on a newer content schema, and checks every server-supplied path before it becomes a local file. Existing sites add `"pull": "pull-site"` to `vhost/package.json`'s scripts.
+
 ## [0.5.3] - 2026-09-24
 
 ### Added

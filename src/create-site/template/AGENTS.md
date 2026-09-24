@@ -433,6 +433,8 @@ npm run dev         # same, plus auto-restart whenever a theme/ file changes - u
 npm run stop        # stops a site started by any of the above, from any terminal
 ```
 
+To copy a running site's content and media into this one (for example, to work locally against what the live site has), `CMS_TOKEN=<its API token> npm run pull -- <its URL>`. It overwrites `content/` and refuses while `content/` has uncommitted changes; it never touches `theme/`.
+
 `npm run dev` only watches `theme/` - content changes (via the API) already show up on the next request with no restart needed, so there's nothing to gain watching `content/` too.
 
 Then request the page you changed (`curl http://localhost:<port>/<path>`, or open it in a browser) and confirm it actually renders as expected before considering a change finished - a page that fails schema validation or references a non-existent section type won't crash the server, but the specific page/component involved will misbehave silently.

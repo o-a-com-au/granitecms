@@ -505,6 +505,24 @@ Design notes:
 - **No `restart`.** Started from another terminal it would run detached, with its logs going nowhere; `npm run stop` then `npm start` does it properly.
 - **"Already running" only on a real port conflict.** Checking the pid file before listening would misfire in a container, where the server is always process 1 and a previous container's record says the same.
 
+## Group Y: `npm run pull`, a local copy of a live site
+
+Raised directly by the project owner: there was no way to get a working local copy of a live site with its images, because `media/` is never in git. The owner chose pulling into the current site over creating a new folder.
+
+| # | Criterion | Proof |
+|---|---|---|
+| Y1 | Against a real running site: pages, menus, drafts and redirects mirrored byte for byte (local extras removed and reported), media downloaded, the theme untouched, nothing committed, the search index rebuilt; a second pull changes nothing and re-downloads no media | `test/pull-site/pull-site.test.ts :: pullSite mirrors a real live site's ...` |
+| Y2 | Refuses while `content/` has uncommitted changes, changing nothing; `--force` overrides | `:: pullSite refuses to overwrite uncommitted local content unless forced ...` |
+| Y3 | Every server-supplied path is untrusted: content paths must be `pages/` or `menus/` JSON with no dot segments, media names flat, both then sanitisePath'd - refused before anything is written | `:: pullSite refuses a content path that would escape the site ...`, `:: pullSite refuses a media name that would escape media/` |
+| Y4 | A wrong token, a newer content schema, and something that isn't a site are each reported plainly | `:: pullSite: a wrong token ...`, `:: pullSite refuses a site with a newer content schema ...` |
+| Y5 | Scaffolded sites get the script | `test/create-site/generate-site.test.ts` (`pkg.scripts.pull`) |
+
+Design notes:
+
+- **Through the API, not SSH.** Works on any host without platform credentials. The cost: the live git history doesn't come across, only the current files.
+- **No theme.** The API doesn't serve Liquid source, and the theme is the developer's code; a local copy runs the local theme.
+- **Never commits.** Pulling is a local, reviewable change like any other edit to the working tree.
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

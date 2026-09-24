@@ -74,6 +74,7 @@ export default tseslint.config(
       'src/services/menus.ts',
       'src/services/menu-references.ts',
       'src/services/pid-file.ts',
+      'src/pull-site/pull-site.ts',
       'src/services/git-revert.ts',
       'src/services/fs-walk.ts',
       'src/services/content-read.ts',

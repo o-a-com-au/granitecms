@@ -78,6 +78,14 @@ What this explicitly does **not** cover: "any shared hosting." A host that can't
 
 `npm run stop` (`stop-site`) stops a running site from any terminal, not only the one it was started in. On start the server records which process to stop in `vhost/data/server.pid` (disposable, never committed): the server itself, or under `npm run dev` the watcher running it, so stopping ends both rather than leaving the watcher waiting to restart it. `stop-site` sends that process `SIGTERM` - the same graceful shutdown as Ctrl+C - and waits for it to exit. It only ever signals a process that is still alive and answering as a site on the recorded port, so a leftover file from a crash is cleaned up rather than getting an unrelated process killed. Starting a site that is already running now says so, and points at `npm run stop`, instead of reporting a bare port conflict. On Windows the signal ends the process immediately rather than gracefully, so the final draft checkpoint is skipped.
 
+`npm run pull` (`pull-site`) copies a running site's content and media into a local one, so it can be run locally with everything working, images included (`media/` is never in git, so cloning the repository alone leaves every image broken). From the local site's `vhost/`:
+
+```
+CMS_TOKEN=<the live site's API token> npm run pull -- https://my-site.example
+```
+
+It uses the site's `/v1/` API, so it works the same wherever the site is hosted, with no SSH access. Pages, menus, drafts and redirects are mirrored - local files the live site doesn't have are removed - and any media file missing locally is downloaded (existing ones are kept; names are content-addressed, so a matching name is the same file). The theme is never touched: the API doesn't serve it, and it is the developer's code rather than the site's content. Nothing is committed; review the result with `git diff`. It refuses while `content/` has uncommitted changes, since those would be overwritten (`--force` pulls anyway), and refuses a live site on a newer content schema than the local agent. The token needs the `content` and `media` scopes. Everything is fetched before anything is written, so a failure part way leaves the local site as it was. The live site's git history does not come across, only its current files.
+
 Deliberately scoped to `theme/` only - `content/`/`drafts/` are already read fresh on every request (pages, menus, and the render cache are all re-checked per request or keyed on file mtime), so a content edit already shows up on the next request with no restart needed. Watching `content/` too would only cause a pointless restart on every draft autosave.
 
 Combine with `--tunnel` if needed: `node --watch-path=../theme server.js --tunnel`.

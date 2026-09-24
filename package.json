@@ -26,7 +26,8 @@
     "mint-token": "dist/create-site/mint-token-cli.js",
     "check-site": "dist/site-check/cli.js",
     "seed-media": "dist/media/seed-media-cli.js",
-    "stop-site": "dist/stop-site/cli.js"
+    "stop-site": "dist/stop-site/cli.js",
+    "pull-site": "dist/pull-site/cli.js"
   },
   "files": [
     "dist"

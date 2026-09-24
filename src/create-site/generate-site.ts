@@ -160,6 +160,9 @@ export function scaffoldSite(targetDir: string): { raw: string } {
           // Stops the site from any terminal, not only the one it was
           // started in (stop-site, via vhost/data/server.pid).
           stop: 'stop-site',
+          // Copies a running site's content and media into this one
+          // (pull-site): `CMS_TOKEN=<token> npm run pull -- <url>`.
+          pull: 'pull-site',
         },
         dependencies: {
           // Pinned exact, never a ^range - at v0.x even a minor bump
