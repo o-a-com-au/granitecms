@@ -59,6 +59,7 @@ const FS_USAGE_ALLOWLIST = new Set<string>([
   'services/fs-walk.ts', // walks agent-configured roots (content/drafts/theme), not request paths
   'services/menus.ts', // walks agent-configured menusRoot/draftsRoot, not request paths
   'services/menu-references.ts', // walks the agent-configured themeRoot; a request's handle is only ever a regex term, never a path
+  'services/pid-file.ts', // reads and writes server.pid under the agent-configured dataRoot, never a request path
   'services/migration-runner.ts', // walks and rewrites files under agent-configured content/drafts roots, not request paths
   'search/rebuild-index.ts', // walks agent-configured pagesRoot and writes to agent-configured dataRoot, not request paths
   'search/query-content.ts', // checks the existence of the agent-configured searchIndexPath, not a request path

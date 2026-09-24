@@ -430,6 +430,7 @@ From `vhost/`:
 npm start          # boots the site on the port set in vhost/site.config.json
 npm run tunnel      # same, plus a public tunnel URL for sharing a preview
 npm run dev         # same, plus auto-restart whenever a theme/ file changes - use this one while iterating
+npm run stop        # stops a site started by any of the above, from any terminal
 ```
 
 `npm run dev` only watches `theme/` - content changes (via the API) already show up on the next request with no restart needed, so there's nothing to gain watching `content/` too.

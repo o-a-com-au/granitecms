@@ -73,6 +73,7 @@ export default tseslint.config(
       'src/services/resolve-blog-url.ts',
       'src/services/menus.ts',
       'src/services/menu-references.ts',
+      'src/services/pid-file.ts',
       'src/services/git-revert.ts',
       'src/services/fs-walk.ts',
       'src/services/content-read.ts',

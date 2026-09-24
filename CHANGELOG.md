@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
+## [Unreleased]
+
+### Added
+
+- **`npm run stop` stops a site from any terminal**, not only the one it was started in (`stop-site`, a new bin). The server records the process to stop in `vhost/data/server.pid`; under `npm run dev` that is the watcher, so both it and the server end. It sends `SIGTERM` (the same graceful shutdown as Ctrl+C) and only to a process still answering as a site on the recorded port. Starting a site that is already running now says so instead of reporting a bare port conflict. Existing sites add `"stop": "stop-site"` to `vhost/package.json`'s scripts.
+
 ## [0.5.2] - 2026-09-24
 
 ### Added

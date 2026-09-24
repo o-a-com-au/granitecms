@@ -486,6 +486,25 @@ Design notes:
 - **New Menu was quietly broken.** It created menus with `PUT /v1/drafts/*`, but menus have no draft state (Group N) and `loadMenus` never reads `content/drafts/menus/`, so a new menu never reached the site; and because the admin reads a draft ahead of the live file, a later live write (an item, or a rename) was hidden behind it. Fixed as part of this rather than separately, since both new actions depended on it. `If-Match: *` still 409s on an occupied path because `etagsMatch` compares literally.
 - **Verified against the real agent**, not only fakes: create with a name, the `*` conflict on an existing menu, rename, and delete, each committed; the rendered nav items were unchanged after renaming `main`.
 
+## Group X: `npm run stop`, from any terminal
+
+Raised directly by the project owner: there was no way to stop a running site without the terminal that started it (short of finding and killing the process by hand).
+
+| # | Criterion | Proof |
+|---|---|---|
+| X1 | On start, the server records the process to stop in `vhost/data/server.pid` (the watcher under `npm run dev`, itself otherwise), only once the port is bound, and removes it on shutdown - but never a record a newer process wrote (a watch restart) | `test/services/pid-file.test.ts` |
+| X2 | `stop-site` signals only a process that is alive and answering as a site on the recorded port; a record of an ended process is removed; nothing to stop is not an error | `test/stop-site/stop-site.test.ts :: stopSite: ...` (5 tests) |
+| X3 | For real, in separate processes: a started site records itself, a second start says it is already running and points at `npm run stop`, and stopping it is graceful (exit code 0) and removes the record | `test/stop-site/stop-site.test.ts :: a real site: ...` |
+| X4 | `npm run stop` in a scaffolded, packed and installed site ends `npm run dev` after a watch restart - watcher and server both | `e2e/dev-watch.check.ts :: npm run stop, from another process, stops the watcher and the server it runs` |
+| X5 | Scaffolded sites get the script | `test/create-site/generate-site.test.ts` (`pkg.scripts.stop`) |
+
+Design notes:
+
+- **A pid file, not "kill whatever holds the port".** A port lookup needs `lsof` (absent on Windows) and can hit an unrelated program. The capabilities check guards the one weakness of a pid file, a reused process id after a crash.
+- **No shutdown endpoint.** Anything that stops a site over HTTP is an attack surface for no gain over a local command.
+- **No `restart`.** Started from another terminal it would run detached, with its logs going nowhere; `npm run stop` then `npm start` does it properly.
+- **"Already running" only on a real port conflict.** Checking the pid file before listening would misfire in a container, where the server is always process 1 and a previous container's record says the same.
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

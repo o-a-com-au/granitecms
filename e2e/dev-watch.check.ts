@@ -18,7 +18,8 @@
 // this file alone.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { type ChildProcess, execFileSync, spawn } from 'node:child_process';
+import { type ChildProcess, execFile, execFileSync, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -135,6 +136,27 @@ test('npm run dev: a real theme file change triggers a real restart and the new 
         await sleep(200);
       }
       assert.fail(`the edited layout never showed up in a real response within the deadline`);
+    });
+
+    // After a watch restart (the step above), from a different process
+    // entirely - the whole point of it. The recorded process is the
+    // watcher, so both it and the server it runs must end, not just
+    // the server (which the watcher would otherwise wait to restart).
+    await t.test('npm run stop, from another process, stops the watcher and the server it runs', async () => {
+      // Asynchronous on purpose: the watcher is this test's own child, and
+      // a synchronous call would block this process from reaping it when
+      // it exits, leaving a zombie that still looks alive to stop-site.
+      // (A real terminal or npm reaps it straight away.)
+      const run = promisify(execFile);
+      const exited = new Promise<number | null>((resolve) => child?.once('exit', (code) => resolve(code)));
+      const { stdout: output } = await run('npm', ['run', 'stop', '--silent'], { cwd: vhostDir });
+      assert.match(output, new RegExp(`Stopped the site \\(was on port ${port}\\)`));
+      assert.equal(await exited, 0);
+      assert.equal(existsSync(join(vhostDir, 'data', 'server.pid')), false);
+      await assert.rejects(fetch(`http://127.0.0.1:${port}/`));
+
+      const { stdout: again } = await run('npm', ['run', 'stop', '--silent'], { cwd: vhostDir });
+      assert.match(again, /The site isn't running\./);
     });
   } finally {
     if (child && child.exitCode === null && !child.killed) {

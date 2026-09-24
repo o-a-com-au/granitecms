@@ -120,6 +120,7 @@ test('scaffoldSite pins @o-a/cms-agent to the exact installed version, and sets 
     assert.equal(pkg.scripts.start, 'node server.js');
     assert.equal(pkg.scripts.tunnel, 'node server.js --tunnel');
     assert.equal(pkg.scripts.dev, 'node --watch-path=../theme server.js');
+    assert.equal(pkg.scripts.stop, 'stop-site');
   } finally {
     cleanup();
   }

@@ -157,6 +157,9 @@ export function scaffoldSite(targetDir: string): { raw: string } {
           // instead of media/. Run it from here as
           // `npm run seed-media -- .. <file>`.
           'seed-media': 'seed-media',
+          // Stops the site from any terminal, not only the one it was
+          // started in (stop-site, via vhost/data/server.pid).
+          stop: 'stop-site',
         },
         dependencies: {
           // Pinned exact, never a ^range - at v0.x even a minor bump

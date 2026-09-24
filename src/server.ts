@@ -16,6 +16,7 @@ import type { DevTunnel } from './services/dev-tunnel.ts';
 import { startDevTunnel } from './services/dev-tunnel.ts';
 import { startIntervalJob } from './services/interval-job.ts';
 import { reindexOnBootIfMissing } from './services/reindex-on-write.ts';
+import { isProcessAlive, readPidFile, removeOwnPidFile, writePidFile } from './services/pid-file.ts';
 
 export interface BuildServerOptions {
   logger?: boolean;
@@ -203,6 +204,7 @@ export async function startServer(
     scheduler.stop();
     process.removeListener('SIGTERM', shutdown);
     process.removeListener('SIGINT', shutdown);
+    removeOwnPidFile(booted.config);
     try {
       await doCheckpoint();
     } catch (error) {
@@ -222,6 +224,14 @@ export async function startServer(
     // them the two real ways to pick a different one instead of
     // rethrowing Node's own stack trace.
     if (error instanceof Error && 'code' in error && error.code === 'EADDRINUSE') {
+      // Most often it's this same site, started earlier in another
+      // terminal - say so, and how to stop it from this one.
+      const running = readPidFile(booted.config);
+      if (running && running.port === serverConfig.port && running.pid !== process.pid && isProcessAlive(running.pid)) {
+        console.error(`This site is already running on port ${serverConfig.port} (process ${running.pid}).`);
+        console.error('Stop it with "npm run stop" from vhost/, then start it again.');
+        process.exit(1);
+      }
       console.error(`Port ${serverConfig.port} is already in use.`);
       console.error(
         `Set a different port with the PORT environment variable (e.g. PORT=3001 node server.js), or "port" in vhost/site.config.json.`,
@@ -240,6 +250,9 @@ export async function startServer(
   const address = app.server.address();
   if (address !== null && typeof address !== 'string') {
     console.log(`Site running at http://127.0.0.1:${address.port}`);
+    // Recorded only once the port is really bound, so a start that
+    // fails never leaves a record of a site that isn't running.
+    writePidFile(booted.config, address.port);
   }
 
   // A search index is never git-tracked (constraint 3), so a fresh
