@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "items": [
     { "label": "Features", "url": "#features" },
     { "label": "Pricing", "url": "#pricing" },

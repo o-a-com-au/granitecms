@@ -3,7 +3,7 @@ import type { MigrationMap } from '../services/migration-runner.ts';
 // The current content schema version. Bumping this and adding a new
 // migrations[N] entry is the only way a content shape may change
 // (constraint 4) - never a manual edit convention.
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 // A trivial identity migration, proving the mechanism (per the build
 // plan's Phase 1 scope): no shape change, only the version bump. Safe
@@ -71,10 +71,22 @@ function migrateV5ToV6(content: Record<string, unknown>): Record<string, unknown
   return { ...content, schemaVersion: 6, name: title };
 }
 
+// menu.schema.json gains an optional "name": the admin's own display
+// label for a menu, editable without touching its filename (which is
+// what themes reference it by, as menus.<filename>, so renaming the
+// file would silently empty every nav that uses it). Optional, so no
+// existing menu needs a value invented for it - the admin falls back
+// to deriving one from the filename, exactly as it always has. No
+// shape change for pages at all; only the version bump.
+function migrateV6ToV7(content: Record<string, unknown>): Record<string, unknown> {
+  return { ...content, schemaVersion: 7 };
+}
+
 export const migrations: MigrationMap = {
   1: migrateV1ToV2,
   2: migrateV2ToV3,
   3: migrateV3ToV4,
   4: migrateV4ToV5,
   5: migrateV5ToV6,
+  6: migrateV6ToV7,
 };

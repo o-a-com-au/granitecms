@@ -23,7 +23,7 @@ media/           uploaded files, sibling of content/ - never git-tracked, see be
 
 | Field | Type | Notes |
 |---|---|---|
-| `schemaVersion` | integer | Always `6` for newly-authored content (the current version). |
+| `schemaVersion` | integer | Always `7` for newly-authored content (the current version). |
 | `name` | string, non-empty | Label shown in the admin's page tree - can differ from `title`. |
 | `title` | string, non-empty | Rendered `<title>` / `{{ page.title }}` in layouts. |
 | `type` | string, non-empty | Free-form - conventionally `"page"`, or a theme-specific value like `"blog-article"` used for `GET /search.json`'s `pageType` filter (see below). No fixed value is enforced. |
@@ -61,7 +61,7 @@ content/pages/
 
 ```json
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "name": "Team",
   "title": "Our Team",
   "type": "page",
@@ -84,7 +84,7 @@ Nest each article under `content/pages/blog/`, giving it a `type` of (for exampl
 
 ```json
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "name": "Hello, world",
   "title": "Hello, world",
   "type": "blog-article",
@@ -105,13 +105,13 @@ A listing/index page for the blog then queries `GET /search.json?pageType=blog-a
 
 `content/menus/*.json`, flat only. The filename (without `.json`) is the menu's name, referenced in layouts as `{{ menus.<name>.items }}` (see `guide-theme-authoring.md`'s layout section).
 
-Required: `schemaVersion` (integer) and `items` (array). Each item requires `label` and `url`, both non-empty strings. `additionalProperties: false` at both the menu level and each item level - no `children`/nested-submenu field exists.
+Required: `schemaVersion` (integer) and `items` (array). Each item requires `label` and `url`, both non-empty strings. Optional: `name`, a non-empty display name for the menu (shown in the admin, and available to layouts as `{{ menus.<name>.name }}`, e.g. as a footer column heading). It never changes how the menu is referenced: that is always the filename, so renaming a menu in the admin cannot break a layout. `additionalProperties: false` at both the menu level and each item level - no `children`/nested-submenu field exists.
 
 ### Worked example - `content/menus/main.json`
 
 ```json
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "items": [
     { "label": "Home", "url": "/" },
     { "label": "About", "url": "/about" },

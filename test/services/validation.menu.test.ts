@@ -54,3 +54,9 @@ test('validateContent dispatches to validateMenu for a menus/ relative path', ()
   const pageShaped = { schemaVersion: 4, title: 'X', type: 'page', layout: 'theme', published: true, sections: [] };
   assert.equal(validateContent('menus/main.json', pageShaped, themeSchemas).valid, false);
 });
+
+test('a menu may carry an optional display name, but not an empty one', () => {
+  assert.equal(validateMenu({ schemaVersion: 7, name: 'Footer Company', items: [] }).valid, true);
+  assert.equal(validateMenu({ schemaVersion: 7, name: '', items: [] }).valid, false);
+  assert.equal(validateMenu({ schemaVersion: 7, name: 42, items: [] }).valid, false);
+});

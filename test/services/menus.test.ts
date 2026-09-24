@@ -67,3 +67,20 @@ test('a malformed menu file (no items array) is skipped individually, not fatal'
     cleanup();
   }
 });
+
+test('loadMenus exposes a menu\'s optional display name alongside its items, keyed by filename regardless', () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ contentDirs: true });
+  try {
+    writeJson(siteRoot, 'content/menus/footerCompany.json', {
+      schemaVersion: 7,
+      name: 'Company',
+      items: [{ label: 'About', url: '/about' }],
+    });
+    const config = loadSiteConfig(siteRoot);
+
+    const menus = loadMenus(config);
+    assert.deepEqual(menus.footerCompany, { name: 'Company', items: [{ label: 'About', url: '/about' }] });
+  } finally {
+    cleanup();
+  }
+});

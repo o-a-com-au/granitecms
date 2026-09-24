@@ -105,6 +105,7 @@ Write the description as one short sentence about what the section **is**, not w
 {{ page.publishDate }}           the page's publish date, if set
 {% for tag in page.tags %}...{% endfor %}   the page's tags, if any
 {{ menus.<name>.items }}         every menu in content/menus/, keyed by filename
+{{ menus.<name>.name }}          that menu's optional display name (blank when unset)
 ```
 
 ### Snippets
@@ -275,7 +276,7 @@ Required fields, `additionalProperties: false`:
 
 | Field | Type | Notes |
 |---|---|---|
-| `schemaVersion` | integer | Always `6` for new content |
+| `schemaVersion` | integer | Always `7` for new content |
 | `name` | string | Internal label (shown in the admin's page tree) |
 | `title` | string | Rendered as `{{ page.title }}` |
 | `type` | string | **The field that decides which listings a page appears in.** Free-form (e.g. `"page"`, `"project"`, `"article"`), lowercase by convention. It is indexed as `pageType` and is what `GET /search.json?pageType=...` filters on, so a project listing, a blog index and a team directory each depend on their pages carrying the right value here. Give every kind of page its own type; `"page"` is for ordinary one-off pages only |
@@ -289,7 +290,7 @@ Each entry in `sections` requires `id` (any non-empty string, unique within the 
 
 ```json
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "name": "Home",
   "title": "Welcome",
   "type": "page",
@@ -308,10 +309,10 @@ Each entry in `sections` requires `id` (any non-empty string, unique within the 
 }
 ```
 
-`content/menus/<name>.json` - referenced in layouts as `{{ menus.<name>.items }}`:
+`content/menus/<name>.json` - referenced in layouts as `{{ menus.<name>.items }}`. An optional `"name"` is the menu's display name (editable in the admin, available as `{{ menus.<name>.name }}`); the filename is still what layouts reference, so never rename the file to rename a menu:
 
 ```json
-{ "schemaVersion": 6, "items": [{ "label": "Home", "url": "/" }, { "label": "About", "url": "/about" }] }
+{ "schemaVersion": 7, "items": [{ "label": "Home", "url": "/" }, { "label": "About", "url": "/about" }] }
 ```
 
 `content/redirects.json` - a single file, not a folder:

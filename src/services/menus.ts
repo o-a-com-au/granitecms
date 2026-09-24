@@ -4,16 +4,20 @@ import type { SiteConfig } from '../config.ts';
 import { listFilesRecursively } from './fs-walk.ts';
 
 export interface MenuContent {
+  // Optional display name (menu.schema.json). Layouts still reference
+  // a menu by its filename; this is only ever something to print.
+  name?: string;
   items: Array<{ label: string; url: string }>;
 }
 
 function tryReadMenu(fullPath: string): MenuContent | null {
   try {
-    const parsed = JSON.parse(readFileSync(fullPath, 'utf-8')) as { items?: unknown };
+    const parsed = JSON.parse(readFileSync(fullPath, 'utf-8')) as { name?: unknown; items?: unknown };
     if (!Array.isArray(parsed.items)) {
       return null;
     }
-    return { items: parsed.items as MenuContent['items'] };
+    const items = parsed.items as MenuContent['items'];
+    return typeof parsed.name === 'string' ? { name: parsed.name, items } : { items };
   } catch {
     // One malformed menu file is skipped individually, not fatal to
     // the whole render - a broken menu shouldn't take down every page

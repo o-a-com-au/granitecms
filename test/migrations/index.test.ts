@@ -21,8 +21,20 @@ assert.ok(migrateV4ToV5, 'expected a migration registered for schemaVersion 4');
 const migrateV5ToV6 = migrations[5];
 assert.ok(migrateV5ToV6, 'expected a migration registered for schemaVersion 5');
 
-test('CURRENT_SCHEMA_VERSION is 6', () => {
-  assert.equal(CURRENT_SCHEMA_VERSION, 6);
+const migrateV6ToV7 = migrations[6];
+assert.ok(migrateV6ToV7, 'expected a migration registered for schemaVersion 6');
+
+test('CURRENT_SCHEMA_VERSION is 7', () => {
+  assert.equal(CURRENT_SCHEMA_VERSION, 7);
+});
+
+test('migrateV6ToV7 only bumps schemaVersion, for a page and a menu alike (menu "name" is optional)', () => {
+  const page = Object.freeze({ schemaVersion: 6, name: 'About', title: 'About', sections: [] });
+  assert.deepEqual(migrateV6ToV7(page), { schemaVersion: 7, name: 'About', title: 'About', sections: [] });
+  assert.deepEqual(page, { schemaVersion: 6, name: 'About', title: 'About', sections: [] });
+
+  const menu = Object.freeze({ schemaVersion: 6, items: [{ label: 'Home', url: '/' }] });
+  assert.deepEqual(migrateV6ToV7(menu), { schemaVersion: 7, items: [{ label: 'Home', url: '/' }] });
 });
 
 test('migrateV1ToV2 is a trivial identity migration: only schemaVersion changes', () => {
