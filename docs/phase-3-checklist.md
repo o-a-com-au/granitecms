@@ -475,6 +475,7 @@ Raised directly by the project owner: each menu in the Menus tab needs its own E
 | W6 | Delete is confirmed first (it takes every item, and empties any nav using it), then removes the live file | admin `MenusTabPanel.test.tsx :: Delete asks for confirmation first, then deletes the live menu file and bumps the preview`, `:: cancelling the delete confirmation deletes nothing`; `site-menus.test.ts :: deleteSiteMenu` |
 | W7 | New Menu creates a live menu through `PUT /v1/menus/*`, never a draft, and saves the typed Name when supported | admin `NewMenuModal.test.tsx :: creates a live menu through the menus endpoint, never as a draft`, `:: saves the typed Name as the menu's own display name when the site supports it` |
 | W8 | A draft-only menu left by the old New Menu flow can still be deleted | admin `MenusTabPanel.test.tsx :: deletes a draft-only menu (created by an older admin) by discarding its draft` |
+| W9 | The admin calls a menu's filename-without-extension its **ID** (what a layout writes, `menus.<id>.items`) and never shows the `menus/<id>.json` path: New Menu asks for an ID, Edit shows it read-only (requested directly) | admin `NewMenuModal.test.tsx :: the ID field follows Name until typed into directly, and never shows a file path`; `MenusTabPanel.test.tsx :: Edit renames a menu by its display name only` (asserts the read-only ID); `deriveMenuName.test.ts :: menu IDs` |
 
 Design notes:
 
