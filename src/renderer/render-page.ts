@@ -260,11 +260,20 @@ export function getPageMtimeMs(config: SiteConfig, relativePath: string): number
 // A menu edit affects every page's rendered nav, not just one page, so
 // the cache's freshness check needs one value covering all menus
 // together rather than per-page tracking. The max mtime across every
-// menu file serves that - any single menu changing bumps it. 0 (never
-// stale relative to anything) when there are no menus at all, matching
-// listFilesRecursively's own "missing directory returns []" behaviour.
+// menu file covers an edit. It does not cover a menu being renamed (a
+// handle change keeps the file's mtime) or deleted (removes one), so
+// the menus directory's own mtime is included too: that changes
+// whenever an entry is added, renamed or removed. Menus are flat, so
+// the one directory is enough. 0 (never stale relative to anything)
+// when there are no menus at all, matching listFilesRecursively's own
+// "missing directory returns []" behaviour.
 export function getMenusMtimeMs(config: SiteConfig): number {
   let max = 0;
+  try {
+    max = statSync(config.menusRoot).mtimeMs;
+  } catch {
+    // No content/menus/ at all - nothing to track.
+  }
   for (const relativePath of listFilesRecursively(config.menusRoot, config.menusRoot, '.json')) {
     try {
       const { mtimeMs } = statSync(sanitisePath(config.menusRoot, relativePath));

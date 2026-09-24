@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, rmSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, renameSync, rmSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { bootSite } from '../../src/boot.ts';
@@ -145,6 +145,54 @@ test('editing a menu (which every page renders into its nav) invalidates every c
     const second = await app.inject({ method: 'GET', url: '/about' });
     assert.equal(second.statusCode, 200);
     assert.ok(second.body.includes('Renamed Nav Item'));
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+// A menu's handle change (a rename) or delete leaves no file with a
+// newer mtime - renameSync keeps it, unlink removes one - so when the
+// changed menu isn't the most recently edited one, the newest-file
+// mtime alone never moves and every page kept its old nav. Pinning the
+// file mtimes makes that deterministic: main.json is older than
+// footer.json throughout.
+function seedOlderMainAndNewerFooter(siteRoot: string): string {
+  const menusDir = join(siteRoot, 'content', 'menus');
+  writeJson(siteRoot, 'content/menus/footer.json', { schemaVersion: 1, items: [{ label: 'Privacy', url: '/privacy' }] });
+  utimesSync(join(menusDir, 'main.json'), 1_000, 1_000);
+  utimesSync(join(menusDir, 'footer.json'), 2_000, 2_000);
+  return menusDir;
+}
+
+test('changing a menu\'s handle (renaming its file) invalidates every cached page, even when it is not the newest menu', async () => {
+  const { app, siteRoot, cleanup } = buildPublicTestServer();
+  try {
+    const menusDir = seedOlderMainAndNewerFooter(siteRoot);
+    const first = await app.inject({ method: 'GET', url: '/about' });
+    assert.ok(first.body.includes('Blog'));
+
+    renameSync(join(menusDir, 'main.json'), join(menusDir, 'header.json'));
+
+    const second = await app.inject({ method: 'GET', url: '/about' });
+    assert.ok(!second.body.includes('Blog'), 'the layout still asks for menus.main, which no longer exists');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('deleting a menu invalidates every cached page, even when it is not the newest menu', async () => {
+  const { app, siteRoot, cleanup } = buildPublicTestServer();
+  try {
+    const menusDir = seedOlderMainAndNewerFooter(siteRoot);
+    const first = await app.inject({ method: 'GET', url: '/about' });
+    assert.ok(first.body.includes('Blog'));
+
+    unlinkSync(join(menusDir, 'main.json'));
+
+    const second = await app.inject({ method: 'GET', url: '/about' });
+    assert.ok(!second.body.includes('Blog'));
   } finally {
     await app.close();
     cleanup();
