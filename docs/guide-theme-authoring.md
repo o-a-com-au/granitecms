@@ -218,8 +218,8 @@ Available variables in a layout template:
 {{ page.author }}                the page's author, if set - empty string otherwise
 {{ page.publishDate }}           the page's publish date, if set - empty string otherwise
 {% for tag in page.tags %}...{% endfor %}   the page's tags, if any
-{{ menus.<name>.items }}         every menu in content/menus/, keyed by filename - loop with {% for item in menus.main.items %}{{ item.label }} -> {{ item.url }}{% endfor %}
-{{ menus.<name>.name }}          that menu's optional display name (blank when unset)
+{{ menus.<handle>.items }}       every menu in content/menus/, keyed by handle (its filename) - loop with {% for item in menus.main.items %}{{ item.label }} -> {{ item.url }}{% endfor %}
+{{ menus.<handle>.name }}        that menu's optional display name (blank when unset)
 ```
 
 This `page` object (title plus the three optional built-in fields) is the only page data exposed anywhere in a theme - no access to `page.sections`, `page.layout`, or other fields, in a layout or a section/block. The same object is available identically inside section and block templates (see "Section markup" above) - useful for an article byline/date printed inside the page body rather than the surrounding layout chrome.

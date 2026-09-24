@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { bootSite } from '../../src/boot.ts';
 import { buildServer } from '../../src/server.ts';
@@ -265,6 +265,102 @@ test('GET /v1/content/menus/:name and DELETE /v1/content/menus/:name still work 
       payload: { message: 'delete main menu', author },
     });
     assert.equal(del.statusCode, 204);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+// --- POST /v1/menus/rename and GET /v1/menus/references (Group W10) ---
+
+async function createMainMenu(app: ReturnType<typeof buildMenusTestServer>['app']): Promise<string> {
+  const response = await app.inject({
+    method: 'PUT',
+    url: '/v1/menus/main.json',
+    headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json', 'if-match': 'no-prior-file' },
+    payload: { content: menu('Home'), message: 'create main menu', author },
+  });
+  return response.headers.etag as string;
+}
+
+function renameRequest(etag: string | undefined, payload: unknown) {
+  return {
+    method: 'POST' as const,
+    url: '/v1/menus/rename',
+    headers: {
+      authorization: `Bearer ${CONTENT_TOKEN}`,
+      'content-type': 'application/json',
+      ...(etag === undefined ? {} : { 'if-match': etag }),
+    },
+    payload: payload as object,
+  };
+}
+
+test('POST /v1/menus/rename moves a menu to its new handle, returning its etag and any stale theme references', async () => {
+  const { app, siteRoot, cleanup } = buildMenusTestServer();
+  try {
+    const etag = await createMainMenu(app);
+    mkdirSync(join(siteRoot, 'theme', 'layouts'), { recursive: true });
+    writeFileSync(join(siteRoot, 'theme', 'layouts', 'theme.liquid'), '{% for item in menus.main.items %}{% endfor %}');
+
+    const response = await app.inject(renameRequest(etag, { from: 'main', to: 'header', message: 'rename', author }));
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.headers.etag, etag);
+    assert.deepEqual(response.json(), { ok: true, staleThemeReferences: ['theme/layouts/theme.liquid'] });
+    assert.equal(existsSync(join(siteRoot, 'content', 'menus', 'header.json')), true);
+    assert.equal(existsSync(join(siteRoot, 'content', 'menus', 'main.json')), false);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('POST /v1/menus/rename: 428 without If-Match, 400 for a bad body or handle, 404 for a missing menu, 409 for a taken handle', async () => {
+  const { app, cleanup } = buildMenusTestServer();
+  try {
+    const etag = await createMainMenu(app);
+    await app.inject({
+      method: 'PUT',
+      url: '/v1/menus/footer.json',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}`, 'content-type': 'application/json', 'if-match': 'no-prior-file' },
+      payload: { content: menu('Privacy'), message: 'create footer', author },
+    });
+
+    assert.equal((await app.inject(renameRequest(undefined, { from: 'main', to: 'x', message: 'm', author }))).statusCode, 428);
+    assert.equal((await app.inject(renameRequest(etag, { from: 'main', message: 'm', author }))).statusCode, 400);
+    assert.equal((await app.inject(renameRequest(etag, { from: 'main', to: '../pages/about', message: 'm', author }))).statusCode, 400);
+    assert.equal((await app.inject(renameRequest(etag, { from: 'nope', to: 'x', message: 'm', author }))).statusCode, 404);
+    assert.equal((await app.inject(renameRequest(etag, { from: 'main', to: 'footer', message: 'm', author }))).statusCode, 409);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
+test('GET /v1/menus/references lists theme files using a handle, and needs a token', async () => {
+  const { app, siteRoot, cleanup } = buildMenusTestServer();
+  try {
+    mkdirSync(join(siteRoot, 'theme', 'layouts'), { recursive: true });
+    writeFileSync(join(siteRoot, 'theme', 'layouts', 'theme.liquid'), '{{ menus.main.items }}');
+
+    const ok = await app.inject({
+      method: 'GET',
+      url: '/v1/menus/references?handle=main',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+    });
+    assert.equal(ok.statusCode, 200);
+    assert.deepEqual(ok.json(), { handle: 'main', themeFiles: ['theme/layouts/theme.liquid'] });
+
+    const bad = await app.inject({
+      method: 'GET',
+      url: '/v1/menus/references?handle=../x',
+      headers: { authorization: `Bearer ${CONTENT_TOKEN}` },
+    });
+    assert.equal(bad.statusCode, 400);
+
+    const unauthenticated = await app.inject({ method: 'GET', url: '/v1/menus/references?handle=main' });
+    assert.equal(unauthenticated.statusCode, 401);
   } finally {
     await app.close();
     cleanup();

@@ -1,16 +1,18 @@
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { SiteConfig } from '../config.ts';
 import { ContentReadError, readContentFile } from './content-read.ts';
 import { computeEtag, etagsMatch } from './etag.ts';
 import type { CommitAuthor } from './git.ts';
 import { commitPaths } from './git.ts';
+import { findMenuReferences, isValidMenuHandle } from './menu-references.ts';
 import { sanitisePath } from './path-safety.ts';
 import { validateMenu } from './validation.ts';
 import { enqueue } from './write-queue.ts';
 
 export type ManageMenuReason =
   | 'validation-failed'
+  | 'not-found'
   | 'conflict'
   | 'write-failed'
   | 'commit-failed'
@@ -121,4 +123,86 @@ export function saveMenu(
   author: CommitAuthor,
 ): Promise<string> {
   return enqueue(() => saveMenuJob(config, relativePath, content, expectedEtag, message, author));
+}
+
+export interface RenameMenuResult {
+  etag: string;
+  // Theme files that still reference the OLD handle - each now renders
+  // an empty menu until the theme is updated to the new one.
+  staleThemeReferences: string[];
+}
+
+// Changes a menu's handle: moves content/menus/<from>.json to
+// <to>.json in one commit. Contents are untouched, so the returned
+// etag is the same one the menu already had. Refuses rather than
+// overwriting when <to> is taken, and checks If-Match against <from>
+// like every other menu write, so a rename made from a stale view is
+// refused rather than applied.
+async function renameMenuJob(
+  config: SiteConfig,
+  from: string,
+  to: string,
+  expectedEtag: string,
+  message: string,
+  author: CommitAuthor,
+): Promise<RenameMenuResult> {
+  if (!isValidMenuHandle(from) || !isValidMenuHandle(to)) {
+    throw new ManageMenuError('validation-failed', 'A menu handle may only contain letters, numbers, hyphens and underscores');
+  }
+  if (from === to) {
+    throw new ManageMenuError('validation-failed', `The menu is already called "${to}"`);
+  }
+
+  mkdirSync(config.menusRoot, { recursive: true });
+  const fromPath = sanitisePath(config.menusRoot, `${from}.json`);
+  const toPath = sanitisePath(config.menusRoot, `${to}.json`);
+
+  const currentEtag = readCurrentEtag(config, `${from}.json`);
+  if (currentEtag === null) {
+    throw new ManageMenuError('not-found', `No menu with the handle "${from}"`);
+  }
+  if (!etagsMatch(currentEtag, expectedEtag)) {
+    throw new ManageMenuError('conflict', `If-Match "${expectedEtag}" does not match the current ETag for "${from}.json"`);
+  }
+  // existsSync is case-insensitive on a case-insensitive filesystem
+  // (macOS by default), so "main" -> "Main" is refused there rather
+  // than risking a rename onto itself. Harmless: pick another handle.
+  if (existsSync(toPath)) {
+    throw new ManageMenuError('conflict', `A menu with the handle "${to}" already exists`);
+  }
+
+  try {
+    renameSync(fromPath, toPath);
+  } catch (error) {
+    throw new ManageMenuError('write-failed', `Could not rename "${from}" to "${to}"`, { cause: error });
+  }
+
+  try {
+    commitPaths(config.siteRoot, [fromPath, toPath], message, author);
+  } catch (error) {
+    try {
+      renameSync(toPath, fromPath);
+    } catch (rollbackError) {
+      throw new ManageMenuError(
+        'rollback-failed',
+        'Menu rename failed and rolling back afterwards also failed; the working tree may be inconsistent and needs manual inspection',
+        { cause: rollbackError },
+      );
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new ManageMenuError('commit-failed', `Menu rename failed: ${detail}`, { cause: error });
+  }
+
+  return { etag: currentEtag, staleThemeReferences: findMenuReferences(config, from) };
+}
+
+export function renameMenu(
+  config: SiteConfig,
+  from: string,
+  to: string,
+  expectedEtag: string,
+  message: string,
+  author: CommitAuthor,
+): Promise<RenameMenuResult> {
+  return enqueue(() => renameMenuJob(config, from, to, expectedEtag, message, author));
 }

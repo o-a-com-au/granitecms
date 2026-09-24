@@ -103,9 +103,9 @@ A listing/index page for the blog then queries `GET /search.json?pageType=blog-a
 
 ## Menus
 
-`content/menus/*.json`, flat only. The filename (without `.json`) is the menu's name, referenced in layouts as `{{ menus.<name>.items }}` (see `guide-theme-authoring.md`'s layout section).
+`content/menus/*.json`, flat only. The filename (without `.json`) is the menu's **handle**, referenced in layouts as `{{ menus.<handle>.items }}` (see `guide-theme-authoring.md`'s layout section).
 
-Required: `schemaVersion` (integer) and `items` (array). Each item requires `label` and `url`, both non-empty strings. Optional: `name`, a non-empty display name for the menu (shown in the admin, and available to layouts as `{{ menus.<name>.name }}`, e.g. as a footer column heading). It never changes how the menu is referenced: that is always the filename, so renaming a menu in the admin cannot break a layout. `additionalProperties: false` at both the menu level and each item level - no `children`/nested-submenu field exists.
+Required: `schemaVersion` (integer) and `items` (array). Each item requires `label` and `url`, both non-empty strings. Optional: `name`, a non-empty display name for the menu (shown in the admin, and available to layouts as `{{ menus.<handle>.name }}`, e.g. as a footer column heading). Changing the name never affects a layout. Changing the handle (the admin's Edit Menu dialog, or `POST /v1/menus/rename`) does: any layout still using the old handle renders an empty menu until it is updated, and the admin names those files before and after the change. `additionalProperties: false` at both the menu level and each item level - no `children`/nested-submenu field exists.
 
 ### Worked example - `content/menus/main.json`
 

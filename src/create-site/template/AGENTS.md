@@ -104,8 +104,8 @@ Write the description as one short sentence about what the section **is**, not w
 {{ page.author }}                the page's author, if set
 {{ page.publishDate }}           the page's publish date, if set
 {% for tag in page.tags %}...{% endfor %}   the page's tags, if any
-{{ menus.<name>.items }}         every menu in content/menus/, keyed by filename
-{{ menus.<name>.name }}          that menu's optional display name (blank when unset)
+{{ menus.<handle>.items }}       every menu in content/menus/, keyed by handle (its filename)
+{{ menus.<handle>.name }}        that menu's optional display name (blank when unset)
 ```
 
 ### Snippets
@@ -309,7 +309,7 @@ Each entry in `sections` requires `id` (any non-empty string, unique within the 
 }
 ```
 
-`content/menus/<name>.json` - referenced in layouts as `{{ menus.<name>.items }}`. An optional `"name"` is the menu's display name (editable in the admin, available as `{{ menus.<name>.name }}`); the filename is still what layouts reference, so never rename the file to rename a menu:
+`content/menus/<handle>.json` - the filename is the menu's handle, referenced in layouts as `{{ menus.<handle>.items }}`. An optional `"name"` is its display name (editable in the admin, available as `{{ menus.<handle>.name }}`). Renaming the file changes the handle and empties every layout still using the old one, so change `"name"` to rename a menu:
 
 ```json
 { "schemaVersion": 7, "items": [{ "label": "Home", "url": "/" }, { "label": "About", "url": "/about" }] }
