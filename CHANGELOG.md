@@ -2,6 +2,19 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
+## [0.5.2] - 2026-09-24
+
+### Added
+
+- **A menu can have a display name**, separate from its handle: an optional, non-empty `"name"` in `content/menus/<handle>.json` (content schema 7, with an identity migration - no existing menu needs a value). Layouts can print it as `{{ menus.<handle>.name }}`, for example as a footer column heading. Renaming a menu this way never affects a layout.
+- **A menu's handle can be changed** with `POST /v1/menus/rename` (`{ from, to, message, author }`, If-Match): one commit through the write queue, refusing a handle that is taken, a stale ETag, a missing menu, and anything but letters, numbers, hyphens and underscores. It returns the theme files still using the old handle, since every one of them now renders an empty menu until updated.
+- **`GET /v1/menus/references?handle=<handle>`** lists the theme files that use a handle (`menus.<handle>` or `menus['<handle>']`, as a whole name only), so a client can warn before a rename or delete.
+
+### Fixed
+
+- **Redeploying never upgraded the agent on an existing volume.** The scaffolded `docker-entrypoint.sh` copied the image onto `/site` on first boot only, so the installed `@o-a/cms-agent` on a persistent volume was never replaced, and the only way to upgrade was destroying the volume and every live edit with it. Every later boot now refreshes `vhost/package.json`, `package-lock.json` and `node_modules` from the image and touches nothing else. Existing sites need this script copied into their own `vhost/` once.
+- **A renamed or deleted menu left cached pages showing their old navigation.** The render cache's menu freshness check used the newest menu file's modification time; a rename keeps that time and a delete removes a file, so when the changed menu was not the most recently edited one, nothing moved. The menus directory's own modification time now counts too.
+
 ## [0.5.1] - 2026-09-19
 
 ### Fixed
