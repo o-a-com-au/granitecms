@@ -461,6 +461,27 @@ Design notes:
 - **Admin-only, deliberately.** The agent stays permissive: it is a generic API, a self-hoster may legitimately run a site with no homepage, and `POST /v1/unpublish/pages/index.json` still works from curl. The admin is where the accidental clicks happen. Revisit if a second client ever appears.
 - **The cost**: there is now no UI route to retire a homepage. Judged correct - that is site teardown, not editing - and it remains possible through the agent API.
 
+## Group W: edit and delete a whole menu
+
+Raised directly by the project owner: each menu in the Menus tab needs its own Edit and Delete, not just the items inside it. Edit was taken to mean a display name (the owner's pick of three options), because a menu's only identity until now was its filename, which is also how every layout references it (`menus.<filename>.items`) - renaming the file would silently empty every nav using it.
+
+| # | Criterion | Proof |
+|---|---|---|
+| W1 | `menu.schema.json` accepts an optional, non-empty `name`; content schema 7 with an identity `migrateV6ToV7` | `test/services/validation.menu.test.ts :: a menu may carry an optional display name, but not an empty one`; `test/migrations/index.test.ts :: migrateV6ToV7 only bumps schemaVersion, for a page and a menu alike` |
+| W2 | Layouts can print a menu's name as `{{ menus.<file>.name }}`, still keyed by filename | `test/services/menus.test.ts :: loadMenus exposes a menu's optional display name alongside its items, keyed by filename regardless` |
+| W3 | Each menu row shows its own name when set, otherwise the filename-derived one | admin `MenusTabPanel.test.tsx :: shows a menu's own display name in place of the filename-derived one`; `deriveMenuName.test.ts :: menuDisplayName` |
+| W4 | Edit renames by display name only - items and filename untouched - and clearing it removes `name` rather than saving an empty string | admin `MenusTabPanel.test.tsx :: Edit renames a menu by its display name only`, `:: clearing the name removes it, falling back to the filename-derived label` |
+| W5 | Edit is only offered when the site's agent reports content schema 7+; an older agent rejects `name` outright (`additionalProperties: false`) | admin `MenusTabPanel.test.tsx :: offers no Edit on a menu row while the site's agent cannot store a menu name` |
+| W6 | Delete is confirmed first (it takes every item, and empties any nav using it), then removes the live file | admin `MenusTabPanel.test.tsx :: Delete asks for confirmation first, then deletes the live menu file and bumps the preview`, `:: cancelling the delete confirmation deletes nothing`; `site-menus.test.ts :: deleteSiteMenu` |
+| W7 | New Menu creates a live menu through `PUT /v1/menus/*`, never a draft, and saves the typed Name when supported | admin `NewMenuModal.test.tsx :: creates a live menu through the menus endpoint, never as a draft`, `:: saves the typed Name as the menu's own display name when the site supports it` |
+| W8 | A draft-only menu left by the old New Menu flow can still be deleted | admin `MenusTabPanel.test.tsx :: deletes a draft-only menu (created by an older admin) by discarding its draft` |
+
+Design notes:
+
+- **Display name, not file rename.** The theme contract stays the filename, so nothing a user does in the admin can break a layout. The Edit dialog shows the filename read-only and says so.
+- **New Menu was quietly broken.** It created menus with `PUT /v1/drafts/*`, but menus have no draft state (Group N) and `loadMenus` never reads `content/drafts/menus/`, so a new menu never reached the site; and because the admin reads a draft ahead of the live file, a later live write (an item, or a rename) was hidden behind it. Fixed as part of this rather than separately, since both new actions depended on it. `If-Match: *` still 409s on an occupied path because `etagsMatch` compares literally.
+- **Verified against the real agent**, not only fakes: create with a name, the `*` conflict on an existing menu, rename, and delete, each committed; the rendered nav items were unchanged after renaming `main`.
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.
