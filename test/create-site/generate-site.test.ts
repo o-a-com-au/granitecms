@@ -202,3 +202,58 @@ test('scaffoldSite succeeds against an existing but empty target directory', () 
     cleanup();
   }
 });
+
+// Runs the real scaffolded script under sh, against temporary seed and
+// site directories standing in for /seed (the image) and /site (the
+// volume). server.js is a stub that exits at once, so the script's
+// final exec ends the run.
+test('docker-entrypoint.sh seeds an empty volume, then on later boots refreshes only the agent from the image', () => {
+  const { targetDir, cleanup } = tmpTargetDir();
+  const root = mkdtempSync(join(tmpdir(), 'entrypoint-test-'));
+  try {
+    scaffoldSite(targetDir);
+    const script = join(targetDir, 'vhost', 'docker-entrypoint.sh');
+    const seed = join(root, 'seed');
+    const site = join(root, 'site');
+    mkdirSync(site);
+
+    function writeSeed(agentVersion: string, pageTitle: string): void {
+      rmSync(seed, { recursive: true, force: true });
+      mkdirSync(join(seed, 'vhost', 'node_modules', '@o-a', 'cms-agent'), { recursive: true });
+      mkdirSync(join(seed, 'content', 'pages'), { recursive: true });
+      mkdirSync(join(seed, '.git'));
+      writeFileSync(join(seed, 'vhost', 'server.js'), 'process.exit(0);\n');
+      writeFileSync(join(seed, 'vhost', 'site.config.json'), '{"tokens":[]}');
+      writeFileSync(join(seed, 'vhost', 'package.json'), JSON.stringify({ dependencies: { '@o-a/cms-agent': agentVersion } }));
+      writeFileSync(join(seed, 'vhost', 'package-lock.json'), JSON.stringify({ version: agentVersion }));
+      writeFileSync(join(seed, 'vhost', 'node_modules', '@o-a', 'cms-agent', 'VERSION'), agentVersion);
+      writeFileSync(join(seed, 'content', 'pages', 'index.json'), JSON.stringify({ title: pageTitle }));
+    }
+    const boot = () => execFileSync('sh', [script], { env: { ...process.env, CMS_SEED_DIR: seed, CMS_SITE_DIR: site } });
+
+    // First boot: an empty volume gets everything.
+    writeSeed('0.5.0', 'From the image');
+    boot();
+    assert.equal(readFileSync(join(site, 'vhost', 'node_modules', '@o-a', 'cms-agent', 'VERSION'), 'utf-8'), '0.5.0');
+
+    // The live site is edited, and has a package the new image won't.
+    writeFileSync(join(site, 'content', 'pages', 'index.json'), JSON.stringify({ title: 'Edited live' }));
+    writeFileSync(join(site, 'vhost', 'site.config.json'), '{"tokens":["live"]}');
+    writeFileSync(join(site, 'vhost', 'node_modules', 'stale-package'), 'x');
+
+    // A redeploy built from a newer agent (and older page content).
+    writeSeed('0.5.2', 'From the new image');
+    boot();
+
+    assert.equal(readFileSync(join(site, 'vhost', 'node_modules', '@o-a', 'cms-agent', 'VERSION'), 'utf-8'), '0.5.2');
+    assert.deepEqual(JSON.parse(readFileSync(join(site, 'vhost', 'package.json'), 'utf-8')), { dependencies: { '@o-a/cms-agent': '0.5.2' } });
+    assert.equal(JSON.parse(readFileSync(join(site, 'vhost', 'package-lock.json'), 'utf-8')).version, '0.5.2');
+    assert.equal(existsSync(join(site, 'vhost', 'node_modules', 'stale-package')), false, 'node_modules is replaced, not merged');
+    // Everything that belongs to the live site stays as it was.
+    assert.equal(JSON.parse(readFileSync(join(site, 'content', 'pages', 'index.json'), 'utf-8')).title, 'Edited live');
+    assert.equal(readFileSync(join(site, 'vhost', 'site.config.json'), 'utf-8'), '{"tokens":["live"]}');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    cleanup();
+  }
+});

@@ -51,7 +51,9 @@ Clone or copy the scaffolded site onto the machine, install Node 22.16+ and `git
 
 ### 2. Docker / any container platform
 
-`create-site` scaffolds a working `Dockerfile` and `docker-entrypoint.sh` automatically - nothing to write by hand. They live in `vhost/`, alongside the rest of the site's own serving config, keeping the top level down to just `content/`, `theme/`, `media/`, `vhost/`. The image is generic: it bakes the site (content, theme, an already-`npm install`ed `vhost/`) into `/seed` at build time, then at container start seeds an empty `/site` from that copy on first boot only, and runs the server against `/site` from then on.
+`create-site` scaffolds a working `Dockerfile` and `docker-entrypoint.sh` automatically - nothing to write by hand. They live in `vhost/`, alongside the rest of the site's own serving config, keeping the top level down to just `content/`, `theme/`, `media/`, `vhost/`. The image is generic: it bakes the site (content, theme, an already-`npm install`ed `vhost/`) into `/seed` at build time, then at container start seeds an empty `/site` from that copy on first boot, and runs the server against `/site` from then on.
+
+Every later boot refreshes only the installed agent from the image (`vhost/package.json`, `vhost/package-lock.json` and `vhost/node_modules`), so redeploying with a newer `@o-a/cms-agent` upgrades a running site without touching its content. Everything else on the volume belongs to the live site and is left alone: content, drafts, media, `vhost/site.config.json` (its tokens), `vhost/server.js`, and the theme. A theme changed locally therefore does not reach an existing deployment by redeploying. After an upgrade, the volume's git working tree shows `vhost/package.json` as modified; that is expected, as nothing but a publish creates a commit.
 
 ```
 docker build -f vhost/Dockerfile -t my-site .
