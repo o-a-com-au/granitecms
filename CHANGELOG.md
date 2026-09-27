@@ -4,6 +4,10 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Added
+
+- **`npm run push` sends local content changes back to the live site** (`push-site`, a new bin). It compares each page and menu as last pulled, as it is locally, and as it is live now, and pushes only local changes: a page changed on the live site since the pull is never overwritten (it stops the push and is listed as a conflict), and a live page is only deleted if it was deleted locally. Missing images the pushed pages use are uploaded under the same names. It lists every change, warns that it overwrites the live site, and asks for the site's address to be typed; `--dry-run` only lists. Page and menu changes go as one batch, one commit, or not at all. `npm run pull` now records what it pulled, which push needs. Existing sites add `"push": "push-site"` to `vhost/package.json`'s scripts.
+
 ### Changed
 
 - **`npm run pull` asks for what it needs**: the live site's address when none is given, then the token when neither `CMS_TOKEN` nor `--token` is, without showing what is typed or pasted, so the token never lands in shell history. An address can be typed as `my-site.example` (taken as `https://`) or `localhost:3600` (`http://`), and is checked before the token is asked for. Piped input still works (address, then token, one per line), so scripts are unaffected.

@@ -27,7 +27,8 @@
     "check-site": "dist/site-check/cli.js",
     "seed-media": "dist/media/seed-media-cli.js",
     "stop-site": "dist/stop-site/cli.js",
-    "pull-site": "dist/pull-site/cli.js"
+    "pull-site": "dist/site-sync/pull-cli.js",
+    "push-site": "dist/site-sync/push-cli.js"
   },
   "files": [
     "dist"

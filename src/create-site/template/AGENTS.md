@@ -433,7 +433,7 @@ npm run dev         # same, plus auto-restart whenever a theme/ file changes - u
 npm run stop        # stops a site started by any of the above, from any terminal
 ```
 
-To copy a running site's content and media into this one (for example, to work locally against what the live site has), `npm run pull`, which asks for its address and API token (or `npm run pull -- <its URL>` with `CMS_TOKEN` set). It overwrites `content/` and refuses while `content/` has uncommitted changes; it never touches `theme/`.
+To copy a running site's content and media into this one (for example, to work locally against what the live site has), `npm run pull`, which asks for its address and API token (or `npm run pull -- <its URL>` with `CMS_TOKEN` set). `npm run push` sends changes made here since then back to it: it never overwrites a page an editor changed on the live site since the pull (that stops the push and is listed instead), shows everything it will change, and asks for the site's address to be typed first. Never run it on a user's behalf without them confirming. It overwrites `content/` and refuses while `content/` has uncommitted changes; it never touches `theme/`.
 
 `npm run dev` only watches `theme/` - content changes (via the API) already show up on the next request with no restart needed, so there's nothing to gain watching `content/` too.
 

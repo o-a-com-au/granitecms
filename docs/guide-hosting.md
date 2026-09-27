@@ -88,6 +88,15 @@ It asks for the live site's address (`my-site.example` is taken as `https://`, a
 
 It uses the site's `/v1/` API, so it works the same wherever the site is hosted, with no SSH access. Pages, menus, drafts and redirects are mirrored - local files the live site doesn't have are removed - and any media file missing locally is downloaded (existing ones are kept; names are content-addressed, so a matching name is the same file). The theme is never touched: the API doesn't serve it, and it is the developer's code rather than the site's content. Nothing is committed; review the result with `git diff`. It refuses while `content/` has uncommitted changes, since those would be overwritten (`--force` pulls anyway), and refuses a live site on a newer content schema than the local agent. The token needs the `content` and `media` scopes. Everything is fetched before anything is written, so a failure part way leaves the local site as it was. The live site's git history does not come across, only its current files.
 
+`npm run push` (`push-site`) sends content changed locally since the last `npm run pull` back to that live site. It compares three versions of every page and menu - as last pulled (recorded in `vhost/data/sync-record.json`), local, and live now - and only pushes local changes:
+
+- A page changed on the live site since the pull is never overwritten. If it was also changed locally, that is a conflict: nothing at all is pushed, and the conflicting pages are listed. To keep both, commit local work, pull, reapply it, and push again.
+- A live page is only deleted if it existed at the pull and was deleted locally since; one an editor created live after the pull is left alone.
+- A page with unpublished draft changes on the live site is a conflict too, since writing it would replace that draft.
+- Images used by the pushed pages and missing on the live site are uploaded, under exactly the same content-addressed names.
+
+It lists every page, redirect and image it will change, warns that this overwrites the live site immediately, and asks for the site's address to be typed before doing anything (`--dry-run` shows the list and stops). All page and menu changes go as one batch: the site publishes them in a single commit, credited to the local git `user.name` and `user.email`, or rolls the whole batch back - including if an editor saves one of those pages in the moment between checking and pushing. Redirect changes follow, one commit each. Push only ever goes back to the site the copy was pulled from, needs a pull first, and refuses a live site on an older content schema than the local agent. Local drafts are not pushed, and neither is the theme.
+
 Deliberately scoped to `theme/` only - `content/`/`drafts/` are already read fresh on every request (pages, menus, and the render cache are all re-checked per request or keyed on file mtime), so a content edit already shows up on the next request with no restart needed. Watching `content/` too would only cause a pointless restart on every draft autosave.
 
 Combine with `--tunnel` if needed: `node --watch-path=../theme server.js --tunnel`.

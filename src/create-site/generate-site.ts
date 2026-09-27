@@ -163,6 +163,10 @@ export function scaffoldSite(targetDir: string): { raw: string } {
           // Copies a running site's content and media into this one
           // (pull-site): `npm run pull`, which asks for the address and token.
           pull: 'pull-site',
+          // Sends changes made here since the last pull back to that
+          // live site (push-site), refusing to overwrite anything
+          // edited there since, and only after typing its address.
+          push: 'push-site',
         },
         dependencies: {
           // Pinned exact, never a ^range - at v0.x even a minor bump

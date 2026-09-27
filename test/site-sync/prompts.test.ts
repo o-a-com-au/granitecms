@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { PromptCancelledError, createPrompter, normaliseSiteUrl, type PromptInput } from '../../src/pull-site/prompts.ts';
+import { PromptCancelledError, createPrompter, normaliseSiteUrl, type PromptInput } from '../../src/site-sync/prompts.ts';
 
 // Stands in for a terminal's stdin: records raw-mode changes, and lets a
 // test type keys by emitting data.

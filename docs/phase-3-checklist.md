@@ -523,6 +523,29 @@ Design notes:
 - **No theme.** The API doesn't serve Liquid source, and the theme is the developer's code; a local copy runs the local theme.
 - **Never commits.** Pulling is a local, reviewable change like any other edit to the working tree.
 
+## Group Z: `npm run push`, local changes back to the live site
+
+Raised directly by the project owner, with warnings about overwriting the site. Three decisions confirmed with the owner, each the recommended option: refuse conflicts rather than warn, delete only pages deleted locally, and confirm by typing the site's address.
+
+| # | Criterion | Proof |
+|---|---|---|
+| Z1 | Only local changes since the last pull are pushed; a live-only edit is kept; a page changed in both places is a conflict unless both made the same change | `test/site-sync/push-site.test.ts :: planPush: nothing changed here ...`, `:: changed here only ...`, `:: changed in both places ...` |
+| Z2 | A live page is deleted only if it existed at the pull and was deleted locally; one created or edited live is never deleted | `:: planPush: only a page deleted here is deleted there ...`, `:: a page created in both places ...` |
+| Z3 | A live page with unpublished drafts is a conflict; formatting alone is not a change | `:: planPush: a page with an unpublished draft ...`, `:: planPush: formatting alone is not a change ...` |
+| Z4 | Redirects become per-redirect operations, and conflict if both sides changed them; only media the pushed pages use and the live site lacks is uploaded | `:: planPush: redirects ...`, `:: planPush: uploads only media ...` |
+| Z5 | Against a real site: creates, updates, deletes, a redirect and an image arrive; images keep their exact names; page changes are one commit credited to the local git identity; a second push finds nothing | `:: a real push: ...` |
+| Z6 | A conflict stops everything, and the live page is untouched | `:: a real push refuses a page an editor changed ...` |
+| Z7 | Needs a pull first, and only goes back to the site it came from | `:: push refuses without a pull record, or to a different site ...` |
+| Z8 | The command lists changes, warns, pushes nothing on `--dry-run` or a wrong confirmation, and pushes on typing the address | `:: npm run push: shows what will change and warns ...` |
+| Z9 | `npm run pull` records what it pulled | `test/site-sync/pull-site.test.ts` (via Z7), `src/site-sync/sync-record.ts` |
+
+Design notes:
+
+- **Through the existing batch endpoint.** Draft writes, deletes and a publish, applied as one commit or rolled back entirely; each draft write carries the ETag fetched while planning, so a page saved by an editor between planning and pushing fails the whole batch instead of being overwritten.
+- **Content, not bytes.** The site re-serialises what it is sent, so pages are compared by parsed JSON, or everything pushed once would look changed forever after.
+- **Images keep their names.** The site names an upload `<slug>-<hash>`; push sends `<slug>.<ext>` so the same bytes come back under the same name, and checks that they did.
+- **Found by the real test:** a live page that had never been committed could not be deleted by a push (git can't stage the deletion of an untracked file). Not reachable on a real site, where every live page arrives through a publish commit; the test site now starts committed.
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

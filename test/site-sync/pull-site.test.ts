@@ -1,62 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFile, execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { execFile } from 'node:child_process';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import type { FastifyInstance } from 'fastify';
-import { bootSite } from '../../src/boot.ts';
 import { loadSiteConfig } from '../../src/config.ts';
-import { PullSiteError, pullSite } from '../../src/pull-site/pull-site.ts';
-import { buildServer } from '../../src/server.ts';
-import { loadServerConfig } from '../../src/server-config.ts';
-import { TEST_IDENTITY_ENV, writeJson } from '../helpers/tmp-site.ts';
-
-const FIXTURE_SITE = join(import.meta.dirname, '..', 'fixtures', 'site');
-const TOKEN = 'pull-site-test-token';
-const MEDIA_NAME = 'photo-1a2b3c4d5e6f.jpg';
-const MEDIA_BYTES = Buffer.from('not really a jpeg, but bytes are bytes');
-
-function git(siteRoot: string, args: string[]): string {
-  return execFileSync('git', args, { cwd: siteRoot, env: { ...process.env, ...TEST_IDENTITY_ENV } }).toString('utf-8');
-}
-
-// A real running site: the fixture (pages, a menu, a draft-only page),
-// a redirect, a media file, and a token with content + media scopes.
-async function startLiveSite(): Promise<{ app: FastifyInstance; url: string; siteRoot: string }> {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-pull-live-'));
-  cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
-  git(siteRoot, ['init', '--quiet']);
-  writeJson(siteRoot, 'vhost/site.config.json', {
-    tokens: [{ hash: createHash('sha256').update(TOKEN).digest('hex'), scopes: ['content', 'media'] }],
-  });
-  writeJson(siteRoot, 'content/redirects.json', { schemaVersion: 1, entries: [{ from: '/old', to: '/about' }] });
-  mkdirSync(join(siteRoot, 'media'), { recursive: true });
-  writeFileSync(join(siteRoot, 'media', MEDIA_NAME), MEDIA_BYTES);
-
-  const app = buildServer(bootSite(siteRoot), loadServerConfig(siteRoot), { logger: false });
-  await app.listen({ port: 0, host: '127.0.0.1' });
-  const address = app.server.address();
-  if (address === null || typeof address === 'string') {
-    throw new Error('expected a port');
-  }
-  return { app, url: `http://127.0.0.1:${address.port}`, siteRoot };
-}
-
-// The local copy: a committed git repo with its own theme, one page the
-// live site doesn't have, and a stale draft.
-function createLocalSite(): string {
-  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-pull-local-'));
-  cpSync(join(FIXTURE_SITE, 'theme'), join(siteRoot, 'theme'), { recursive: true });
-  writeJson(siteRoot, 'content/pages/local-only.json', { schemaVersion: 7, title: 'Local only' });
-  writeJson(siteRoot, 'content/drafts/pages/stale-draft.json', { schemaVersion: 7, title: 'Stale' });
-  writeJson(siteRoot, 'vhost/site.config.json', { tokens: [] });
-  git(siteRoot, ['init', '--quiet']);
-  git(siteRoot, ['add', '-A']);
-  git(siteRoot, ['commit', '--quiet', '-m', 'local']);
-  return siteRoot;
-}
+import { pullSite } from '../../src/site-sync/pull-site.ts';
+import { SiteSyncError } from '../../src/site-sync/remote-site.ts';
+import { writeJson } from '../helpers/tmp-site.ts';
+import { createLocalSite, git, MEDIA_BYTES, MEDIA_NAME, startLiveSite, TOKEN } from './sync-helpers.ts';
 
 test('pullSite mirrors a real live site\'s content, drafts, menus, redirects and media into a local site, without committing', async () => {
   const live = await startLiveSite();
@@ -114,7 +65,7 @@ test('pullSite refuses to overwrite uncommitted local content unless forced, and
 
     await assert.rejects(
       pullSite(config, { siteUrl: live.url, token: TOKEN }),
-      (error: unknown) => error instanceof PullSiteError && error.reason === 'uncommitted-changes',
+      (error: unknown) => error instanceof SiteSyncError && error.reason === 'uncommitted-changes',
     );
     assert.equal(JSON.parse(readFileSync(join(localRoot, 'content/pages/local-only.json'), 'utf-8')).title, 'Edited, not committed');
 
@@ -133,7 +84,7 @@ test('pullSite: a wrong token is reported as such, and changes nothing', async (
   try {
     await assert.rejects(
       pullSite(loadSiteConfig(localRoot), { siteUrl: live.url, token: 'wrong' }),
-      (error: unknown) => error instanceof PullSiteError && error.reason === 'unauthorised',
+      (error: unknown) => error instanceof SiteSyncError && error.reason === 'unauthorised',
     );
     assert.ok(existsSync(join(localRoot, 'content/pages/local-only.json')));
   } finally {
@@ -168,7 +119,7 @@ test('pullSite refuses a content path that would escape the site, before writing
           token: 't',
           fetchImpl: fakeFetch({ '/v1/capabilities': CAPABILITIES, '/v1/content': [{ path, hasDraft: false }] }),
         }),
-        (error: unknown) => error instanceof PullSiteError && error.reason === 'unsafe-path',
+        (error: unknown) => error instanceof SiteSyncError && error.reason === 'unsafe-path',
         path,
       );
     }
@@ -192,7 +143,7 @@ test('pullSite refuses a media name that would escape media/', async () => {
           '/v1/media': [{ name: '../evil.jpg', size: 1 }],
         }),
       }),
-      (error: unknown) => error instanceof PullSiteError && error.reason === 'unsafe-path',
+      (error: unknown) => error instanceof SiteSyncError && error.reason === 'unsafe-path',
     );
     assert.equal(existsSync(join(localRoot, 'evil.jpg')), false);
   } finally {
@@ -209,7 +160,7 @@ test('pullSite refuses a site with a newer content schema than this agent, and a
         token: 't',
         fetchImpl: fakeFetch({ '/v1/capabilities': { agentVersion: '9.0.0', contentSchemaVersion: 99 } }),
       }),
-      (error: unknown) => error instanceof PullSiteError && error.reason === 'newer-schema',
+      (error: unknown) => error instanceof SiteSyncError && error.reason === 'newer-schema',
     );
     await assert.rejects(
       pullSite(loadSiteConfig(localRoot), {
@@ -217,7 +168,7 @@ test('pullSite refuses a site with a newer content schema than this agent, and a
         token: 't',
         fetchImpl: fakeFetch({ '/v1/capabilities': { hello: 'world' } }),
       }),
-      (error: unknown) => error instanceof PullSiteError && error.reason === 'not-a-site',
+      (error: unknown) => error instanceof SiteSyncError && error.reason === 'not-a-site',
     );
   } finally {
     rmSync(localRoot, { recursive: true, force: true });
@@ -230,7 +181,7 @@ test('npm run pull asks for the token when none is given, and pulls with the ans
   const live = await startLiveSite();
   const localRoot = createLocalSite();
   try {
-    const cli = join(import.meta.dirname, '..', '..', 'src', 'pull-site', 'cli.ts');
+    const cli = join(import.meta.dirname, '..', '..', 'src', 'site-sync', 'pull-cli.ts');
     const env = { ...process.env };
     delete env.CMS_TOKEN;
     const child = execFile(process.execPath, ['--experimental-strip-types', cli, live.url], {
@@ -260,7 +211,7 @@ test('npm run pull with no arguments asks for the address, then the token', asyn
   const live = await startLiveSite();
   const localRoot = createLocalSite();
   try {
-    const cli = join(import.meta.dirname, '..', '..', 'src', 'pull-site', 'cli.ts');
+    const cli = join(import.meta.dirname, '..', '..', 'src', 'site-sync', 'pull-cli.ts');
     const env = { ...process.env };
     delete env.CMS_TOKEN;
     const child = execFile(process.execPath, ['--experimental-strip-types', cli], { cwd: join(localRoot, 'vhost'), env });
