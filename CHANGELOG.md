@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
+## [Unreleased]
+
+### Changed
+
+- **`npm run pull` asks for the token** when neither `CMS_TOKEN` nor `--token` is given, without showing what is typed or pasted, so it never lands in shell history. Piped input still works (the first line is read), so scripts are unaffected.
+
 ## [0.5.4] - 2026-09-28
 
 ### Added

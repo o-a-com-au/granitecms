@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -220,6 +220,38 @@ test('pullSite refuses a site with a newer content schema than this agent, and a
       (error: unknown) => error instanceof PullSiteError && error.reason === 'not-a-site',
     );
   } finally {
+    rmSync(localRoot, { recursive: true, force: true });
+  }
+});
+
+// The real command, as a user runs it, with no token argument and none
+// in the environment: it asks, and here the answer is piped in.
+test('npm run pull asks for the token when none is given, and pulls with the answer', async () => {
+  const live = await startLiveSite();
+  const localRoot = createLocalSite();
+  try {
+    const cli = join(import.meta.dirname, '..', '..', 'src', 'pull-site', 'cli.ts');
+    const env = { ...process.env };
+    delete env.CMS_TOKEN;
+    const child = execFile(process.execPath, ['--experimental-strip-types', cli, live.url], {
+      cwd: join(localRoot, 'vhost'),
+      env,
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
+    child.stderr?.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+    child.stdin?.end(`${TOKEN}\n`);
+    const code = await new Promise<number | null>((resolve) => child.on('exit', resolve));
+
+    assert.equal(code, 0, stderr);
+    assert.match(stderr, new RegExp(`API token for ${live.url.replace(/[.]/g, '\\.')} \\(hidden\\): `));
+    assert.ok(!stdout.includes(TOKEN) && !stderr.includes(TOKEN), 'the token is never printed');
+    assert.match(stdout, /Pulled from/);
+    assert.deepEqual(readFileSync(join(localRoot, 'media', MEDIA_NAME)), MEDIA_BYTES);
+  } finally {
+    await live.app.close();
+    rmSync(live.siteRoot, { recursive: true, force: true });
     rmSync(localRoot, { recursive: true, force: true });
   }
 });

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import { resolve } from 'node:path';
 import { loadSiteConfig } from '../config.ts';
+import { PromptCancelledError, promptHidden } from './prompt-token.ts';
 import { PullSiteError, pullSite } from './pull-site.ts';
 
-const USAGE = 'Usage: CMS_TOKEN=<token> npm run pull -- <live-site-url> [--force]';
+const USAGE = 'Usage: npm run pull -- <live-site-url> [--force]';
 
 const args = process.argv.slice(2);
 const force = args.includes('--force');
@@ -11,13 +12,31 @@ const tokenFlag = args.indexOf('--token');
 const flagToken = tokenFlag === -1 ? undefined : args[tokenFlag + 1];
 const positional = args.filter((arg, index) => !arg.startsWith('--') && (tokenFlag === -1 || index !== tokenFlag + 1));
 const siteUrl = positional[0];
-// An environment variable by preference: a token typed as an argument
-// ends up in shell history.
-const token = flagToken ?? process.env.CMS_TOKEN;
+const TOKEN_HELP = 'The token is the live site\'s API token (the same one the admin uses), with the "content" and "media" scopes.';
 
-if (!siteUrl || !token) {
+if (!siteUrl) {
   console.error(USAGE);
-  console.error('The token is the live site\'s API token (the same one the admin uses), with the "content" and "media" scopes.');
+  console.error(TOKEN_HELP);
+  process.exit(1);
+}
+
+// Asked for when not given, without showing it: CMS_TOKEN and --token
+// still work (for scripts), but either leaves the token in shell
+// history. Piped input works too - the first line is the token.
+let token = flagToken ?? process.env.CMS_TOKEN;
+if (!token) {
+  try {
+    token = await promptHidden(`API token for ${siteUrl} (hidden): `, process.stdin, process.stderr);
+  } catch (error) {
+    if (error instanceof PromptCancelledError) {
+      process.exit(130);
+    }
+    throw error;
+  }
+}
+if (!token) {
+  console.error('No token entered.');
+  console.error(TOKEN_HELP);
   process.exit(1);
 }
 
