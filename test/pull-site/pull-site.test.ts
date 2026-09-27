@@ -255,3 +255,31 @@ test('npm run pull asks for the token when none is given, and pulls with the ans
     rmSync(localRoot, { recursive: true, force: true });
   }
 });
+
+test('npm run pull with no arguments asks for the address, then the token', async () => {
+  const live = await startLiveSite();
+  const localRoot = createLocalSite();
+  try {
+    const cli = join(import.meta.dirname, '..', '..', 'src', 'pull-site', 'cli.ts');
+    const env = { ...process.env };
+    delete env.CMS_TOKEN;
+    const child = execFile(process.execPath, ['--experimental-strip-types', cli], { cwd: join(localRoot, 'vhost'), env });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
+    child.stderr?.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+    // Both answers in one write, as a pipe would deliver them.
+    child.stdin?.end(`${live.url}\n${TOKEN}\n`);
+    const code = await new Promise<number | null>((resolve) => child.on('exit', resolve));
+
+    assert.equal(code, 0, stderr);
+    assert.match(stderr, /Live site address: /);
+    assert.match(stderr, /\(hidden\): /);
+    assert.ok(!stdout.includes(TOKEN) && !stderr.includes(TOKEN), 'the token is never printed');
+    assert.deepEqual(readFileSync(join(localRoot, 'media', MEDIA_NAME)), MEDIA_BYTES);
+  } finally {
+    await live.app.close();
+    rmSync(live.siteRoot, { recursive: true, force: true });
+    rmSync(localRoot, { recursive: true, force: true });
+  }
+});

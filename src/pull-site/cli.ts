@@ -1,32 +1,26 @@
 #!/usr/bin/env node
 import { resolve } from 'node:path';
 import { loadSiteConfig } from '../config.ts';
-import { PromptCancelledError, promptHidden } from './prompt-token.ts';
-import { PullSiteError, pullSite } from './pull-site.ts';
+import { PromptCancelledError, createPrompter, normaliseSiteUrl } from './prompts.ts';
+import { PullSiteError, checkPullableSite, pullSite } from './pull-site.ts';
 
-const USAGE = 'Usage: npm run pull -- <live-site-url> [--force]';
+const TOKEN_HELP = 'The token is the live site\'s API token (the same one the admin uses), with the "content" and "media" scopes.';
 
 const args = process.argv.slice(2);
 const force = args.includes('--force');
 const tokenFlag = args.indexOf('--token');
 const flagToken = tokenFlag === -1 ? undefined : args[tokenFlag + 1];
 const positional = args.filter((arg, index) => !arg.startsWith('--') && (tokenFlag === -1 || index !== tokenFlag + 1));
-const siteUrl = positional[0];
-const TOKEN_HELP = 'The token is the live site\'s API token (the same one the admin uses), with the "content" and "media" scopes.';
 
-if (!siteUrl) {
-  console.error(USAGE);
-  console.error(TOKEN_HELP);
-  process.exit(1);
-}
+// Anything not given on the command line is asked for: the address,
+// then the token (hidden). CMS_TOKEN and --token still work for
+// scripts, but either leaves the token in shell history. Output goes
+// to stderr so stdout carries only the result.
+const prompter = createPrompter(process.stdin, process.stderr);
 
-// Asked for when not given, without showing it: CMS_TOKEN and --token
-// still work (for scripts), but either leaves the token in shell
-// history. Piped input works too - the first line is the token.
-let token = flagToken ?? process.env.CMS_TOKEN;
-if (!token) {
+async function ask(question: string, hidden = false): Promise<string> {
   try {
-    token = await promptHidden(`API token for ${siteUrl} (hidden): `, process.stdin, process.stderr);
+    return await prompter.ask(question, { hidden });
   } catch (error) {
     if (error instanceof PromptCancelledError) {
       process.exit(130);
@@ -34,6 +28,28 @@ if (!token) {
     throw error;
   }
 }
+
+const givenUrl = positional[0] ?? (await ask('Live site address: '));
+const siteUrl = normaliseSiteUrl(givenUrl);
+if (!siteUrl) {
+  console.error(givenUrl.trim() === '' ? 'No address entered.' : `"${givenUrl}" is not a web address.`);
+  console.error('Usage: npm run pull [-- <live-site-address>] [--force]');
+  process.exit(1);
+}
+
+// Checked before asking for the token, so a mistyped address is found
+// out without typing a token for nothing.
+try {
+  await checkPullableSite(siteUrl);
+} catch (error) {
+  if (error instanceof PullSiteError) {
+    console.error(error.message);
+    process.exit(1);
+  }
+  throw error;
+}
+
+const token = flagToken ?? process.env.CMS_TOKEN ?? (await ask(`API token for ${siteUrl} (hidden): `, true));
 if (!token) {
   console.error('No token entered.');
   console.error(TOKEN_HELP);
@@ -59,6 +75,9 @@ try {
 } catch (error) {
   if (error instanceof PullSiteError) {
     console.error(error.message);
+    if (error.reason === 'unauthorised') {
+      console.error(TOKEN_HELP);
+    }
     process.exit(1);
   }
   throw error;

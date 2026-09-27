@@ -6,7 +6,7 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ### Changed
 
-- **`npm run pull` asks for the token** when neither `CMS_TOKEN` nor `--token` is given, without showing what is typed or pasted, so it never lands in shell history. Piped input still works (the first line is read), so scripts are unaffected.
+- **`npm run pull` asks for what it needs**: the live site's address when none is given, then the token when neither `CMS_TOKEN` nor `--token` is, without showing what is typed or pasted, so the token never lands in shell history. An address can be typed as `my-site.example` (taken as `https://`) or `localhost:3600` (`http://`), and is checked before the token is asked for. Piped input still works (address, then token, one per line), so scripts are unaffected.
 
 ## [0.5.4] - 2026-09-28
 

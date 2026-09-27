@@ -81,10 +81,10 @@ What this explicitly does **not** cover: "any shared hosting." A host that can't
 `npm run pull` (`pull-site`) copies a running site's content and media into a local one, so it can be run locally with everything working, images included (`media/` is never in git, so cloning the repository alone leaves every image broken). From the local site's `vhost/`:
 
 ```
-npm run pull -- https://my-site.example
+npm run pull
 ```
 
-It asks for the live site's API token, without showing what you type or paste, so the token never lands in shell history. For scripts, set `CMS_TOKEN` instead, or pipe the token in (the first line of input is read).
+It asks for the live site's address (`my-site.example` is taken as `https://`, and `localhost:3600` or `127.0.0.1:3600` as `http://`), checks it really is a site, then asks for its API token without showing what you type or paste, so the token never lands in shell history. The address can be given instead as `npm run pull -- https://my-site.example`. For scripts, set `CMS_TOKEN`, or pipe the answers in (the address on the first line, the token on the second).
 
 It uses the site's `/v1/` API, so it works the same wherever the site is hosted, with no SSH access. Pages, menus, drafts and redirects are mirrored - local files the live site doesn't have are removed - and any media file missing locally is downloaded (existing ones are kept; names are content-addressed, so a matching name is the same file). The theme is never touched: the API doesn't serve it, and it is the developer's code rather than the site's content. Nothing is committed; review the result with `git diff`. It refuses while `content/` has uncommitted changes, since those would be overwritten (`--force` pulls anyway), and refuses a live site on a newer content schema than the local agent. The token needs the `content` and `media` scopes. Everything is fetched before anything is written, so a failure part way leaves the local site as it was. The live site's git history does not come across, only its current files.
 

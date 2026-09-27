@@ -150,12 +150,16 @@ function writeUnder(root: string, relativePath: string, bytes: Buffer): void {
 // way through the content leaves the local site exactly as it was.
 // Media is downloaded last and only ever adds files, so a failure there
 // leaves the content pulled and some images still to fetch on a re-run.
-export async function pullSite(config: SiteConfig, options: PullSiteOptions): Promise<PullSiteResult> {
-  const remote = new RemoteSite(options.siteUrl, options.token, options.fetchImpl);
-
-  const capabilities = (await remote.getJson('/v1/capabilities', { auth: false })) as Record<string, unknown>;
+// Whether an address is a site this agent can pull from, checked
+// without a token (GET /v1/capabilities is public) - so the CLI can say
+// the address is wrong before asking for a token at all.
+export async function checkPullableSite(siteUrl: string, fetchImpl?: typeof fetch): Promise<void> {
+  const capabilities = (await new RemoteSite(siteUrl, '', fetchImpl).getJson('/v1/capabilities', { auth: false })) as Record<
+    string,
+    unknown
+  >;
   if (typeof capabilities.agentVersion !== 'string' || typeof capabilities.contentSchemaVersion !== 'number') {
-    throw new PullSiteError('not-a-site', `${options.siteUrl} is not a Granite site`);
+    throw new PullSiteError('not-a-site', `${siteUrl} is not a Granite site`);
   }
   if (capabilities.contentSchemaVersion > CURRENT_SCHEMA_VERSION) {
     throw new PullSiteError(
@@ -163,6 +167,11 @@ export async function pullSite(config: SiteConfig, options: PullSiteOptions): Pr
       `The live site uses content schema ${capabilities.contentSchemaVersion} (agent ${capabilities.agentVersion}), newer than this site's ${CURRENT_SCHEMA_VERSION}. Upgrade @o-a/cms-agent here first.`,
     );
   }
+}
+
+export async function pullSite(config: SiteConfig, options: PullSiteOptions): Promise<PullSiteResult> {
+  const remote = new RemoteSite(options.siteUrl, options.token, options.fetchImpl);
+  await checkPullableSite(options.siteUrl, options.fetchImpl);
 
   if (!options.force && hasUncommittedContentChanges(config)) {
     throw new PullSiteError(

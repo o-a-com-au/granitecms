@@ -161,7 +161,7 @@ export function scaffoldSite(targetDir: string): { raw: string } {
           // started in (stop-site, via vhost/data/server.pid).
           stop: 'stop-site',
           // Copies a running site's content and media into this one
-          // (pull-site): `npm run pull -- <url>`, which asks for the token.
+          // (pull-site): `npm run pull`, which asks for the address and token.
           pull: 'pull-site',
         },
         dependencies: {
