@@ -7,7 +7,8 @@ import { sanitisePath } from '../services/path-safety.ts';
 import { loadRedirects, type RedirectEntry } from '../services/redirects.ts';
 import { encodePath, fetchLiveContent, fetchLiveMedia, readCapabilities, type LiveContent, type LiveFile } from './live-content.ts';
 import { RemoteSite, SiteSyncError } from './remote-site.ts';
-import { hashOf, readSyncRecord, sameRedirects, updateSyncRecord, type ContentRecord } from './sync-record.ts';
+import { hashOf, readSyncRecord, sameRedirects, settingsHash, updateSyncRecord, type ContentRecord } from './sync-record.ts';
+import { readSiteSettings, siteSettingsPath } from '../services/site-settings.ts';
 import { executeThemePush, fetchLiveTheme, planThemePush, readLocalTheme, type LiveTheme, type ThemePlan } from './theme-sync.ts';
 import { hashThemeFile } from '../services/theme-files.ts';
 
@@ -38,12 +39,17 @@ export interface PushPlan {
   mediaToUpload: string[];
   // Referred to by pushed content, but missing locally too.
   mediaMissing: string[];
+  // Whether this copy's site settings are to be pushed.
+  settings: boolean;
 }
 
 export interface LocalContent {
   files: Map<string, Buffer>;
   redirects: RedirectEntry[];
   mediaNames: Set<string>;
+  // This copy's site settings, or null when it has no settings.json -
+  // "no opinion", never "clear them on the live site".
+  settings: Record<string, unknown> | null;
 }
 
 // Three versions of every page and menu: as last pulled (the record),
@@ -137,7 +143,25 @@ export function planPush(record: ContentRecord, local: LocalContent, live: LiveC
     (local.mediaNames.has(name) ? mediaToUpload : mediaMissing).push(name);
   }
 
-  return { changes, conflicts, redirectOperations, mediaToUpload, mediaMissing };
+  // Site settings: the same three-way rule, as one unit. Only ever
+  // pushed from a copy that has its own settings.json - with none, the
+  // live site's settings are left alone, never cleared - and not at all
+  // to a CMS without site settings.
+  let settings = false;
+  if (local.settings !== null && live.settings !== null) {
+    const pulledSettings = record.settings;
+    const here = settingsHash(local.settings);
+    const there = live.settings.etag === null ? undefined : settingsHash(live.settings.values);
+    if (here !== pulledSettings && here !== there) {
+      if (there !== pulledSettings) {
+        conflicts.push({ path: 'settings.json', reason: 'site settings changed on the live site since your last pull' });
+      } else {
+        settings = true;
+      }
+    }
+  }
+
+  return { changes, conflicts, redirectOperations, mediaToUpload, mediaMissing, settings };
 }
 
 // --- Reading this site, and the live one ---
@@ -151,7 +175,8 @@ function readLocalContent(config: SiteConfig): LocalContent {
     files.set(path, readFileSync(sanitisePath(config.contentRoot, path)));
   }
   const mediaNames = new Set(existsSync(config.mediaRoot) ? listFilesRecursively(config.mediaRoot, config.mediaRoot, '') : []);
-  return { files, redirects: loadRedirects(config).entries, mediaNames };
+  const settings = existsSync(siteSettingsPath(config)) ? readSiteSettings(config).settings : null;
+  return { files, redirects: loadRedirects(config).entries, mediaNames, settings };
 }
 
 // The live site's history should say who pushed, so the author is this
@@ -262,6 +287,7 @@ export async function preparePush(config: SiteConfig, options: PushSiteOptions):
     syncedAt: '',
     files: Object.fromEntries([...live.live].map(([path, file]) => [path, hashOf(file.bytes)])),
     redirects: live.redirects,
+    ...(live.settings?.etag ? { settings: settingsHash(live.settings.values) } : {}),
   };
   const contentPlan = planPush(contentRecord, local, live, liveMedia);
   const content: Prepared<PreparedContent> = {
@@ -324,6 +350,28 @@ export interface PushContentResult {
   deleted: number;
   redirects: number;
   mediaUploaded: number;
+  settings: boolean;
+}
+
+// What the record says about site settings after a push: what was just
+// sent; otherwise, as pulled - except on a first push, when only
+// settings this copy and the live site already agree on are recorded.
+function recordedSettings(
+  plan: PushPlan,
+  record: ContentRecord,
+  local: LocalContent,
+  live: LiveContent,
+  firstPush: boolean,
+): { settings?: string } {
+  if (plan.settings && local.settings !== null) {
+    return { settings: settingsHash(local.settings) };
+  }
+  if (firstPush) {
+    const agreed =
+      local.settings !== null && live.settings?.etag && settingsHash(local.settings) === settingsHash(live.settings.values);
+    return agreed ? { settings: settingsHash(local.settings as Record<string, unknown>) } : {};
+  }
+  return record.settings === undefined ? {} : { settings: record.settings };
 }
 
 export interface PushSiteResult {
@@ -431,6 +479,17 @@ async function executeContentPush(prepared: PreparedPush, prepContent: PreparedC
     });
   }
 
+  // Site settings last, one commit, against the ETag seen while
+  // planning ("*" while the live site has none saved yet).
+  if (plan.settings && local.settings !== null) {
+    await remote.sendJson(
+      'PUT',
+      '/v1/settings',
+      { settings: local.settings, message: 'Update site settings (pushed from a local copy)', author },
+      { 'if-match': live.settings?.etag ?? '*' },
+    );
+  }
+
   // The record now reflects the live site for everything pushed: the
   // bytes the site actually stored (it re-serialises a draft write),
   // not what was sent. Anything not pushed keeps its pulled state, so a
@@ -458,6 +517,7 @@ async function executeContentPush(prepared: PreparedPush, prepContent: PreparedC
       // On a first push, this copy's own list: live-only redirects then
       // never read as removed here.
       redirects: firstPush || plan.redirectOperations.length > 0 ? local.redirects : record.redirects,
+      ...recordedSettings(plan, record, local, live, firstPush),
     },
   });
 
@@ -467,5 +527,6 @@ async function executeContentPush(prepared: PreparedPush, prepContent: PreparedC
     deleted: plan.changes.filter((change) => change.action === 'delete').length,
     redirects: plan.redirectOperations.length,
     mediaUploaded: plan.mediaToUpload.length,
+    settings: plan.settings,
   };
 }

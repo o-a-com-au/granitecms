@@ -129,10 +129,10 @@ export class RemoteSite {
   // A JSON write. A refusal from the site (4xx) is reported with the
   // site's own message: a validation failure or conflict is something
   // the person pushing needs to read, not a status code.
-  async sendJson(method: 'POST' | 'PUT' | 'DELETE', path: string, body: unknown): Promise<unknown> {
+  async sendJson(method: 'POST' | 'PUT' | 'DELETE', path: string, body: unknown, headers: Record<string, string> = {}): Promise<unknown> {
     const response = await this.request(method, path, {
       body: JSON.stringify(body),
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...headers },
     });
     return this.readWriteResult(method, path, response);
   }

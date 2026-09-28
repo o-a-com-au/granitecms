@@ -19,7 +19,7 @@ That is the whole workflow, and it is the same on every host.
 
 A site has two kinds of files, and knowing which is which explains everything else.
 
-- **Your site:** the theme (how it looks) and the content (pages, menus, redirects and images). Editors change content in the admin, and you change the theme on your computer.
+- **Your site:** the theme (how it looks) and the content (pages, menus, redirects, site settings and images). Editors change content in the admin, and you change the theme on your computer.
 - **The CMS:** the program that runs your site. It lives in `vhost/`, and you never edit it; `npm run upgrade` updates it.
 
 Your site's files live on the host's permanent disk, so they survive restarts and upgrades. The CMS comes from your deploy.
@@ -48,7 +48,7 @@ Live site address: my-site.example
 API token for https://my-site.example (hidden):
 
 What do you want to pull?
-  [x] Content  (pages, menus, redirects, images)
+  [x] Content  (pages, menus, redirects, images, site settings)
   [x] Theme    (templates, styles, scripts)
 ```
 

@@ -49,6 +49,9 @@ function printContentPlan(plan: PushPlan): void {
   for (const name of plan.mediaToUpload) {
     console.error(`  upload    media/${name}`);
   }
+  if (plan.settings) {
+    console.error('  update    content/settings.json (site settings)');
+  }
 }
 
 function printThemePlan(plan: ThemePlan): void {
@@ -61,7 +64,7 @@ function printThemePlan(plan: ThemePlan): void {
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 function contentCount(plan: PushPlan): number {
-  return plan.changes.length + plan.redirectOperations.length + plan.mediaToUpload.length;
+  return plan.changes.length + plan.redirectOperations.length + plan.mediaToUpload.length + (plan.settings ? 1 : 0);
 }
 
 function reportConflicts(conflicts: Array<{ path: string; reason: string }>, folder: string): void {
@@ -280,7 +283,7 @@ try {
   if (result.content) {
     const done = result.content;
     console.log(`  content: ${done.created} new, ${done.updated} updated, ${done.deleted} deleted`);
-    console.log(`  ${plural(done.redirects, 'redirect change')}, ${plural(done.mediaUploaded, 'image')} uploaded`);
+    console.log(`  ${plural(done.redirects, 'redirect change')}, ${plural(done.mediaUploaded, 'image')} uploaded${done.settings ? ', site settings updated' : ''}`);
   }
 } catch (error) {
   if (error instanceof SiteSyncError) {

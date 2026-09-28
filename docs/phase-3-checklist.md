@@ -628,6 +628,8 @@ Raised directly by the project owner: site-wide values (social links, a global f
 | AE4 | `settings.json` isn't reachable through the generic content routes | `:: settings.json is not reachable ...` |
 | AE5 | No schema file means no settings; an unusable one is left out with a start-up warning | `:: a theme with no settings schema ...`, `:: an unusable settings schema is left out ...` |
 | AE6 | New sites' footer links and body font are site settings, rendering as before by default and following a saved change | `test/create-site/site-settings.test.ts` |
+| AE7 | Pull and push carry site settings with content: pushed only when changed locally, a conflict when changed in both places, never cleared by a copy without settings.json, skipped for an older live CMS; pull mirrors them and records them | `test/site-sync/push-site.test.ts :: planPush: site settings ...`, `:: a real round trip: pull brings the live settings down ...` |
+| AE8 | Admin: a Settings item in the left rail opens a schema-built form beside the kept preview; Save/Discard in the header; field errors, conflicts, no-schema and too-old sites explained; leaving unsaved asks first | admin `test/pages/SiteSettingsPage.test.tsx`; server `test/routes/sites.test.ts :: GET/PUT /api/sites/:id/settings ...`; checked live against the demo site (a save appeared on its pages at once, committed under the logged-in user) |
 
 ## Future considerations (not scoped, for later discussion)
 

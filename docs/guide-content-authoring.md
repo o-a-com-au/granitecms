@@ -128,7 +128,7 @@ Required: `schemaVersion` (integer) and `items` (array). Each item requires `lab
 { "schemaVersion": 7, "settings": { "instagram_url": "https://instagram.com/example", "body_font": "Serif" } }
 ```
 
-Optional: with no file, every setting has the theme's default. The values are validated against the theme's schema when saved; editors change them on the admin's Settings screen (`GET` and `PUT /v1/settings`), and a save is committed and live straight away, like a menu.
+Optional: with no file, every setting has the theme's default. `npm run pull` and `npm run push` carry it with the rest of the content, protected the same way: settings changed on the live site since your last pull stop a push, and a copy with no `settings.json` never clears the live ones. The values are validated against the theme's schema when saved; editors change them on the admin's Settings screen (`GET` and `PUT /v1/settings`), and a save is committed and live straight away, like a menu.
 
 ## Redirects
 

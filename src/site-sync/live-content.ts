@@ -35,11 +35,20 @@ export interface LiveFile {
   etag: string;
 }
 
+export interface LiveSettings {
+  values: Record<string, unknown>;
+  // null while the live site has no settings saved.
+  etag: string | null;
+}
+
 export interface LiveContent {
   // Content-relative paths ("pages/about.json", "menus/main.json").
   live: Map<string, LiveFile>;
   drafts: Map<string, Buffer>;
   redirects: RedirectEntry[];
+  // The live site's saved site settings, or null for a CMS older than
+  // site settings (no /v1/settings) - then they are simply not synced.
+  settings: LiveSettings | null;
 }
 
 export async function fetchLiveContent(remote: RemoteSite): Promise<LiveContent> {
@@ -70,7 +79,17 @@ export async function fetchLiveContent(remote: RemoteSite): Promise<LiveContent>
   const redirectsBody = (await remote.getJson('/v1/redirects')) as { entries?: unknown };
   const redirects = Array.isArray(redirectsBody.entries) ? (redirectsBody.entries as RedirectEntry[]) : [];
 
-  return { live, drafts, redirects };
+  let settings: LiveSettings | null = null;
+  const settingsResponse = await remote.get('/v1/settings', { allow404: true });
+  if (settingsResponse !== null) {
+    const body = (await settingsResponse.json().catch(() => null)) as { settings?: unknown } | null;
+    if (!body || typeof body.settings !== 'object' || body.settings === null || Array.isArray(body.settings)) {
+      throw new SiteSyncError('fetch-failed', 'GET /v1/settings did not return settings');
+    }
+    settings = { values: body.settings as Record<string, unknown>, etag: settingsResponse.headers.get('etag') };
+  }
+
+  return { live, drafts, redirects, settings };
 }
 
 export interface LiveMediaItem {

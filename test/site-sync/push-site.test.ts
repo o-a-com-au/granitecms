@@ -9,7 +9,7 @@ import type { LiveContent } from '../../src/site-sync/live-content.ts';
 import { pullSite } from '../../src/site-sync/pull-site.ts';
 import { executePush, planPush, preparePush, type LocalContent } from '../../src/site-sync/push-site.ts';
 import { SiteSyncError } from '../../src/site-sync/remote-site.ts';
-import { hashOf, readSyncRecord, type ContentRecord } from '../../src/site-sync/sync-record.ts';
+import { hashOf, readSyncRecord, settingsHash, type ContentRecord } from '../../src/site-sync/sync-record.ts';
 import { writeJson } from '../helpers/tmp-site.ts';
 import { createLocalSite, git, startLiveSite, TOKEN } from './sync-helpers.ts';
 
@@ -37,11 +37,13 @@ function scenario({
     files: new Map(Object.entries(here).map(([path, title]) => [path, page(title)])),
     redirects: [],
     mediaNames: new Set(),
+    settings: null,
   };
   const live: LiveContent = {
     live: new Map(Object.entries(there).map(([path, title]) => [path, { bytes: page(title), etag: `"${title}"` }])),
     drafts: new Map(liveDrafts.map((path) => [path, page('draft')])),
     redirects: [],
+    settings: null,
   };
   return planPush(record, local, live, new Set());
 }
@@ -101,16 +103,16 @@ test('planPush: a page with an unpublished draft on the live site is a conflict 
 
 test('planPush: formatting alone is not a change (the live site re-serialises what it is sent)', () => {
   const record: ContentRecord = { syncedAt: '', files: { [P]: hashOf(Buffer.from('{"a":1,"b":[2]}')) }, redirects: [] };
-  const local: LocalContent = { files: new Map([[P, Buffer.from('{\n  "a": 1,\n  "b": [\n    2\n  ]\n}\n')]]), redirects: [], mediaNames: new Set() };
-  const live: LiveContent = { live: new Map([[P, { bytes: Buffer.from('{"a":1,"b":[2]}'), etag: '"e"' }]]), drafts: new Map(), redirects: [] };
+  const local: LocalContent = { files: new Map([[P, Buffer.from('{\n  "a": 1,\n  "b": [\n    2\n  ]\n}\n')]]), redirects: [], mediaNames: new Set(), settings: null };
+  const live: LiveContent = { live: new Map([[P, { bytes: Buffer.from('{"a":1,"b":[2]}'), etag: '"e"' }]]), drafts: new Map(), redirects: [], settings: null };
   assert.deepEqual(planPush(record, local, live, new Set()).changes, []);
 });
 
 test('planPush: redirects are pushed as per-redirect operations, and conflict if both sides changed them', () => {
   const base = [{ from: '/a', to: '/x' }, { from: '/b', to: '/y' }];
   const record: ContentRecord = { syncedAt: '', files: {}, redirects: base };
-  const local: LocalContent = { files: new Map(), redirects: [{ from: '/a', to: '/changed' }, { from: '/c', to: '/z' }], mediaNames: new Set() };
-  const liveSame: LiveContent = { live: new Map(), drafts: new Map(), redirects: base };
+  const local: LocalContent = { files: new Map(), redirects: [{ from: '/a', to: '/changed' }, { from: '/c', to: '/z' }], mediaNames: new Set(), settings: null };
+  const liveSame: LiveContent = { live: new Map(), drafts: new Map(), redirects: base, settings: null };
   assert.deepEqual(planPush(record, local, liveSame, new Set()).redirectOperations, [
     { method: 'DELETE', entry: { from: '/b', to: '/y' } },
     { method: 'PUT', entry: { from: '/a', to: '/changed' } },
@@ -132,8 +134,9 @@ test('planPush: uploads only media the pushed pages use and the live site lacks;
     files: new Map([[P, body]]),
     redirects: [],
     mediaNames: new Set(['new-222222222222.jpg', 'unused-444444444444.jpg']),
+    settings: null,
   };
-  const live: LiveContent = { live: new Map(), drafts: new Map(), redirects: [] };
+  const live: LiveContent = { live: new Map(), drafts: new Map(), redirects: [], settings: null };
   const plan = planPush(record, local, live, new Set(['have-111111111111.jpg']));
   assert.deepEqual(plan.mediaToUpload, ['new-222222222222.jpg']);
   assert.deepEqual(plan.mediaMissing, ['gone-333333333333.jpg']);
@@ -197,7 +200,7 @@ test('a real push: creates, updates, deletes, a redirect and an image reach the 
     assert.deepEqual(plan.mediaToUpload, [imageName]);
 
     const result = await executePush(prepared, { content: true, theme: false });
-    assert.deepEqual(result.content, { created: 1, updated: 1, deleted: 1, redirects: 1, mediaUploaded: 1 });
+    assert.deepEqual(result.content, { created: 1, updated: 1, deleted: 1, redirects: 1, mediaUploaded: 1, settings: false });
 
     const liveJson = (path: string) => JSON.parse(readFileSync(join(live.siteRoot, 'content', path), 'utf-8')) as { title: string };
     assert.equal(liveJson('pages/about.json').title, 'About, edited locally');
@@ -345,6 +348,61 @@ test('npm run push: shows what will change and warns, pushes nothing on a wrong 
     assert.match(right.stdout, /Pushed to .*\n\s+content: 0 new, 1 updated, 0 deleted/);
     assert.equal(liveTitle(), 'Pushed from the command');
     assert.ok(!right.stdout.includes(TOKEN) && !right.stderr.includes(TOKEN), 'the token is never printed');
+  } finally {
+    await cleanup();
+  }
+});
+
+// --- Site settings travel with content ---
+
+test('planPush: site settings are pushed only when changed here, conflict when changed in both places, and are never cleared', () => {
+  const record: ContentRecord = { syncedAt: '', files: {}, redirects: [], settings: settingsHash({ announcement: 'Pulled' }) };
+  const plan = (localSettings: Record<string, unknown> | null, liveSettings: Record<string, unknown> | null) =>
+    planPush(
+      record,
+      { files: new Map(), redirects: [], mediaNames: new Set(), settings: localSettings },
+      { live: new Map(), drafts: new Map(), redirects: [], settings: liveSettings === null ? null : { values: liveSettings, etag: '"e"' } },
+      new Set(),
+    );
+  assert.equal(plan({ announcement: 'Pulled' }, { announcement: 'Pulled' }).settings, false, 'unchanged');
+  assert.equal(plan({ announcement: 'Mine' }, { announcement: 'Pulled' }).settings, true, 'changed here only');
+  assert.deepEqual(plan({ announcement: 'Mine' }, { announcement: 'Theirs' }).conflicts, [
+    { path: 'settings.json', reason: 'site settings changed on the live site since your last pull' },
+  ]);
+  assert.equal(plan({ announcement: 'Same' }, { announcement: 'Same' }).settings, false, 'both made the same change');
+  assert.equal(plan(null, { announcement: 'Pulled' }).settings, false, 'no settings.json here: never clears the live ones');
+  assert.equal(plan({ announcement: 'Mine' }, null).settings, false, 'a live CMS without site settings: skipped');
+});
+
+test('a real round trip: pull brings the live settings down, and a push sends a local change back', async () => {
+  const { live, localRoot, config, cleanup } = await pulledCopy();
+  try {
+    // An editor saves settings on the live site; a pull brings them down.
+    const saved = await fetch(new URL('/v1/settings', live.url), {
+      method: 'PUT',
+      headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json', 'if-match': '*' },
+      body: JSON.stringify({ settings: { announcement: 'Open this weekend' }, message: 'Update site settings', author: { name: 'Editor', email: 'e@example.com' } }),
+    });
+    assert.equal(saved.status, 200);
+    git(localRoot, ['add', '-A']);
+    git(localRoot, ['commit', '--quiet', '--allow-empty', '-m', 'before pull']);
+    await pullSite(config, { siteUrl: live.url, token: TOKEN, parts: { content: true, theme: false } });
+    const localPath = join(localRoot, 'content', 'settings.json');
+    assert.deepEqual((JSON.parse(readFileSync(localPath, 'utf-8')) as { settings: unknown }).settings, { announcement: 'Open this weekend' });
+
+    // Changed here, then pushed.
+    writeJson(localRoot, 'content/settings.json', { schemaVersion: 7, settings: { announcement: 'Closed for maintenance' } });
+    const prepared = await preparePush(config, { siteUrl: live.url, token: TOKEN });
+    assert.ok(prepared.content.ready);
+    assert.equal(prepared.content.value.plan.settings, true);
+    const result = await executePush(prepared, { content: true, theme: false });
+    assert.equal(result.content?.settings, true);
+    assert.match(await (await fetch(new URL('/v1/settings', live.url), { headers: { authorization: `Bearer ${TOKEN}` } })).text(), /Closed for maintenance/);
+
+    // Recorded: nothing left to push.
+    const again = await preparePush(config, { siteUrl: live.url, token: TOKEN });
+    assert.ok(again.content.ready);
+    assert.equal(again.content.value.plan.settings, false);
   } finally {
     await cleanup();
   }

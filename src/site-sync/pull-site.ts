@@ -9,7 +9,8 @@ import { loadRedirects, serialiseRedirects } from '../services/redirects.ts';
 import { rebuildIndex } from '../search/rebuild-index.ts';
 import { fetchLiveContent, fetchLiveMedia, readCapabilities } from './live-content.ts';
 import { RemoteSite, SiteSyncError } from './remote-site.ts';
-import { hashOf, sameRedirects, updateSyncRecord } from './sync-record.ts';
+import { hashOf, sameRedirects, settingsHash, updateSyncRecord } from './sync-record.ts';
+import { readSiteSettings, siteSettingsPath } from '../services/site-settings.ts';
 import { fetchLiveTheme, pullTheme, type ThemePullResult } from './theme-sync.ts';
 
 export interface SyncParts {
@@ -123,7 +124,7 @@ export async function pullSite(config: SiteConfig, options: PullSiteOptions): Pr
 
 async function pullContent(config: SiteConfig, remote: RemoteSite, siteUrl: string): Promise<PullContentResult> {
   // --- Fetch everything ---
-  const { live, drafts, redirects } = await fetchLiveContent(remote);
+  const { live, drafts, redirects, settings } = await fetchLiveContent(remote);
 
   // --- Write content (mirror) ---
   const removed: string[] = [];
@@ -156,11 +157,31 @@ async function pullContent(config: SiteConfig, remote: RemoteSite, siteUrl: stri
     writeFileSync(config.redirectsPath, serialiseRedirects(redirects));
   }
 
+  // Site settings, mirrored like everything else: the live site's saved
+  // values, or no settings.json when it has none saved. Left alone
+  // entirely for a live CMS older than site settings, and only rewritten
+  // when the values actually differ.
+  const settingsPath = siteSettingsPath(config);
+  if (settings !== null) {
+    if (settings.etag === null) {
+      if (existsSync(settingsPath)) {
+        unlinkSync(settingsPath);
+        removed.push('settings.json');
+      }
+    } else {
+      const local = existsSync(settingsPath) ? readSiteSettings(config).settings : null;
+      if (local === null || settingsHash(local) !== settingsHash(settings.values)) {
+        writeFileSync(settingsPath, `${JSON.stringify({ schemaVersion: CURRENT_SCHEMA_VERSION, settings: settings.values }, null, 2)}\n`);
+      }
+    }
+  }
+
   updateSyncRecord(config, siteUrl, {
     content: {
       syncedAt: new Date().toISOString(),
       files: Object.fromEntries([...live].map(([path, file]) => [path, hashOf(file.bytes)])),
       redirects,
+      ...(settings?.etag ? { settings: settingsHash(settings.values) } : {}),
     },
   });
 

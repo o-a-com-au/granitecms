@@ -6,7 +6,7 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ### Added
 
-- **Site settings.** A theme defines site-wide settings in `theme/config/settings_schema.json` - social links, a font choice, anything a whole site shares - in the same JSON Schema form as a section's `{% schema %}`. Every layout, section, block and snippet reads them as `{{ settings.<name> }}`, with the theme's defaults filling anything not yet saved. The values are content, in `content/settings.json`: `GET /v1/settings` returns the schema, the saved values and what templates see; `PUT /v1/settings` (If-Match) validates, commits and puts them live at once, like a menu. Saving refreshes every cached page. New sites' footer links and body font are site settings.
+- **Site settings.** A theme defines site-wide settings in `theme/config/settings_schema.json` - social links, a font choice, anything a whole site shares - in the same JSON Schema form as a section's `{% schema %}`. Every layout, section, block and snippet reads them as `{{ settings.<name> }}`, with the theme's defaults filling anything not yet saved. The values are content, in `content/settings.json`: `GET /v1/settings` returns the schema, the saved values and what templates see; `PUT /v1/settings` (If-Match) validates, commits and puts them live at once, like a menu. Saving refreshes every cached page. New sites' footer links and body font are site settings. `npm run pull` and `npm run push` carry site settings with content, protected the same way (settings changed on the live site since the pull stop a push; a copy with no `settings.json` never clears the live ones). The admin has a matching Settings screen.
 
 ## [0.6.1] - 2026-09-28
 

@@ -43,6 +43,12 @@ function setUpLiveSite(): string {
     tokens: [{ hash: createHash('sha256').update(TOKEN).digest('hex'), scopes: ['content', 'media', 'theme'] }],
   });
   writeJson(siteRoot, 'content/redirects.json', { schemaVersion: 1, entries: [{ from: '/old', to: '/about' }] });
+  // Site settings the theme defines, none saved yet.
+  writeJson(siteRoot, 'theme/config/settings_schema.json', {
+    type: 'object',
+    additionalProperties: false,
+    properties: { announcement: { type: 'string', default: '' } },
+  });
   mkdirSync(join(siteRoot, 'media'), { recursive: true });
   writeFileSync(join(siteRoot, 'media', MEDIA_NAME), MEDIA_BYTES);
   // Committed, as a real site's content always is: every live page got

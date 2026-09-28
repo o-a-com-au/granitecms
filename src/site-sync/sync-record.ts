@@ -14,6 +14,9 @@ export interface ContentRecord {
   // Content-relative path -> hashOf(what the live site had).
   files: Record<string, string>;
   redirects: RedirectEntry[];
+  // settingsHash of the site settings as pulled; absent when there were
+  // none (or the live CMS had none to give).
+  settings?: string;
 }
 
 export interface ThemeRecord {
@@ -50,6 +53,17 @@ function isFileMap(value: unknown): value is Record<string, string> {
   return typeof value === 'object' && value !== null && Object.values(value).every((hash) => typeof hash === 'string');
 }
 
+// Site settings compared by content, keys in any order.
+export function settingsHash(values: Record<string, unknown>): string {
+  const sorted = (value: unknown): unknown =>
+    Array.isArray(value)
+      ? value.map(sorted)
+      : value !== null && typeof value === 'object'
+        ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, sorted((value as Record<string, unknown>)[key])]))
+        : value;
+  return createHash('sha256').update(JSON.stringify(sorted(values))).digest('hex');
+}
+
 export function readSyncRecord(config: SiteConfig): SyncRecord | null {
   let parsed: Record<string, unknown>;
   try {
@@ -69,6 +83,7 @@ export function readSyncRecord(config: SiteConfig): SyncRecord | null {
       syncedAt: typeof content.syncedAt === 'string' ? content.syncedAt : '',
       files: content.files,
       redirects: content.redirects as RedirectEntry[],
+      ...(typeof content.settings === 'string' ? { settings: content.settings } : {}),
     };
   }
   const theme = parsed.theme as Record<string, unknown> | undefined;
