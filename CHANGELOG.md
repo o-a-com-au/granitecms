@@ -4,6 +4,10 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Added
+
+- **Field groups.** A `"group"` on a field in a section, block or site settings schema puts it under a collapsible heading in the admin, with others sharing that group. A plain annotation like `"title"`: names and templates are unchanged. New sites group their settings into Social links and Typography.
+
 ### Fixed
 
 - **A site with no `content/drafts` folder can preview and save drafts.** Git keeps no empty folders, so a site cloned or deployed from git with no drafts has none, and every preview and draft save failed with a 500. The folder is now made at start-up.

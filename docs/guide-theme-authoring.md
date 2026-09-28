@@ -79,6 +79,8 @@ None of the bullets above need `"additionalProperties"`, `"required"`, `"default
 
 `fontSize`'s `minimum`/`maximum` are the one exception - not optional boilerplate, `range` genuinely doesn't trigger without both. A custom display label uses the standard JSON Schema `"title"` keyword (`"title": "Section Heading"`) - omit it and the property key auto-humanizes instead (`backgroundImage` -> "Background Image").
 
+To group a long list of fields, give each one a `"group"`: `"group": "Background"`. The admin shows fields sharing a group together under a collapsible heading, ungrouped fields first, then each group in the order its first field appears (the first group starts open). Like `"title"`, it is a plain annotation: it changes only how the admin lays out the form, never the setting's name or how a template reads it. The same works in site settings.
+
 At the top level of a section or block schema, `"title"` and `"description"` name the component itself rather than one of its fields, and are what the admin's "Add a Section" dialog shows: one row per type, its title with the description beside it. Both are plain annotations (Ajv ignores them, `strict: false`), so neither affects validation, and both ride through the pipeline verbatim exactly as `allowedBlocks` does. With no `"title"` the row shows the raw type identifier (`image-band`); with no `"description"` the row shows a bare name and an editor has to guess what the type is for. Write the description as one short sentence about what the component **is**, not which fields it has - the fields are visible the moment it is added.
 
 ```json
@@ -254,8 +256,8 @@ Define them in `theme/config/site_settings.json`, in the same JSON Schema form a
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "instagram_url": { "type": "string", "title": "Instagram link" },
-    "body_font": { "type": "string", "title": "Body font", "enum": ["Sans-serif", "Serif"], "default": "Sans-serif" }
+    "instagram_url": { "type": "string", "title": "Instagram link", "group": "Social links" },
+    "body_font": { "type": "string", "title": "Body font", "enum": ["Sans-serif", "Serif"], "default": "Sans-serif", "group": "Typography" }
   }
 }
 ```
@@ -263,6 +265,7 @@ Define them in `theme/config/site_settings.json`, in the same JSON Schema form a
 - **Available everywhere:** `{{ settings.instagram_url }}` works in every layout, section, block and snippet, including snippets pulled in with `{% render %}`, with no need to pass it along. (`section.settings` and `block.settings` are different: those belong to one section or block.)
 - **Defaults fill the gaps:** a setting nobody has saved yet has its `default`, or is blank if it has none. A property in `required` must have a valid `default`, as for sections.
 - **Fonts:** offer a list with `enum`, and map each choice to a font stack in the layout, for example `{% if settings.body_font == 'Serif' %}<style>:root { --font-sans: Georgia, serif; }</style>{% endif %}`. The theme loads any font files itself, so the site only ever uses fonts it was designed for.
+- **Groups:** `"group"` puts settings under a collapsible heading on the Settings screen, as in a section's fields. Templates still read `{{ settings.<name> }}`.
 - **Links left empty:** check before rendering one, for example `{% if settings.instagram_url != blank %}...{% endif %}`.
 - **No file, no settings:** a theme without `config/site_settings.json` simply has none. A file that can't be used (not valid JSON, or a required property with no valid default) is left out with a start-up warning, like a broken section.
 - **Not `settings_schema.json`:** that is Shopify's name for its own, different format, and Shopify's VS Code extension marks a Granite file of that name as wrong. Sites made with 0.7.0 or 0.7.1 used it: it still works, with a warning to rename it to `site_settings.json`.
