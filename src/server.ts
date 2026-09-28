@@ -81,11 +81,7 @@ export function buildServer(
   app.register(v1Routes, {
     prefix: '/v1',
     config: booted.config,
-    themeSchemas: booted.themeSchemas,
-    pageTemplates: booted.pageTemplates,
-    themeTemplates: booted.themeTemplates,
-    layouts: booted.layouts,
-    engine: booted.engine,
+    theme: booted.theme,
     tokens: serverConfig.tokens,
     ipAllowlist: serverConfig.ipAllowlist,
     maxUploadBytes: serverConfig.media.maxUploadBytes,
@@ -100,9 +96,7 @@ export function buildServer(
   // page lookups is the explicit guard inside publicRoutes itself.
   app.register(publicRoutes, {
     config: booted.config,
-    themeTemplates: booted.themeTemplates,
-    layouts: booted.layouts,
-    engine: booted.engine,
+    theme: booted.theme,
     renderCache: booted.renderCache,
   });
 

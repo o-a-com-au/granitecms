@@ -5,12 +5,12 @@ import { PathSafetyError } from '../services/path-safety.ts';
 import { WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
 import { PublishError, publishDrafts, publishPage, unpublishPage } from '../services/publish.ts';
 import { requireScope } from '../services/token-auth.ts';
-import type { ThemeSchemas } from '../services/validation.ts';
+import type { ThemeState } from '../theme-state.ts';
 import type { TokenEntry } from '../server-config.ts';
 
 export interface PublishRouteOptions {
   config: SiteConfig;
-  themeSchemas: ThemeSchemas;
+  theme: ThemeState;
   tokens: TokenEntry[];
 }
 
@@ -90,7 +90,7 @@ export const publishRoutes: FastifyPluginAsync<PublishRouteOptions> = async (
       }
 
       try {
-        await publishDrafts(opts.config, opts.themeSchemas, parsed.paths, parsed.message, parsed.author);
+        await publishDrafts(opts.config, opts.theme.current.themeSchemas, parsed.paths, parsed.message, parsed.author);
         reply.send({ ok: true });
       } catch (error) {
         // PathSafetyError has no .statusCode - left uncaught it falls

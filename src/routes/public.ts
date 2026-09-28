@@ -5,15 +5,14 @@ import type { SiteConfig } from '../config.ts';
 import type { RenderCache } from '../renderer/render-cache.ts';
 import { getMenusMtimeMs, getPageMtimeMs, PageRenderError, renderPage } from '../renderer/render-page.ts';
 import type { ThemeTemplates } from '../renderer/theme-templates.ts';
+import type { ThemeState } from '../theme-state.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
 import { resolveUrl } from '../services/resolve-url.ts';
 import { findStaticFile, sendStaticFile } from '../services/static-file.ts';
 
 export interface PublicRouteOptions {
   config: SiteConfig;
-  themeTemplates: ThemeTemplates;
-  layouts: Record<string, string>;
-  engine: Liquid;
+  theme: ThemeState;
   renderCache: RenderCache;
 }
 
@@ -59,6 +58,8 @@ async function handlePublicRequest(
   layouts: Record<string, string>,
   engine: Liquid,
   renderCache: RenderCache,
+  // Which theme rendered a cached page: one pushed since makes it stale.
+  themeGeneration: number,
 ): Promise<void> {
   // The public catch-all is registered without a /v1 prefix alongside
   // v1Routes (which has its own exact/prefixed routes). Fastify's
@@ -113,12 +114,17 @@ async function handlePublicRequest(
     if (pageMtimeMs !== null) {
       const menusMtimeMs = getMenusMtimeMs(config);
       const cached = renderCache.get(renderPath);
-      if (cached && cached.pageMtimeMs === pageMtimeMs && cached.menusMtimeMs === menusMtimeMs) {
+      if (
+        cached &&
+        cached.pageMtimeMs === pageMtimeMs &&
+        cached.menusMtimeMs === menusMtimeMs &&
+        cached.themeGeneration === themeGeneration
+      ) {
         reply.type('text/html; charset=utf-8').send(cached.html);
         return;
       }
       const html = await renderPage(config, themeTemplates, layouts, engine, renderPath, 'public');
-      renderCache.set(renderPath, { html, pageMtimeMs, menusMtimeMs });
+      renderCache.set(renderPath, { html, pageMtimeMs, menusMtimeMs, themeGeneration });
       reply.type('text/html; charset=utf-8').send(html);
       return;
     }
@@ -149,15 +155,19 @@ export const publicRoutes: FastifyPluginAsync<PublicRouteOptions> = async (
   fastify: FastifyInstance,
   opts: PublicRouteOptions,
 ) => {
-  fastify.get('/*', async (request, reply) =>
-    handlePublicRequest(
+  fastify.get('/*', async (request, reply) => {
+    // Read once per request: a theme pushed mid-request applies to the
+    // next one, never half of this one.
+    const theme = opts.theme.current;
+    return handlePublicRequest(
       request as FastifyRequest<{ Params: { '*': string } }>,
       reply,
       opts.config,
-      opts.themeTemplates,
-      opts.layouts,
-      opts.engine,
+      theme.themeTemplates,
+      theme.layouts,
+      theme.engine,
       opts.renderCache,
-    ),
-  );
+      theme.generation,
+    );
+  });
 };

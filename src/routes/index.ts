@@ -1,10 +1,6 @@
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
-import type { Liquid } from 'liquidjs';
 import type { SiteConfig } from '../config.ts';
-import type { ThemeTemplates } from '../renderer/theme-templates.ts';
 import type { TokenEntry } from '../server-config.ts';
-import type { ThemeSchemas } from '../services/validation.ts';
-import type { PageTemplate } from '../services/theme-page-templates.ts';
 import { batchRoutes } from './batch.ts';
 import { capabilitiesRoutes } from './capabilities.ts';
 import { contentRoutes } from './content.ts';
@@ -19,14 +15,11 @@ import { redirectsRoutes } from './redirects.ts';
 import { searchRoutes } from './search.ts';
 import { themeRoutes } from './theme.ts';
 import { ipAllowlistGuard } from '../services/ip-allowlist.ts';
+import type { ThemeState } from '../theme-state.ts';
 
 export interface V1RouteOptions {
   config: SiteConfig;
-  themeSchemas: ThemeSchemas;
-  pageTemplates: PageTemplate[];
-  themeTemplates: ThemeTemplates;
-  layouts: Record<string, string>;
-  engine: Liquid;
+  theme: ThemeState;
   tokens: TokenEntry[];
   ipAllowlist: string[];
   maxUploadBytes: number;
@@ -68,16 +61,12 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   // fields, never `opts` itself, for any nested plugin registration.
   fastify.register(previewRoutes, {
     config: opts.config,
-    themeTemplates: opts.themeTemplates,
-    layouts: opts.layouts,
-    engine: opts.engine,
+    theme: opts.theme,
     tokens: opts.tokens,
   });
   fastify.register(previewRevisionRoutes, {
     config: opts.config,
-    themeTemplates: opts.themeTemplates,
-    layouts: opts.layouts,
-    engine: opts.engine,
+    theme: opts.theme,
     tokens: opts.tokens,
   });
 
@@ -88,17 +77,17 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   fastify.register(contentRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(draftsRoutes, {
     config: opts.config,
-    themeSchemas: opts.themeSchemas,
+    theme: opts.theme,
     tokens: opts.tokens,
   });
   fastify.register(publishRoutes, {
     config: opts.config,
-    themeSchemas: opts.themeSchemas,
+    theme: opts.theme,
     tokens: opts.tokens,
   });
   fastify.register(batchRoutes, {
     config: opts.config,
-    themeSchemas: opts.themeSchemas,
+    theme: opts.theme,
     tokens: opts.tokens,
   });
   fastify.register(gitRoutes, { config: opts.config, tokens: opts.tokens });
@@ -106,5 +95,5 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   fastify.register(searchRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(redirectsRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(menusRoutes, { config: opts.config, tokens: opts.tokens });
-  fastify.register(themeRoutes, { themeSchemas: opts.themeSchemas, pageTemplates: opts.pageTemplates, tokens: opts.tokens });
+  fastify.register(themeRoutes, { theme: opts.theme, tokens: opts.tokens });
 };

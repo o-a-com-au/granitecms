@@ -16,6 +16,7 @@ export interface RenderCacheEntry {
   html: string;
   pageMtimeMs: number;
   menusMtimeMs: number;
+  themeGeneration: number;
 }
 
 export interface RenderCache {

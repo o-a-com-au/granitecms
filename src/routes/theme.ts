@@ -1,12 +1,10 @@
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify';
 import { requireScope } from '../services/token-auth.ts';
-import type { ThemeSchemas } from '../services/validation.ts';
-import type { PageTemplate } from '../services/theme-page-templates.ts';
+import type { ThemeState } from '../theme-state.ts';
 import type { TokenEntry } from '../server-config.ts';
 
 export interface ThemeRouteOptions {
-  themeSchemas: ThemeSchemas;
-  pageTemplates: PageTemplate[];
+  theme: ThemeState;
   tokens: TokenEntry[];
 }
 
@@ -20,7 +18,7 @@ export const themeRoutes: FastifyPluginAsync<ThemeRouteOptions> = async (
   fastify: FastifyInstance,
   opts: ThemeRouteOptions,
 ) => {
-  fastify.get('/theme/schemas', { preHandler: requireScope(opts.tokens, 'content') }, async () => opts.themeSchemas);
+  fastify.get('/theme/schemas', { preHandler: requireScope(opts.tokens, 'content') }, async () => opts.theme.current.themeSchemas);
 
   // Group Q: lets the admin offer a template picker when creating a new
   // page. No dedicated "create from template" endpoint - pageTemplates
@@ -31,6 +29,6 @@ export const themeRoutes: FastifyPluginAsync<ThemeRouteOptions> = async (
   fastify.get(
     '/theme/page-templates',
     { preHandler: requireScope(opts.tokens, 'content') },
-    async () => ({ templates: opts.pageTemplates }),
+    async () => ({ templates: opts.theme.current.pageTemplates }),
   );
 };

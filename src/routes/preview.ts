@@ -4,6 +4,7 @@ import type { Liquid } from 'liquidjs';
 import type { SiteConfig } from '../config.ts';
 import { PageRenderError, renderPage } from '../renderer/render-page.ts';
 import type { ThemeTemplates } from '../renderer/theme-templates.ts';
+import type { ThemeState } from '../theme-state.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
 import { requireScope } from '../services/token-auth.ts';
 import { urlToPagePath } from '../services/urls.ts';
@@ -11,9 +12,7 @@ import type { TokenEntry } from '../server-config.ts';
 
 export interface PreviewRouteOptions {
   config: SiteConfig;
-  themeTemplates: ThemeTemplates;
-  layouts: Record<string, string>;
-  engine: Liquid;
+  theme: ThemeState;
   tokens: TokenEntry[];
 }
 
@@ -64,9 +63,9 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOptions> = async (
         request as FastifyRequest<{ Params: { '*': string } }>,
         reply,
         opts.config,
-        opts.themeTemplates,
-        opts.layouts,
-        opts.engine,
+        opts.theme.current.themeTemplates,
+        opts.theme.current.layouts,
+        opts.theme.current.engine,
       ),
   );
 };

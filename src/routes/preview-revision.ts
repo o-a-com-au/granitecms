@@ -4,6 +4,7 @@ import type { Liquid } from 'liquidjs';
 import type { SiteConfig } from '../config.ts';
 import { PageRenderError, parsePageContent, renderLoadedPage } from '../renderer/render-page.ts';
 import type { ThemeTemplates } from '../renderer/theme-templates.ts';
+import type { ThemeState } from '../theme-state.ts';
 import { GitShowError, readFileAtRevision } from '../services/git-history.ts';
 import { isValidGitRef } from '../services/git.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
@@ -13,9 +14,7 @@ import type { TokenEntry } from '../server-config.ts';
 
 export interface PreviewRevisionRouteOptions {
   config: SiteConfig;
-  themeTemplates: ThemeTemplates;
-  layouts: Record<string, string>;
-  engine: Liquid;
+  theme: ThemeState;
   tokens: TokenEntry[];
 }
 
@@ -125,9 +124,9 @@ export const previewRevisionRoutes: FastifyPluginAsync<PreviewRevisionRouteOptio
         request as FastifyRequest<{ Params: { ref: string; '*': string } }>,
         reply,
         opts.config,
-        opts.themeTemplates,
-        opts.layouts,
-        opts.engine,
+        opts.theme.current.themeTemplates,
+        opts.theme.current.layouts,
+        opts.theme.current.engine,
       ),
   );
 };

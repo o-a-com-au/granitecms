@@ -6,11 +6,12 @@ import { PathSafetyError } from '../services/path-safety.ts';
 import { WRITE_ROUTE_RATE_LIMIT } from '../services/rate-limit-config.ts';
 import { requireScope } from '../services/token-auth.ts';
 import type { ThemeSchemas } from '../services/validation.ts';
+import type { ThemeState } from '../theme-state.ts';
 import type { TokenEntry } from '../server-config.ts';
 
 export interface DraftsRouteOptions {
   config: SiteConfig;
-  themeSchemas: ThemeSchemas;
+  theme: ThemeState;
   tokens: TokenEntry[];
 }
 
@@ -111,7 +112,7 @@ export const draftsRoutes: FastifyPluginAsync<DraftsRouteOptions> = async (
         request as FastifyRequest<{ Params: { '*': string } }>,
         reply,
         opts.config,
-        opts.themeSchemas,
+        opts.theme.current.themeSchemas,
       ),
   );
 

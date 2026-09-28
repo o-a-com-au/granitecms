@@ -9,23 +9,23 @@ test('a fresh cache has no entry for any path', () => {
 
 test('set then get returns the exact entry stored', () => {
   const cache = createRenderCache();
-  const entry = { html: '<p>About</p>', pageMtimeMs: 100, menusMtimeMs: 50 };
+  const entry = { html: '<p>About</p>', pageMtimeMs: 100, menusMtimeMs: 50, themeGeneration: 0 };
   cache.set('pages/about.json', entry);
   assert.deepEqual(cache.get('pages/about.json'), entry);
 });
 
 test('two different paths are stored independently', () => {
   const cache = createRenderCache();
-  cache.set('pages/about.json', { html: 'about', pageMtimeMs: 1, menusMtimeMs: 1 });
-  cache.set('pages/contact.json', { html: 'contact', pageMtimeMs: 2, menusMtimeMs: 1 });
+  cache.set('pages/about.json', { html: 'about', pageMtimeMs: 1, menusMtimeMs: 1, themeGeneration: 0 });
+  cache.set('pages/contact.json', { html: 'contact', pageMtimeMs: 2, menusMtimeMs: 1, themeGeneration: 0 });
   assert.equal(cache.get('pages/about.json')?.html, 'about');
   assert.equal(cache.get('pages/contact.json')?.html, 'contact');
 });
 
 test('setting the same path again replaces the previous entry', () => {
   const cache = createRenderCache();
-  cache.set('pages/about.json', { html: 'old', pageMtimeMs: 1, menusMtimeMs: 1 });
-  cache.set('pages/about.json', { html: 'new', pageMtimeMs: 2, menusMtimeMs: 1 });
+  cache.set('pages/about.json', { html: 'old', pageMtimeMs: 1, menusMtimeMs: 1, themeGeneration: 0 });
+  cache.set('pages/about.json', { html: 'new', pageMtimeMs: 2, menusMtimeMs: 1, themeGeneration: 0 });
   assert.equal(cache.get('pages/about.json')?.html, 'new');
 });
 
@@ -36,6 +36,6 @@ test('setting the same path again replaces the previous entry', () => {
 test('two separately-created caches never share entries', () => {
   const cacheA = createRenderCache();
   const cacheB = createRenderCache();
-  cacheA.set('pages/about.json', { html: 'from A', pageMtimeMs: 1, menusMtimeMs: 1 });
+  cacheA.set('pages/about.json', { html: 'from A', pageMtimeMs: 1, menusMtimeMs: 1, themeGeneration: 0 });
   assert.equal(cacheB.get('pages/about.json'), undefined);
 });
