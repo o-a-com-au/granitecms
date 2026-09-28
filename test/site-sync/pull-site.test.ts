@@ -14,7 +14,7 @@ test('pullSite mirrors a real live site\'s content, drafts, menus, redirects and
   const localRoot = createLocalSite();
   try {
     const config = loadSiteConfig(localRoot);
-    const result = await pullSite(config, { siteUrl: live.url, token: TOKEN });
+    const result = (await pullSite(config, { siteUrl: live.url, token: TOKEN, parts: { content: true, theme: false } })).content!;
 
     // Byte-for-byte what the live site has, for every live file.
     for (const path of ['content/pages/about.json', 'content/menus/main.json']) {
@@ -44,7 +44,7 @@ test('pullSite mirrors a real live site\'s content, drafts, menus, redirects and
     // A second pull (after committing) finds the media already there.
     git(localRoot, ['add', '-A']);
     git(localRoot, ['commit', '--quiet', '-m', 'pulled']);
-    const again = await pullSite(config, { siteUrl: live.url, token: TOKEN });
+    const again = (await pullSite(config, { siteUrl: live.url, token: TOKEN, parts: { content: true, theme: false } })).content!;
     assert.equal(again.mediaDownloaded, 0);
     assert.equal(again.mediaAlreadyPresent, 1);
     assert.deepEqual(again.removed, []);
@@ -64,12 +64,12 @@ test('pullSite refuses to overwrite uncommitted local content unless forced, and
     const config = loadSiteConfig(localRoot);
 
     await assert.rejects(
-      pullSite(config, { siteUrl: live.url, token: TOKEN }),
+      pullSite(config, { siteUrl: live.url, token: TOKEN, parts: { content: true, theme: false } }),
       (error: unknown) => error instanceof SiteSyncError && error.reason === 'uncommitted-changes',
     );
     assert.equal(JSON.parse(readFileSync(join(localRoot, 'content/pages/local-only.json'), 'utf-8')).title, 'Edited, not committed');
 
-    await pullSite(config, { siteUrl: live.url, token: TOKEN, force: true });
+    await pullSite(config, { siteUrl: live.url, token: TOKEN, force: true, parts: { content: true, theme: false } });
     assert.equal(existsSync(join(localRoot, 'content/pages/local-only.json')), false);
   } finally {
     await live.app.close();
@@ -83,7 +83,7 @@ test('pullSite: a wrong token is reported as such, and changes nothing', async (
   const localRoot = createLocalSite();
   try {
     await assert.rejects(
-      pullSite(loadSiteConfig(localRoot), { siteUrl: live.url, token: 'wrong' }),
+      pullSite(loadSiteConfig(localRoot), { siteUrl: live.url, token: 'wrong', parts: { content: true, theme: false } }),
       (error: unknown) => error instanceof SiteSyncError && error.reason === 'unauthorised',
     );
     assert.ok(existsSync(join(localRoot, 'content/pages/local-only.json')));
@@ -117,6 +117,7 @@ test('pullSite refuses a content path that would escape the site, before writing
         pullSite(loadSiteConfig(localRoot), {
           siteUrl: 'http://live.test',
           token: 't',
+          parts: { content: true, theme: false },
           fetchImpl: fakeFetch({ '/v1/capabilities': CAPABILITIES, '/v1/content': [{ path, hasDraft: false }] }),
         }),
         (error: unknown) => error instanceof SiteSyncError && error.reason === 'unsafe-path',
@@ -136,6 +137,7 @@ test('pullSite refuses a media name that would escape media/', async () => {
       pullSite(loadSiteConfig(localRoot), {
         siteUrl: 'http://live.test',
         token: 't',
+        parts: { content: true, theme: false },
         fetchImpl: fakeFetch({
           '/v1/capabilities': CAPABILITIES,
           '/v1/content': [],
@@ -158,6 +160,7 @@ test('pullSite refuses a site with a newer content schema than this agent, and a
       pullSite(loadSiteConfig(localRoot), {
         siteUrl: 'http://live.test',
         token: 't',
+        parts: { content: true, theme: false },
         fetchImpl: fakeFetch({ '/v1/capabilities': { agentVersion: '9.0.0', contentSchemaVersion: 99 } }),
       }),
       (error: unknown) => error instanceof SiteSyncError && error.reason === 'newer-schema',
@@ -166,6 +169,7 @@ test('pullSite refuses a site with a newer content schema than this agent, and a
       pullSite(loadSiteConfig(localRoot), {
         siteUrl: 'http://live.test',
         token: 't',
+        parts: { content: true, theme: false },
         fetchImpl: fakeFetch({ '/v1/capabilities': { hello: 'world' } }),
       }),
       (error: unknown) => error instanceof SiteSyncError && error.reason === 'not-a-site',

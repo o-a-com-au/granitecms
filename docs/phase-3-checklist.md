@@ -546,6 +546,27 @@ Design notes:
 - **Images keep their names.** The site names an upload `<slug>-<hash>`; push sends `<slug>.<ext>` so the same bytes come back under the same name, and checks that they did.
 - **Found by the real test:** a live page that had never been committed could not be deleted by a push (git can't stage the deletion of an untracked file). Not reachable on a real site, where every live page arrives through a publish commit; the test site now starts committed.
 
+## Group AA: theme push and pull, with checkboxes (0.6.0)
+
+Part of the agreed 0.6.0 plan: deploy once, then push and pull, for content and theme alike, on every host (`docs/guide-deploying.md`).
+
+| # | Criterion | Proof |
+|---|---|---|
+| AA1 | Routes read the theme from one `ThemeState`; a reload reaches every route, and cached pages from an older theme aren't served | `test/routes/theme-files.test.ts :: pushing a theme ... renders the new theme on the very next request` (includes an already-cached page) |
+| AA2 | The theme API needs the `theme` scope; lists files with hashes (hidden files left out) and reads them byte for byte | `:: theme files are listed with a hash each ...` |
+| AA3 | A theme push writes, deletes and commits once, refusing (409, nothing changed) a file changed since it was seen, (400) unparseable Liquid - parsed as the site does, `{% schema %}` stripped - and any path outside theme/ or hidden | `:: a push is refused ... changed on the site ...`, `:: ... cannot be parsed ...`, `:: ... outside theme/ ...`; `test/site-sync/theme-sync.test.ts :: the theme goes first ...` (a section with a schema is accepted) |
+| AA4 | Pulling the theme mirrors theme/ and records it; content alone leaves the theme record out | `test/site-sync/theme-sync.test.ts :: pulling the theme ...` |
+| AA5 | Pushing the theme reaches the live site on the next request, as one commit by the local git identity; a second push finds nothing | `:: pushing the theme ...` |
+| AA6 | A theme file changed live since the pull is a conflict, and nothing is pushed | `:: a theme file changed on the live site ...` |
+| AA7 | Theme before content: a page using a section only the pushed theme defines is accepted in the same push | `:: the theme goes first ...` |
+| AA8 | No theme scope, or a live CMS without theme endpoints: the theme is unavailable (and says why), content still works | `:: without the theme scope ...`, `:: a live site on a CMS without theme endpoints ...` |
+| AA9 | The checkbox prompt: arrows, space, Enter, Ctrl+C, disabled choices; piped names, "none", or Enter for defaults; a question after piped input ends answers rather than hanging | `test/site-sync/prompts.test.ts :: choose ...`, `:: a question asked after piped input has already ended ...`; checked in a real pty with expect |
+
+Design notes:
+
+- **Found by the tests, not in review:** the Liquid check first used a plain Liquid parser, which rejected every section (`{% schema %}` isn't a real tag); and piped input ending between questions left a later question waiting forever.
+- **One request per theme push**, 100 MB body limit on that route only, so fonts and images fit.
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

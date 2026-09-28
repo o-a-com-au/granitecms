@@ -101,3 +101,67 @@ test('normaliseSiteUrl accepts an address as typed, and rejects what is not one'
     assert.equal(normaliseSiteUrl(bad), null, bad);
   }
 });
+
+// --- choose: the checkbox list ---
+
+const PARTS = [
+  { name: 'content', label: 'Content', detail: '3 changes', checked: true },
+  { name: 'theme', label: 'Theme', detail: 'no changes', checked: false },
+];
+
+test('choose in a terminal: arrows move, space ticks, Enter confirms, and the terminal is put back', async () => {
+  const terminal = new FakeTerminal();
+  const output = captureOutput();
+  const answer = createPrompter(terminal, output).choose('What do you want to push?', PARTS);
+
+  terminal.type('\u001b[B');
+  terminal.type(' ');
+  terminal.type('\r');
+
+  assert.deepEqual(await answer, ['content', 'theme']);
+  assert.deepEqual(terminal.rawModes, [true, false]);
+  assert.match(output.text(), /\[x\] Content\s+\(3 changes\)/);
+  assert.ok(output.text().endsWith('\u001b[?25h'), 'the cursor is shown again at the end');
+});
+
+test('choose skips a disabled choice and never ticks it', async () => {
+  const terminal = new FakeTerminal();
+  const answer = createPrompter(terminal, captureOutput()).choose('Pull?', [
+    { name: 'content', label: 'Content', checked: true },
+    { name: 'theme', label: 'Theme', detail: 'no theme permission', checked: true, disabled: true },
+  ]);
+  // Down from the only enabled choice wraps back to it; space unticks it.
+  terminal.type('\u001b[B \r');
+  assert.deepEqual(await answer, []);
+});
+
+test('choose: Ctrl+C cancels', async () => {
+  const terminal = new FakeTerminal();
+  const answer = createPrompter(terminal, captureOutput()).choose('Push?', PARTS);
+  terminal.type('\u0003');
+  await assert.rejects(answer, PromptCancelledError);
+  assert.deepEqual(terminal.rawModes, [true, false]);
+});
+
+test('choose with piped input: a line of names, "none", or an empty line for the defaults', async () => {
+  const cases: Array<[string, string[]]> = [
+    ['theme\n', ['theme']],
+    ['content, theme\n', ['content', 'theme']],
+    ['none\n', []],
+    ['\n', ['content']],
+  ];
+  for (const [line, expected] of cases) {
+    const piped = new PassThrough();
+    const answer = createPrompter(piped as unknown as PromptInput, captureOutput()).choose('Push?', PARTS);
+    piped.end(line);
+    assert.deepEqual(await answer, expected, JSON.stringify(line));
+  }
+});
+
+test('a question asked after piped input has already ended gets an empty answer rather than waiting forever', async () => {
+  const piped = new PassThrough();
+  const prompter = createPrompter(piped as unknown as PromptInput, captureOutput());
+  piped.end('only-line\n');
+  assert.equal(await prompter.ask('First: '), 'only-line');
+  assert.deepEqual(await prompter.choose('Then: ', PARTS), ['content']);
+});

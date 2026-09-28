@@ -37,3 +37,11 @@ export function parseThemeComponentFile(source: string): ParsedThemeComponentFil
   const markup = source.slice(0, match.index) + source.slice(match.index + match[0].length);
   return { markup, schema };
 }
+
+// The markup Liquid actually sees: {% schema %} is never a real, live
+// Liquid tag, so it is removed before anything is parsed - including
+// when a pushed theme's syntax is checked (theme-files.ts).
+export function stripSchemaBlock(source: string): string {
+  const match = SCHEMA_BLOCK_PATTERN.exec(source);
+  return match ? source.slice(0, match.index) + source.slice(match.index + match[0].length) : source;
+}

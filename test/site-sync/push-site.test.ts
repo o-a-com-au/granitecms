@@ -9,7 +9,7 @@ import type { LiveContent } from '../../src/site-sync/live-content.ts';
 import { pullSite } from '../../src/site-sync/pull-site.ts';
 import { executePush, planPush, preparePush, type LocalContent } from '../../src/site-sync/push-site.ts';
 import { SiteSyncError } from '../../src/site-sync/remote-site.ts';
-import { hashOf, readSyncRecord, type SyncRecord } from '../../src/site-sync/sync-record.ts';
+import { hashOf, readSyncRecord, type ContentRecord } from '../../src/site-sync/sync-record.ts';
 import { writeJson } from '../helpers/tmp-site.ts';
 import { createLocalSite, git, startLiveSite, TOKEN } from './sync-helpers.ts';
 
@@ -28,8 +28,7 @@ function scenario({
   there?: Record<string, string>;
   liveDrafts?: string[];
 }) {
-  const record: SyncRecord = {
-    siteUrl: 'https://live.test',
+  const record: ContentRecord = {
     syncedAt: '',
     files: Object.fromEntries(Object.entries(pulled).map(([path, title]) => [path, hashOf(page(title))])),
     redirects: [],
@@ -101,7 +100,7 @@ test('planPush: a page with an unpublished draft on the live site is a conflict 
 });
 
 test('planPush: formatting alone is not a change (the live site re-serialises what it is sent)', () => {
-  const record: SyncRecord = { siteUrl: 'x', syncedAt: '', files: { [P]: hashOf(Buffer.from('{"a":1,"b":[2]}')) }, redirects: [] };
+  const record: ContentRecord = { syncedAt: '', files: { [P]: hashOf(Buffer.from('{"a":1,"b":[2]}')) }, redirects: [] };
   const local: LocalContent = { files: new Map([[P, Buffer.from('{\n  "a": 1,\n  "b": [\n    2\n  ]\n}\n')]]), redirects: [], mediaNames: new Set() };
   const live: LiveContent = { live: new Map([[P, { bytes: Buffer.from('{"a":1,"b":[2]}'), etag: '"e"' }]]), drafts: new Map(), redirects: [] };
   assert.deepEqual(planPush(record, local, live, new Set()).changes, []);
@@ -109,7 +108,7 @@ test('planPush: formatting alone is not a change (the live site re-serialises wh
 
 test('planPush: redirects are pushed as per-redirect operations, and conflict if both sides changed them', () => {
   const base = [{ from: '/a', to: '/x' }, { from: '/b', to: '/y' }];
-  const record: SyncRecord = { siteUrl: 'x', syncedAt: '', files: {}, redirects: base };
+  const record: ContentRecord = { syncedAt: '', files: {}, redirects: base };
   const local: LocalContent = { files: new Map(), redirects: [{ from: '/a', to: '/changed' }, { from: '/c', to: '/z' }], mediaNames: new Set() };
   const liveSame: LiveContent = { live: new Map(), drafts: new Map(), redirects: base };
   assert.deepEqual(planPush(record, local, liveSame, new Set()).redirectOperations, [
@@ -125,7 +124,7 @@ test('planPush: redirects are pushed as per-redirect operations, and conflict if
 });
 
 test('planPush: uploads only media the pushed pages use and the live site lacks; flags any missing here too', () => {
-  const record: SyncRecord = { siteUrl: 'x', syncedAt: '', files: {}, redirects: [] };
+  const record: ContentRecord = { syncedAt: '', files: {}, redirects: [] };
   const body = Buffer.from(
     JSON.stringify({ a: '/media/have-111111111111.jpg', b: '/media/new-222222222222.jpg', c: '/media/gone-333333333333.jpg' }),
   );
@@ -154,7 +153,7 @@ async function pulledCopy() {
   git(localRoot, ['config', 'user.name', 'Local Developer']);
   git(localRoot, ['config', 'user.email', 'dev@example.com']);
   const config = loadSiteConfig(localRoot);
-  await pullSite(config, { siteUrl: live.url, token: TOKEN });
+  await pullSite(config, { siteUrl: live.url, token: TOKEN, parts: { content: true, theme: true } });
   git(localRoot, ['add', '-A']);
   git(localRoot, ['commit', '--quiet', '-m', 'pulled']);
   return {
@@ -187,16 +186,18 @@ test('a real push: creates, updates, deletes, a redirect and an image reach the 
 
     const liveCommitsBefore = Number(git(live.siteRoot, ['rev-list', '--count', 'HEAD']).trim());
     const prepared = await preparePush(config, { siteUrl: live.url, token: TOKEN });
-    assert.deepEqual(prepared.plan.conflicts, []);
-    assert.deepEqual(prepared.plan.changes, [
+    assert.ok(prepared.content.ready);
+    const plan = prepared.content.value.plan;
+    assert.deepEqual(plan.conflicts, []);
+    assert.deepEqual(plan.changes, [
       { path: 'pages/about.json', action: 'update' },
       { path: 'pages/hidden.json', action: 'delete' },
       { path: 'pages/new-page.json', action: 'create' },
     ]);
-    assert.deepEqual(prepared.plan.mediaToUpload, [imageName]);
+    assert.deepEqual(plan.mediaToUpload, [imageName]);
 
-    const result = await executePush(prepared);
-    assert.deepEqual(result, { created: 1, updated: 1, deleted: 1, redirects: 1, mediaUploaded: 1 });
+    const result = await executePush(prepared, { content: true, theme: false });
+    assert.deepEqual(result.content, { created: 1, updated: 1, deleted: 1, redirects: 1, mediaUploaded: 1 });
 
     const liveJson = (path: string) => JSON.parse(readFileSync(join(live.siteRoot, 'content', path), 'utf-8')) as { title: string };
     assert.equal(liveJson('pages/about.json').title, 'About, edited locally');
@@ -211,7 +212,9 @@ test('a real push: creates, updates, deletes, a redirect and an image reach the 
     assert.match(log[0] as string, /^Local Developer\|Add redirect \/new/);
 
     const again = await preparePush(config, { siteUrl: live.url, token: TOKEN });
-    assert.deepEqual([again.plan.changes, again.plan.redirectOperations, again.plan.mediaToUpload], [[], [], []]);
+    assert.ok(again.content.ready);
+    const againPlan = again.content.value.plan;
+    assert.deepEqual([againPlan.changes, againPlan.redirectOperations, againPlan.mediaToUpload], [[], [], []]);
   } finally {
     await cleanup();
   }
@@ -227,8 +230,9 @@ test('a real push refuses a page an editor changed on the live site since the pu
     writeJson(localRoot, 'content/pages/unrelated.json', validPage('Unrelated local page'));
 
     const prepared = await preparePush(config, { siteUrl: live.url, token: TOKEN });
-    assert.deepEqual(prepared.plan.conflicts, [{ path: 'pages/about.json', reason: 'changed on the live site since your last pull' }]);
-    await assert.rejects(executePush(prepared), (error: unknown) => error instanceof SiteSyncError && error.reason === 'conflicts');
+    assert.ok(prepared.content.ready);
+    assert.deepEqual(prepared.content.value.plan.conflicts, [{ path: 'pages/about.json', reason: 'changed on the live site since your last pull' }]);
+    await assert.rejects(executePush(prepared, { content: true, theme: false }), (error: unknown) => error instanceof SiteSyncError && error.reason === 'conflicts');
     assert.equal(
       (JSON.parse(readFileSync(join(live.siteRoot, 'content/pages/about.json'), 'utf-8')) as { title: string }).title,
       'Edited by an editor on the live site',
@@ -248,7 +252,7 @@ test('push refuses without a pull record, or to a different site than the one pu
       preparePush(config, { siteUrl: live.url, token: TOKEN }),
       (error: unknown) => error instanceof SiteSyncError && error.reason === 'no-sync-record',
     );
-    await pullSite(config, { siteUrl: live.url, token: TOKEN });
+    await pullSite(config, { siteUrl: live.url, token: TOKEN, parts: { content: true, theme: true } });
     assert.ok(readSyncRecord(config));
     await assert.rejects(
       preparePush(config, { siteUrl: 'https://another-site.example', token: TOKEN }),
@@ -284,21 +288,21 @@ test('npm run push: shows what will change and warns, pushes nothing on a wrong 
     const liveTitle = () => (JSON.parse(readFileSync(join(live.siteRoot, 'content/pages/about.json'), 'utf-8')) as { title: string }).title;
     const before = liveTitle();
 
-    const dry = await runPush(localRoot, ['--dry-run'], `${TOKEN}\n`);
+    const dry = await runPush(localRoot, ['--dry-run'], `${TOKEN}\n\n`);
     assert.equal(dry.code, 0, dry.stderr);
     assert.match(dry.stderr, /update\s+content\/pages\/about\.json/);
     assert.match(dry.stdout, /Dry run: nothing was pushed/);
     assert.equal(liveTitle(), before);
 
-    const wrong = await runPush(localRoot, [], `${TOKEN}\nnot-the-host\n`);
+    const wrong = await runPush(localRoot, [], `${TOKEN}\n\nnot-the-host\n`);
     assert.equal(wrong.code, 1);
     assert.match(wrong.stderr, /WARNING: this overwrites the live website/);
     assert.match(wrong.stderr, /Cancelled\. Nothing was pushed\./);
     assert.equal(liveTitle(), before);
 
-    const right = await runPush(localRoot, [], `${TOKEN}\n${host}\n`);
+    const right = await runPush(localRoot, [], `${TOKEN}\n\n${host}\n`);
     assert.equal(right.code, 0, right.stderr);
-    assert.match(right.stdout, /Pushed to .*\n\s+0 new, 1 updated, 0 deleted/);
+    assert.match(right.stdout, /Pushed to .*\n\s+content: 0 new, 1 updated, 0 deleted/);
     assert.equal(liveTitle(), 'Pushed from the command');
     assert.ok(!right.stdout.includes(TOKEN) && !right.stderr.includes(TOKEN), 'the token is never printed');
   } finally {

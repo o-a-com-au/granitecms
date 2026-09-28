@@ -1,13 +1,14 @@
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, relative } from 'node:path';
-import { Liquid } from 'liquidjs';
 import type { SiteConfig } from '../config.ts';
+import { createEngine } from '../renderer/engine.ts';
 import type { ThemeState } from '../theme-state.ts';
 import { listFilesRecursively } from './fs-walk.ts';
 import type { CommitAuthor } from './git.ts';
 import { commitPaths } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
+import { stripSchemaBlock } from './theme-component-file.ts';
 import { enqueue } from './write-queue.ts';
 
 // A theme file path, relative to theme/: folders and a file name, no dot
@@ -86,15 +87,16 @@ function currentHash(path: string): string | null {
 
 // Only syntax: a template that can't be parsed breaks every page using
 // it, so it is refused. Anything that parses is left to render as the
-// theme author wrote it.
+// theme author wrote it. Parsed exactly as the site will: the agent's
+// own engine settings, with any {% schema %} block removed first.
 function checkLiquid(writes: ThemeWrite[]): void {
-  const parser = new Liquid();
+  const parser = createEngine({});
   for (const write of writes) {
     if (!write.path.endsWith('.liquid')) {
       continue;
     }
     try {
-      parser.parse(write.bytes.toString('utf-8'));
+      parser.parse(stripSchemaBlock(write.bytes.toString('utf-8')));
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       throw new ThemePushError('invalid-liquid', `theme/${write.path} is not valid Liquid: ${detail}`);

@@ -1,4 +1,4 @@
-import { PromptCancelledError, createPrompter } from './prompts.ts';
+import { PromptCancelledError, createPrompter, type Choice } from './prompts.ts';
 
 export interface SyncArgs {
   positional: string[];
@@ -45,4 +45,45 @@ export async function resolveToken(args: SyncArgs, siteUrl: string): Promise<str
     process.exit(1);
   }
   return token;
+}
+
+export interface PartOption {
+  available: boolean;
+  // What it holds ("3 pages changed"), or why it isn't available.
+  detail: string;
+  // Ticked to start with.
+  checked: boolean;
+}
+
+// Which of content and theme to include. --content and/or --theme on
+// the command line decide it outright (for scripts); otherwise a
+// checkbox list, showing what each part holds or why it can't be chosen.
+export async function chooseParts(
+  args: SyncArgs,
+  verb: 'pull' | 'push',
+  options: { content: PartOption; theme: PartOption },
+): Promise<{ content: boolean; theme: boolean }> {
+  const flagged = { content: args.flags.has('--content'), theme: args.flags.has('--theme') };
+  if (flagged.content || flagged.theme) {
+    for (const part of ['content', 'theme'] as const) {
+      if (flagged[part] && !options[part].available) {
+        console.error(`Can't ${verb} the ${part}: ${options[part].detail}.`);
+        process.exit(1);
+      }
+    }
+    return flagged;
+  }
+  const choices: Choice[] = [
+    { name: 'content', label: 'Content', detail: options.content.detail, checked: options.content.checked, disabled: !options.content.available },
+    { name: 'theme', label: 'Theme', detail: options.theme.detail, checked: options.theme.checked, disabled: !options.theme.available },
+  ];
+  try {
+    const chosen = new Set(await prompter.choose(`What do you want to ${verb}?`, choices));
+    return { content: chosen.has('content'), theme: chosen.has('theme') };
+  } catch (error) {
+    if (error instanceof PromptCancelledError) {
+      process.exit(130);
+    }
+    throw error;
+  }
 }

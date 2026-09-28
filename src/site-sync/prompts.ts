@@ -24,8 +24,21 @@ export class PromptCancelledError extends Error {
   }
 }
 
+export interface Choice {
+  // The name a piped answer uses too ("content", "theme"), and the
+  // label shown.
+  name: string;
+  label: string;
+  detail?: string;
+  checked: boolean;
+  // Shown but can't be ticked, with detail saying why.
+  disabled?: boolean;
+}
+
 export interface Prompter {
   ask: (question: string, options?: { hidden?: boolean }) => Promise<string>;
+  // Returns the names of the ticked choices.
+  choose: (question: string, choices: Choice[]) => Promise<string[]>;
 }
 
 const CTRL_C = '\u0003';
@@ -47,7 +60,15 @@ export function createPrompter(input: PromptInput, output: PromptOutput): Prompt
   const interactive = input.isTTY === true && typeof input.setRawMode === 'function';
   let buffered = '';
   let ended = false;
+  // The end of input is listened for for the prompter's whole life, not
+  // only while a question waits: piped input can end between questions,
+  // and a later question must still find out rather than wait forever.
+  let onEnd: (() => void) | null = null;
   input.setEncoding('utf8');
+  input.on('end', () => {
+    ended = true;
+    onEnd?.();
+  });
 
   function ask(question: string, { hidden = false } = {}): Promise<string> {
     const raw = interactive && hidden;
@@ -61,7 +82,7 @@ export function createPrompter(input: PromptInput, output: PromptOutput): Prompt
 
       function finish(error?: Error): void {
         input.removeAllListeners('data');
-        input.removeAllListeners('end');
+        onEnd = null;
         if (raw) {
           input.setRawMode?.(false);
           // Raw mode swallowed the Enter the terminal would have echoed.
@@ -117,15 +138,123 @@ export function createPrompter(input: PromptInput, output: PromptOutput): Prompt
       input.on('data', (chunk) => {
         consume(chunk ?? '');
       });
-      input.on('end', () => {
-        ended = true;
-        finish();
+      onEnd = () => finish();
+      input.resume();
+    });
+  }
+
+  // A checkbox list. In a terminal: up/down (or k/j) to move, space to
+  // tick, Enter to confirm, Ctrl+C to cancel. Without one (piped), one
+  // line names the choices wanted ("content,theme", or "none"); an
+  // empty line keeps the defaults.
+  async function choose(question: string, choices: Choice[]): Promise<string[]> {
+    const state = choices.map((choice) => ({ ...choice, checked: choice.checked && !choice.disabled }));
+    const ticked = () => state.filter((choice) => choice.checked).map((choice) => choice.name);
+
+    if (!interactive) {
+      const names = state.map((choice) => choice.name).join(', ');
+      const line = (await ask(`${question} (${names}; Enter for the defaults) `)).toLowerCase();
+      if (line === '') {
+        return ticked();
+      }
+      if (line === 'none') {
+        return [];
+      }
+      const wanted = new Set(line.split(/[\s,]+/).filter(Boolean));
+      return state.filter((choice) => wanted.has(choice.name) && !choice.disabled).map((choice) => choice.name);
+    }
+
+    const width = Math.max(...state.map((choice) => choice.label.length));
+    let cursor = Math.max(0, state.findIndex((choice) => !choice.disabled));
+    let drawn = 0;
+
+    function draw(): void {
+      if (drawn > 0) {
+        output.write(`\u001b[${drawn}A`);
+      }
+      const lines = state.map((choice, index) => {
+        const pointer = index === cursor ? '>' : ' ';
+        const box = choice.disabled ? '[-]' : choice.checked ? '[x]' : '[ ]';
+        const detail = choice.detail ? `  (${choice.detail})` : '';
+        return `\u001b[2K${pointer} ${box} ${choice.label.padEnd(width)}${detail}\n`;
+      });
+      output.write(lines.join(''));
+      drawn = lines.length;
+    }
+
+    output.write(`${question}\n  (up/down to move, space to tick, Enter to go)\n`);
+    input.setRawMode?.(true);
+    output.write('\u001b[?25l');
+    draw();
+
+    return new Promise((resolve, reject) => {
+      function finish(error?: Error): void {
+        input.removeAllListeners('data');
+        input.setRawMode?.(false);
+        output.write('\u001b[?25h');
+        input.pause();
+        if (error) {
+          reject(error);
+        } else {
+          resolve(ticked());
+        }
+      }
+
+      function move(step: number): void {
+        for (let tries = 0; tries < state.length; tries += 1) {
+          cursor = (cursor + step + state.length) % state.length;
+          if (!state[cursor]?.disabled) {
+            return;
+          }
+        }
+      }
+
+      input.on('data', (chunk) => {
+        const keys = splitKeys(chunk ?? '');
+        for (const key of keys) {
+          if (key === CTRL_C) {
+            finish(new PromptCancelledError());
+            return;
+          }
+          if (key === '\r' || key === '\n') {
+            finish();
+            return;
+          }
+          if (key === '\u001b[A' || key === 'k') {
+            move(-1);
+          } else if (key === '\u001b[B' || key === 'j') {
+            move(1);
+          } else if (key === ' ') {
+            const choice = state[cursor];
+            if (choice && !choice.disabled) {
+              choice.checked = !choice.checked;
+            }
+          }
+        }
+        draw();
       });
       input.resume();
     });
   }
 
-  return { ask };
+  return { ask, choose };
+}
+
+const ESC = '\u001b';
+
+// One chunk of terminal input can hold several key presses; an arrow
+// key arrives as a three-character escape sequence (ESC [ A).
+function splitKeys(text: string): string[] {
+  const keys: string[] = [];
+  for (let index = 0; index < text.length; index += 1) {
+    if (text[index] === ESC && text[index + 1] === '[' && index + 2 < text.length) {
+      keys.push(text.slice(index, index + 3));
+      index += 2;
+    } else {
+      keys.push(text[index] as string);
+    }
+  }
+  return keys;
 }
 
 // Accepts an address as someone would type it: "my-site.example" is

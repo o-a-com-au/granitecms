@@ -9,18 +9,25 @@ import { serialiseRedirects } from '../services/redirects.ts';
 import { rebuildIndex } from '../search/rebuild-index.ts';
 import { fetchLiveContent, fetchLiveMedia, readCapabilities } from './live-content.ts';
 import { RemoteSite, SiteSyncError } from './remote-site.ts';
-import { hashOf, writeSyncRecord } from './sync-record.ts';
+import { hashOf, updateSyncRecord } from './sync-record.ts';
+import { fetchLiveTheme, pullTheme, type ThemePullResult } from './theme-sync.ts';
+
+export interface SyncParts {
+  content: boolean;
+  theme: boolean;
+}
 
 export interface PullSiteOptions {
   siteUrl: string;
   token: string;
-  // Pull even though content/ has uncommitted local changes, which the
-  // pull would overwrite or delete.
+  parts: SyncParts;
+  // Pull even though content/ or theme/ has uncommitted local changes,
+  // which the pull would overwrite or delete.
   force?: boolean;
   fetchImpl?: typeof fetch;
 }
 
-export interface PullSiteResult {
+export interface PullContentResult {
   pages: number;
   menus: number;
   drafts: number;
@@ -32,9 +39,14 @@ export interface PullSiteResult {
   mediaAlreadyPresent: number;
 }
 
-function hasUncommittedContentChanges(config: SiteConfig): boolean {
+export interface PullSiteResult {
+  content?: PullContentResult;
+  theme?: ThemePullResult;
+}
+
+function hasUncommittedChanges(config: SiteConfig, folder: 'content' | 'theme'): boolean {
   try {
-    const status = execFileSync('git', ['status', '--porcelain', '--', 'content'], { cwd: config.siteRoot });
+    const status = execFileSync('git', ['status', '--porcelain', '--', folder], { cwd: config.siteRoot });
     return status.toString('utf-8').trim() !== '';
   } catch {
     // Not a git repository (or no git): nothing to protect via git, and
@@ -63,12 +75,13 @@ export async function checkPullableSite(siteUrl: string, fetchImpl?: typeof fetc
   }
 }
 
-// Makes this local site's content a copy of a running site's: pages,
-// menus, drafts and redirects are mirrored (local files the live site
-// doesn't have are removed), and any media file missing locally is
-// downloaded. The theme is never touched - the API doesn't serve it,
-// and it's the developer's code rather than the site's content. Nothing
-// is committed: the result is left in the working tree to review.
+// Makes this local site a copy of a running site's, for the parts
+// chosen. Content: pages, menus, drafts and redirects are mirrored
+// (local files the live site doesn't have are removed), and any media
+// file missing locally is downloaded. Theme: theme/ is mirrored the same
+// way (theme-sync.ts), which needs a token with the "theme" scope.
+// Nothing is committed: the result is left in the working tree to
+// review.
 //
 // Everything is fetched before anything is written, so a failure part
 // way through the content leaves the local site exactly as it was.
@@ -81,13 +94,34 @@ export async function pullSite(config: SiteConfig, options: PullSiteOptions): Pr
   const remote = new RemoteSite(options.siteUrl, options.token, { fetchImpl: options.fetchImpl });
   await checkPullableSite(options.siteUrl, options.fetchImpl);
 
-  if (!options.force && hasUncommittedContentChanges(config)) {
+  const folders = (['content', 'theme'] as const).filter((part) => options.parts[part]);
+  const dirty = options.force ? [] : folders.filter((folder) => hasUncommittedChanges(config, folder));
+  if (dirty.length > 0) {
     throw new SiteSyncError(
       'uncommitted-changes',
-      'content/ has uncommitted changes, which pulling would overwrite. Commit them first, or pass --force.',
+      `${dirty.map((folder) => `${folder}/`).join(' and ')} ${dirty.length === 1 ? 'has' : 'have'} uncommitted changes, which pulling would overwrite. Commit them first, or pass --force.`,
     );
   }
 
+  const result: PullSiteResult = {};
+  // Theme first: fetched and checked before any content is touched, so
+  // a token without the "theme" scope fails before anything changes.
+  if (options.parts.theme) {
+    const fetched = await fetchLiveTheme(remote);
+    if ('unavailable' in fetched) {
+      throw new SiteSyncError('unauthorised', `Can't pull the theme: ${fetched.unavailable}.`);
+    }
+    const live = fetched.theme;
+    result.theme = await pullTheme(config, remote, live);
+    updateSyncRecord(config, options.siteUrl, { theme: { syncedAt: new Date().toISOString(), files: Object.fromEntries(live) } });
+  }
+  if (options.parts.content) {
+    result.content = await pullContent(config, remote, options.siteUrl);
+  }
+  return result;
+}
+
+async function pullContent(config: SiteConfig, remote: RemoteSite, siteUrl: string): Promise<PullContentResult> {
   // --- Fetch everything ---
   const { live, drafts, redirects } = await fetchLiveContent(remote);
 
@@ -119,11 +153,12 @@ export async function pullSite(config: SiteConfig, options: PullSiteOptions): Pr
     writeFileSync(config.redirectsPath, serialiseRedirects(redirects));
   }
 
-  writeSyncRecord(config, {
-    siteUrl: options.siteUrl,
-    syncedAt: new Date().toISOString(),
-    files: Object.fromEntries([...live].map(([path, file]) => [path, hashOf(file.bytes)])),
-    redirects,
+  updateSyncRecord(config, siteUrl, {
+    content: {
+      syncedAt: new Date().toISOString(),
+      files: Object.fromEntries([...live].map(([path, file]) => [path, hashOf(file.bytes)])),
+      redirects,
+    },
   });
 
   // --- Media: download what's missing ---

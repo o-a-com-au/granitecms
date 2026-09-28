@@ -7,7 +7,9 @@ import { sanitisePath } from '../services/path-safety.ts';
 import { loadRedirects, type RedirectEntry } from '../services/redirects.ts';
 import { encodePath, fetchLiveContent, fetchLiveMedia, readCapabilities, type LiveContent, type LiveFile } from './live-content.ts';
 import { RemoteSite, SiteSyncError } from './remote-site.ts';
-import { hashOf, readSyncRecord, sameRedirects, writeSyncRecord, type SyncRecord } from './sync-record.ts';
+import { hashOf, readSyncRecord, sameRedirects, updateSyncRecord, type ContentRecord } from './sync-record.ts';
+import { executeThemePush, fetchLiveTheme, planThemePush, readLocalTheme, type LiveTheme, type ThemePlan } from './theme-sync.ts';
+import { hashThemeFile } from '../services/theme-files.ts';
 
 // --- Planning: pure, so every rule is testable without a site ---
 
@@ -58,7 +60,7 @@ export interface LocalContent {
 // with an unpublished draft on the live site is a conflict too: writing
 // it would replace that draft. Redirects are compared as one list the
 // same way, then turned into per-redirect operations.
-export function planPush(record: SyncRecord, local: LocalContent, live: LiveContent, liveMedia: Set<string>): PushPlan {
+export function planPush(record: ContentRecord, local: LocalContent, live: LiveContent, liveMedia: Set<string>): PushPlan {
   const changes: PushChange[] = [];
   const conflicts: PushConflict[] = [];
 
@@ -173,16 +175,32 @@ function readGitAuthor(config: SiteConfig): { name: string; email: string } {
   return { name, email };
 }
 
-export interface PreparedPush {
+export interface PreparedContent {
   plan: PushPlan;
+  record: ContentRecord;
+  local: LocalContent;
+  live: LiveContent;
+}
+
+export interface PreparedTheme {
+  plan: ThemePlan;
+  local: Map<string, Buffer>;
+  live: LiveTheme;
+}
+
+// Each part is either ready (with its plan) or unavailable, with why -
+// so the CLI can offer only what can actually be pushed.
+export type Prepared<T> = { ready: true; value: T } | { ready: false; reason: string };
+
+export interface PreparedPush {
   // Everything execution needs, gathered while planning, so what is
   // confirmed is exactly what is sent.
   config: SiteConfig;
   remote: RemoteSite;
-  record: SyncRecord;
-  local: LocalContent;
-  live: LiveContent;
+  siteUrl: string;
   author: { name: string; email: string };
+  content: Prepared<PreparedContent>;
+  theme: Prepared<PreparedTheme>;
 }
 
 export interface PushSiteOptions {
@@ -195,7 +213,7 @@ export interface PushSiteOptions {
 
 export async function preparePush(config: SiteConfig, options: PushSiteOptions): Promise<PreparedPush> {
   const record = readSyncRecord(config);
-  if (!record) {
+  if (!record || (!record.content && !record.theme)) {
     throw new SiteSyncError(
       'no-sync-record',
       'Push needs to know what the live site looked like when you last pulled, and this copy has never pulled. Run npm run pull first.',
@@ -222,11 +240,30 @@ export async function preparePush(config: SiteConfig, options: PushSiteOptions):
     sleep: options.sleep,
     onWait: options.onWait,
   });
-  const live = await fetchLiveContent(remote);
-  const liveMedia = new Set((await fetchLiveMedia(remote)).map((item) => item.name));
-  const local = readLocalContent(config);
 
-  return { plan: planPush(record, local, live, liveMedia), config, remote, record, local, live, author };
+  let content: Prepared<PreparedContent>;
+  if (!record.content) {
+    content = { ready: false, reason: 'content has never been pulled into this copy' };
+  } else {
+    const live = await fetchLiveContent(remote);
+    const liveMedia = new Set((await fetchLiveMedia(remote)).map((item) => item.name));
+    const local = readLocalContent(config);
+    content = { ready: true, value: { plan: planPush(record.content, local, live, liveMedia), record: record.content, local, live } };
+  }
+
+  let theme: Prepared<PreparedTheme>;
+  const fetchedTheme = await fetchLiveTheme(remote);
+  if ('unavailable' in fetchedTheme) {
+    theme = { ready: false, reason: fetchedTheme.unavailable };
+  } else if (!record.theme) {
+    theme = { ready: false, reason: 'the theme has never been pulled into this copy' };
+  } else {
+    const local = readLocalTheme(config);
+    const live = fetchedTheme.theme;
+    theme = { ready: true, value: { plan: planThemePush(record.theme.files, local, live), local, live } };
+  }
+
+  return { config, remote, siteUrl: options.siteUrl, author, content, theme };
 }
 
 // --- Executing a confirmed plan ---
@@ -239,12 +276,56 @@ function uploadName(name: string): string {
   return name.replace(/-[0-9a-f]{12}(\.[A-Za-z0-9]+)$/, '$1');
 }
 
-export interface PushResult {
+export interface PushContentResult {
   created: number;
   updated: number;
   deleted: number;
   redirects: number;
   mediaUploaded: number;
+}
+
+export interface PushSiteResult {
+  content?: PushContentResult;
+  theme?: { files: number; warnings: string[] };
+}
+
+export interface PushParts {
+  content: boolean;
+  theme: boolean;
+}
+
+// The theme goes first: a page using a new section type can only be
+// accepted once the theme that defines it is live. Nothing at all is
+// sent while any chosen part has a conflict or missing media.
+export async function executePush(prepared: PreparedPush, parts: PushParts): Promise<PushSiteResult> {
+  const content = parts.content && prepared.content.ready ? prepared.content.value : null;
+  const theme = parts.theme && prepared.theme.ready ? prepared.theme.value : null;
+  if ((content && (content.plan.conflicts.length > 0 || content.plan.mediaMissing.length > 0)) || (theme && theme.plan.conflicts.length > 0)) {
+    throw new SiteSyncError('conflicts', 'This push has conflicts or missing media and cannot go ahead.');
+  }
+
+  const result: PushSiteResult = {};
+  if (theme && theme.plan.changes.length > 0) {
+    const { warnings } = await executeThemePush(prepared.remote, theme.plan, theme.local, theme.live, prepared.author);
+    // The site stores theme files exactly as sent, so a pushed file's
+    // hash is its local one. Only pushed files move on; anything else
+    // keeps its pulled state, so a live-only edit is still recognised as
+    // one next time.
+    const merged = { ...(readSyncRecord(prepared.config)?.theme?.files ?? {}) };
+    for (const change of theme.plan.changes) {
+      if (change.action === 'delete') {
+        delete merged[change.path];
+      } else {
+        merged[change.path] = hashThemeFile(theme.local.get(change.path) as Buffer);
+      }
+    }
+    updateSyncRecord(prepared.config, prepared.siteUrl, { theme: { syncedAt: new Date().toISOString(), files: merged } });
+    result.theme = { files: theme.plan.changes.length, warnings };
+  }
+  if (content) {
+    result.content = await executeContentPush(prepared, content);
+  }
+  return result;
 }
 
 // Order: media first (additive, and pages need it to exist), then every
@@ -253,12 +334,9 @@ export interface PushResult {
 // entirely - then redirects, one commit each. Each draft write carries
 // the ETag fetched while planning, so a page an editor saves in the
 // meantime fails the whole batch rather than being overwritten.
-export async function executePush(prepared: PreparedPush): Promise<PushResult> {
-  const { plan, config, remote, record, local, live, author } = prepared;
-  if (plan.conflicts.length > 0 || plan.mediaMissing.length > 0) {
-    throw new SiteSyncError('conflicts', 'This push has conflicts or missing media and cannot go ahead.');
-  }
-
+async function executeContentPush(prepared: PreparedPush, prepContent: PreparedContent): Promise<PushContentResult> {
+  const { config, remote, author } = prepared;
+  const { plan, record, local, live } = prepContent;
   for (const name of plan.mediaToUpload) {
     const bytes = readFileSync(sanitisePath(config.mediaRoot, name));
     const result = (await remote.upload('/v1/media', uploadName(name), bytes)) as { name?: unknown } | null;
@@ -316,11 +394,12 @@ export async function executePush(prepared: PreparedPush): Promise<PushResult> {
       files[change.path] = hashOf(stored);
     }
   }
-  writeSyncRecord(config, {
-    siteUrl: record.siteUrl,
-    syncedAt: new Date().toISOString(),
-    files,
-    redirects: plan.redirectOperations.length > 0 ? local.redirects : record.redirects,
+  updateSyncRecord(config, prepared.siteUrl, {
+    content: {
+      syncedAt: new Date().toISOString(),
+      files,
+      redirects: plan.redirectOperations.length > 0 ? local.redirects : record.redirects,
+    },
   });
 
   return {

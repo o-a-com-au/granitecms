@@ -1,6 +1,6 @@
 # Deploying and updating a site
 
-> **Draft for 0.6.0.** This describes how deploying and updating will work from 0.6.0. Some of it is not built yet: the Theme and CMS upgrade choices in `npm run push` and `npm run pull`, and `npm run upgrade`.
+> **Draft for 0.6.0.** This describes how deploying and updating will work from 0.6.0. Not built yet: `npm run upgrade`, and the CMS upgrade choice in `npm run push`.
 
 ## The short version
 

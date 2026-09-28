@@ -64,6 +64,7 @@ const FS_USAGE_ALLOWLIST = new Set<string>([
   'site-sync/pull-site.ts', // a standalone CLI; every server-supplied path is shape-checked, then sanitisePath'd under the configured roots
   'site-sync/sync-record.ts', // reads and writes sync-record.json under the agent-configured dataRoot, never a request path
   'site-sync/push-site.ts', // a standalone CLI; reads local content and media through sanitisePath under the configured roots
+  'site-sync/theme-sync.ts', // a standalone CLI; every server-supplied theme path is shape-checked, then sanitisePath'd under themeRoot
   'services/migration-runner.ts', // walks and rewrites files under agent-configured content/drafts roots, not request paths
   'search/rebuild-index.ts', // walks agent-configured pagesRoot and writes to agent-configured dataRoot, not request paths
   'search/query-content.ts', // checks the existence of the agent-configured searchIndexPath, not a request path

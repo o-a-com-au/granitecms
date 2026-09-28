@@ -2,6 +2,17 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
+## [Unreleased]
+
+### Added
+
+- **`npm run pull` and `npm run push` handle the theme too.** Both now ask what to include, with checkboxes for **Content** and **Theme** (`--content` and `--theme` choose without asking); push shows how many changes each has. Theme sync uses three new routes, all needing the `theme` token scope: `GET /v1/theme/files`, `GET /v1/theme/files/*` and `POST /v1/theme/push`. A theme push is protected like content (a file changed on the live site since the pull stops it), is refused if a Liquid template can't be parsed, commits once, and takes effect immediately with no restart. The theme is pushed before content, so pages using a new section type arrive after the theme that defines it.
+
+### Changed
+
+- **A running site reloads its theme without a restart** after a theme push. Routes now read the theme from one shared `ThemeState` rather than a copy taken at start-up, and cached pages are keyed on the theme too.
+- **The pull record is kept per part** (content, theme), so either can be pulled alone. Records written by 0.5.5 are still read, as the content part.
+
 ## [0.5.5] - 2026-09-28
 
 ### Added

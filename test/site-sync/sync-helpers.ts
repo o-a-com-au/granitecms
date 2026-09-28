@@ -19,13 +19,28 @@ export function git(siteRoot: string, args: string[]): string {
 }
 
 // A real running site: the fixture (pages, a menu, a draft-only page),
-// a redirect, a media file, and a token with content + media scopes.
-export async function startLiveSite(): Promise<{ app: FastifyInstance; url: string; siteRoot: string }> {
+// a redirect, a media file, and a token with content, media and theme
+// scopes.
+// With `siteRoot`, starts (restarts) an existing test site instead.
+export async function startLiveSite(
+  existing: { siteRoot?: string } = {},
+): Promise<{ app: FastifyInstance; url: string; siteRoot: string }> {
+  const siteRoot = existing.siteRoot ?? setUpLiveSite();
+  const app = buildServer(bootSite(siteRoot), loadServerConfig(siteRoot), { logger: false });
+  await app.listen({ port: 0, host: '127.0.0.1' });
+  const address = app.server.address();
+  if (address === null || typeof address === 'string') {
+    throw new Error('expected a port');
+  }
+  return { app, url: `http://127.0.0.1:${address.port}`, siteRoot };
+}
+
+function setUpLiveSite(): string {
   const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-pull-live-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   git(siteRoot, ['init', '--quiet']);
   writeJson(siteRoot, 'vhost/site.config.json', {
-    tokens: [{ hash: createHash('sha256').update(TOKEN).digest('hex'), scopes: ['content', 'media'] }],
+    tokens: [{ hash: createHash('sha256').update(TOKEN).digest('hex'), scopes: ['content', 'media', 'theme'] }],
   });
   writeJson(siteRoot, 'content/redirects.json', { schemaVersion: 1, entries: [{ from: '/old', to: '/about' }] });
   mkdirSync(join(siteRoot, 'media'), { recursive: true });
@@ -35,14 +50,7 @@ export async function startLiveSite(): Promise<{ app: FastifyInstance; url: stri
   // that deletion in git, which needs the page to have been tracked.)
   git(siteRoot, ['add', '-A']);
   git(siteRoot, ['commit', '--quiet', '-m', 'live site']);
-
-  const app = buildServer(bootSite(siteRoot), loadServerConfig(siteRoot), { logger: false });
-  await app.listen({ port: 0, host: '127.0.0.1' });
-  const address = app.server.address();
-  if (address === null || typeof address === 'string') {
-    throw new Error('expected a port');
-  }
-  return { app, url: `http://127.0.0.1:${address.port}`, siteRoot };
+  return siteRoot;
 }
 
 // The local copy: a committed git repo with its own theme, one page the
