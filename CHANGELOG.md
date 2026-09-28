@@ -6,6 +6,7 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ### Fixed
 
+- **A site with no `content/drafts` folder can preview and save drafts.** Git keeps no empty folders, so a site cloned or deployed from git with no drafts has none, and every preview and draft save failed with a 500. The folder is now made at start-up.
 - **`npm run push` no longer waits in vain on a CMS upgrade the host can't build.** A deploy builds the version `vhost/package.json` names, so if that disagrees with the version installed here (seen on a real site: package.json put back to the old version after an upgrade), the live site stays on the old version and push used to wait ten minutes for it. Push now stops before deploying and says how to fix `package.json`.
 - **Site settings move to `theme/config/site_settings.json`.** Shopify's VS Code extension checks any `config/settings_schema.json` against Shopify's own format and marks Granite's as wrong (on one real site, the file was then rewritten into Shopify's form and stopped working). The form is unchanged: JSON Schema, like a section's `{% schema %}`. A `settings_schema.json` in that form is still read, with a warning to rename it; one in Shopify's form is left alone.
 

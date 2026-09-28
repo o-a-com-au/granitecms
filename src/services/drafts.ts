@@ -9,6 +9,16 @@ import type { ThemeSchemas, ValidationError } from './validation.ts';
 import { validateContent } from './validation.ts';
 import { enqueue } from './write-queue.ts';
 
+// content/drafts/ may not exist: git keeps no empty folders, so a site
+// cloned or deployed with no drafts has none. Every draft read and write
+// resolves its path under this folder (sanitisePath needs the root to
+// exist), so without it the first draft save failed with a 500 - found
+// running a fresh clone of a real site. Made once at start-up, before any
+// request, rather than on every write.
+export function ensureDraftsRoot(config: SiteConfig): void {
+  mkdirSync(config.draftsRoot, { recursive: true });
+}
+
 export type DraftReason = 'validation-failed' | 'conflict';
 
 export class DraftError extends Error {

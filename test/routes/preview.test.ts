@@ -22,9 +22,12 @@ function hashOf(token: string): string {
 // requireScope(tokens, 'content') (a read-only render of draft
 // content a content-scoped token can already read raw via
 // GET /v1/drafts/:path - no separate "preview" scope exists).
-function buildPreviewTestServer() {
+function buildPreviewTestServer({ withoutDrafts = false } = {}) {
   const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-preview-test-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
+  if (withoutDrafts) {
+    rmSync(join(siteRoot, 'content', 'drafts'), { recursive: true });
+  }
   execFileSync('git', ['init', '--quiet'], { cwd: siteRoot });
   writeJson(siteRoot, 'vhost/site.config.json', {
     tokens: [{ hash: hashOf(CONTENT_TOKEN), scopes: ['content'] }],
@@ -36,6 +39,27 @@ function buildPreviewTestServer() {
 
   return { app, siteRoot, cleanup: () => rmSync(siteRoot, { recursive: true, force: true }) };
 }
+
+test('a site with no content/drafts folder (git keeps no empty folders) previews pages and saves a first draft', async () => {
+  const { app, cleanup } = buildPreviewTestServer({ withoutDrafts: true });
+  const auth = { authorization: `Bearer ${CONTENT_TOKEN}` };
+  try {
+    assert.equal((await app.inject({ method: 'GET', url: '/v1/preview/about', headers: auth })).statusCode, 200);
+    assert.equal((await app.inject({ method: 'GET', url: '/v1/drafts/pages/about.json', headers: auth })).statusCode, 404);
+
+    const live = await app.inject({ method: 'GET', url: '/v1/content/pages/about.json', headers: auth });
+    const saved = await app.inject({
+      method: 'PUT',
+      url: '/v1/drafts/pages/about.json',
+      headers: { ...auth, 'if-match': String(live.headers.etag) },
+      payload: { ...(live.json() as Record<string, unknown>), name: 'About', type: 'page', layout: 'theme', sections: [] },
+    });
+    assert.equal(saved.statusCode, 200, saved.body);
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
 
 test('C5: previewing a page that only exists as a draft renders the draft', async () => {
   const { app, siteRoot, cleanup } = buildPreviewTestServer();

@@ -42,6 +42,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test",
+    "serve": "node --experimental-strip-types scripts/serve-site.ts",
     "test:packaging": "node --experimental-strip-types --test --test-concurrency=1 e2e/create-site-packaging.check.ts e2e/dev-watch.check.ts e2e/upgrade.check.ts",
     "build": "tsc -p tsconfig.build.json && rm -rf dist/schemas dist/create-site/template && cp -r src/schemas/. dist/schemas/ && cp -r src/create-site/template/. dist/create-site/template/",
     "prepack": "npm run build"

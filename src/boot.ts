@@ -6,6 +6,7 @@ import { createRenderCache } from './renderer/render-cache.ts';
 import type { ThemeTemplates } from './renderer/theme-templates.ts';
 import type { StartupCheckOptions } from './services/startup-checks.ts';
 import { runStartupChecks } from './services/startup-checks.ts';
+import { ensureDraftsRoot } from './services/drafts.ts';
 import type { ThemeSchemas } from './services/validation.ts';
 import type { PageTemplate } from './services/theme-page-templates.ts';
 import { loadTheme, ThemeState } from './theme-state.ts';
@@ -27,6 +28,7 @@ export interface BootedSite {
 export function bootSite(siteRoot: string, options?: StartupCheckOptions): BootedSite {
   runStartupChecks(siteRoot, options);
   const config = loadSiteConfig(siteRoot);
+  ensureDraftsRoot(config);
   const initial = loadTheme(config);
   const renderCache = createRenderCache();
   return {
