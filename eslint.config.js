@@ -73,6 +73,7 @@ export default tseslint.config(
       'src/services/resolve-blog-url.ts',
       'src/services/menus.ts',
       'src/services/menu-references.ts',
+      'src/services/theme-files.ts',
       'src/services/pid-file.ts',
       'src/site-sync/pull-site.ts',
       'src/site-sync/sync-record.ts',

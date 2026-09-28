@@ -95,5 +95,5 @@ export const v1Routes: FastifyPluginAsync<V1RouteOptions> = async (
   fastify.register(searchRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(redirectsRoutes, { config: opts.config, tokens: opts.tokens });
   fastify.register(menusRoutes, { config: opts.config, tokens: opts.tokens });
-  fastify.register(themeRoutes, { theme: opts.theme, tokens: opts.tokens });
+  fastify.register(themeRoutes, { config: opts.config, theme: opts.theme, tokens: opts.tokens });
 };
