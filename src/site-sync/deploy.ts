@@ -60,6 +60,27 @@ export function detectDeployMethod(siteRoot: string, deps: DeployDeps = defaultD
   return { kind: 'manual' };
 }
 
+// A deploy builds the CMS version vhost/package.json names, not the one
+// installed here - so if the two disagree (package.json put back after
+// an upgrade, seen on a real site), the live site comes back on the old
+// version and push waits in vain. Returns what's wrong, or null. Only an
+// exact version is checked: a range or a local link can't be judged
+// from here, and the scaffold always pins one.
+export function deployedVersionProblem(siteRoot: string, installedVersion: string, deps: Pick<DeployDeps, 'readText'> = defaultDeployDeps): string | null {
+  let wanted: unknown;
+  try {
+    wanted = (JSON.parse(deps.readText(join(siteRoot, 'vhost', 'package.json'))) as { dependencies?: Record<string, unknown> }).dependencies?.[
+      '@o-a/cms-agent'
+    ];
+  } catch {
+    return null;
+  }
+  if (typeof wanted !== 'string' || !/^\d+\.\d+\.\d+$/.test(wanted) || wanted === installedVersion) {
+    return null;
+  }
+  return `vhost/package.json asks for CMS ${wanted}, but ${installedVersion} is installed here. A deploy builds what package.json asks for, so the live site would stay on ${wanted}. Set "@o-a/cms-agent" to "${installedVersion}" in vhost/package.json (or run npm run upgrade again), then push.`;
+}
+
 export function describeDeployMethod(method: DeployMethod): string {
   switch (method.kind) {
     case 'command':

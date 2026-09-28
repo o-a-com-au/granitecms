@@ -5,7 +5,7 @@ import { ask, chooseParts, parseSyncArgs, resolveToken, TOKEN_HELP } from './cli
 import { normaliseSiteUrl } from './prompts.ts';
 import { readAgentVersion } from '../routes/capabilities.ts';
 import { compareVersions } from '../upgrade/changelog.ts';
-import { describeDeployMethod, detectDeployMethod, runDeploy, waitForLiveVersion } from './deploy.ts';
+import { deployedVersionProblem, describeDeployMethod, detectDeployMethod, runDeploy, waitForLiveVersion } from './deploy.ts';
 import { executePush, preparePush, type PushPlan } from './push-site.ts';
 import type { ThemePlan } from './theme-sync.ts';
 import { SiteSyncError } from './remote-site.ts';
@@ -185,6 +185,10 @@ try {
   }
 
   if (parts.cms) {
+    const versionProblem = deployedVersionProblem(config.siteRoot, localVersion);
+    if (versionProblem !== null) {
+      fail(`Can't push the CMS upgrade, so nothing was pushed: ${versionProblem}`);
+    }
     await upgradeLiveCms(prepared.liveVersion, localVersion);
     if (!parts.content && !parts.theme) {
       console.log(dryRun ? '\nDry run: nothing was pushed.' : `Pushed to ${siteUrl}: the CMS upgrade to ${localVersion}.`);

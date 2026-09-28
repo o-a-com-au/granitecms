@@ -210,6 +210,12 @@ test('an unusable settings schema is left out with a start-up warning, like a br
     assert.match((loadThemeSchemas(root).warnings ?? []).join('\n'), /config\/settings_schema\.json.*not valid JSON/);
     writeFileSync(
       join(root, 'config', 'settings_schema.json'),
+      JSON.stringify([{ name: 'site_settings', settings: [{ type: 'text', id: 'announcement_text', label: 'Announcement' }] }]),
+    );
+    assert.equal(loadThemeSchemas(root).settings, undefined);
+    assert.match((loadThemeSchemas(root).warnings ?? []).join('\n'), /a list, like Shopify's settings_schema\.json\. Granite's is one JSON Schema object/);
+    writeFileSync(
+      join(root, 'config', 'settings_schema.json'),
       JSON.stringify({ type: 'object', required: ['name'], properties: { name: { type: 'string' } } }),
     );
     const schemas = loadThemeSchemas(root);

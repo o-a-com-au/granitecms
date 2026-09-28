@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { join } from 'node:path';
 import { readAgentVersion } from '../../src/routes/capabilities.ts';
-import { detectDeployMethod, waitForLiveVersion, type DeployDeps } from '../../src/site-sync/deploy.ts';
+import { deployedVersionProblem, detectDeployMethod, waitForLiveVersion, type DeployDeps } from '../../src/site-sync/deploy.ts';
 import { writeJson } from '../helpers/tmp-site.ts';
 import { createLocalSite, git } from './sync-helpers.ts';
 
@@ -48,6 +48,15 @@ function fakeFetch(state: { version: string | null; home: number }): typeof fetc
     return new Response('home', { status: state.home });
   }) as typeof fetch;
 }
+
+test('deployedVersionProblem: an exact version in vhost/package.json must match the one installed; ranges and links are not judged', () => {
+  const withSpec = (spec: unknown) => ({ readText: () => JSON.stringify({ dependencies: { '@o-a/cms-agent': spec } }) });
+  assert.equal(deployedVersionProblem('/site', '0.7.1', withSpec('0.7.1')), null);
+  assert.match(deployedVersionProblem('/site', '0.7.1', withSpec('0.7.0')) ?? '', /asks for CMS 0\.7\.0, but 0\.7\.1 is installed here/);
+  assert.equal(deployedVersionProblem('/site', '0.7.1', withSpec('^0.7.0')), null);
+  assert.equal(deployedVersionProblem('/site', '0.7.1', withSpec('file:../../app-granite-cms')), null);
+  assert.equal(deployedVersionProblem('/site', '0.7.1', { readText: () => '{' }), null);
+});
 
 test('waitForLiveVersion waits through a restart for the new version, then checks the home page', async () => {
   const state = { version: '0.5.5' as string | null, home: 200 };
@@ -192,6 +201,20 @@ test('npm run push --cms: nothing is deployed on a wrong confirmation, and a fai
     assert.match(result.stderr, /The deploy failed, so nothing else was pushed/);
   } finally {
     await failing.cleanup();
+  }
+});
+
+test('npm run push --cms refuses, deploying nothing, when vhost/package.json asks for a different CMS than the one installed', async () => {
+  const { localRoot, marker, live, cleanup } = await upgradeScenario(touch);
+  try {
+    writeJson(localRoot, 'vhost/package.json', { name: 'site', dependencies: { '@o-a/cms-agent': '0.0.1' } });
+    const host = new URL(live.url).host;
+    const result = await runPush(localRoot, ['--cms'], `a-token\n${host}\n`);
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /Can't push the CMS upgrade, so nothing was pushed: vhost\/package\.json asks for CMS 0\.0\.1/);
+    assert.equal(existsSync(marker), false, 'no deploy ran');
+  } finally {
+    await cleanup();
   }
 });
 

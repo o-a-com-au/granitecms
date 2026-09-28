@@ -87,7 +87,15 @@ function loadSettingsSchema(themeRoot: string): { schema?: object; warning?: str
   } catch {
     return { warning: `${label}: the file is not valid JSON.` };
   }
-  if (typeof schema !== 'object' || schema === null || Array.isArray(schema)) {
+  // A list of groups is Shopify's settings_schema.json - the file name is
+  // the same, so it's the likeliest mix-up, and worth naming (seen on a
+  // real site).
+  if (Array.isArray(schema)) {
+    return {
+      warning: `${label}: it is a list, like Shopify's settings_schema.json. Granite's is one JSON Schema object, the same form as a section's {% schema %}: { "type": "object", "properties": { ... } } (see guide-theme-authoring.md, "Site settings").`,
+    };
+  }
+  if (typeof schema !== 'object' || schema === null) {
     return { warning: `${label}: the file must hold a JSON Schema object.` };
   }
   if (!requiredFieldsHaveValidDefaults(schema)) {
