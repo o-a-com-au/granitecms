@@ -1,5 +1,6 @@
 {
   "schemaVersion": 7,
+  "name": "Home",
   "title": "Granite CMS — Solid foundations for client sites",
   "type": "page",
   "layout": "theme",

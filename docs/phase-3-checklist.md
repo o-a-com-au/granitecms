@@ -567,6 +567,25 @@ Design notes:
 - **Found by the tests, not in review:** the Liquid check first used a plain Liquid parser, which rejected every section (`{% schema %}` isn't a real tag); and piped input ending between questions left a later question waiting forever.
 - **One request per theme push**, 100 MB body limit on that route only, so fonts and images fit.
 
+## Group AB: `npm run upgrade` (0.6.0)
+
+Stage 3 of the 0.6.0 plan. Decisions confirmed with the owner: content-format updates are left uncommitted, and the CMS's own files are replaced automatically with a summary.
+
+| # | Criterion | Proof |
+|---|---|---|
+| AB1 | Versions compare numerically; a 0.x minor step or any major step is flagged as possibly breaking; the changelog sections between two versions are picked out | `test/upgrade/upgrade.test.ts :: versions compare ...`, `:: changesBetween ...` |
+| AB2 | The CMS's own files are put back as the installed version ships them; the developer's own scripts, the dependency, tokens and theme are untouched; a second run changes nothing | `:: refreshOwnedFiles ...` |
+| AB3 | Content is updated to the current format and left uncommitted; content that can't be updated is reported, and no content file changes | `:: finishUpgrade updates content ...`, `:: finishUpgrade reports content it can't update ...` |
+| AB4 | For real, with npm and a stand-in registry: the new version's changelog shows before asking; "no" changes nothing; "yes" installs it and hands over to the new version's own finish step, whose Dockerfile lands, with nothing committed; running again finds nothing to do | `e2e/upgrade.check.ts` |
+| AB5 | Scaffolded sites get the script; the package ships CHANGELOG.md | `test/create-site/generate-site.test.ts` (`pkg.scripts.upgrade`); `package.json` `files` |
+
+Design notes:
+
+- **Two halves.** The installed version picks, explains, asks and installs; then the version just installed finishes (`--finish`), because only it knows what it changed. So each release carries its own upgrade steps.
+- **The changelog comes from the real tarball,** fetched with `npm pack` from the same registry the install uses, before anything changes.
+- **Site check problems don't fail the upgrade:** the check covers the whole site, and a fresh scaffold already has broken starter links (a known, separate issue). They are reported for the developer to look at.
+- **Found by the tests:** nine scaffold starter pages missing the required `name` (fixed); and the e2e check deadlocked because a synchronous npm call blocked the in-process stand-in registry.
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

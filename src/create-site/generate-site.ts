@@ -10,7 +10,7 @@ import { commitPaths } from '../services/git.ts';
 // site data, matching validation.ts's/capabilities.ts's existing
 // import.meta.dirname-relative pattern for the agent's own bundled
 // files (see test/static/static-analysis.test.ts's B1 allowlist).
-const TEMPLATE_ROOT = join(import.meta.dirname, 'template');
+export const TEMPLATE_ROOT = join(import.meta.dirname, 'template');
 
 // The agent's own bundled package.json, reused for the exact version
 // to pin the scaffold's dependency to - never a second hardcoded
@@ -37,11 +37,62 @@ export function generateToken(): { raw: string; hash: string } {
 // rather than the agent inferring anything (constraint 2 stays intact:
 // the site root is always explicit, never assumed from the agent's own
 // location).
-const SERVER_JS = `import { startServer } from '@o-a/cms-agent';
+export const SERVER_JS = `import { startServer } from '@o-a/cms-agent';
 import { join } from 'node:path';
 
 await startServer(join(import.meta.dirname, '..'), { tunnel: process.argv.includes('--tunnel') });
 `;
+
+// The scripts every site's vhost/package.json gets. The CMS owns these:
+// npm run upgrade puts them back as the new version defines them.
+// "start" matters beyond convenience: several PaaS platforms
+// auto-detect and run `npm start` by default for a Node app
+// with no other deploy config - without this, a site pushed
+// straight to one of those (no Dockerfile in the loop) simply
+// wouldn't boot. "tunnel" mirrors the --tunnel flag create-site
+// already tells the operator about in its own next-steps output.
+// "dev" is Node's own --watch-path, not custom fs-watching code
+// - confirmed empirically that it both picks up changes to a
+// plain file under a watched directory that's never imported
+// (theme/*.liquid is only ever read via readFileSync) and sends
+// a real SIGTERM on restart, which server.js's own shutdown
+// handling already listens for. "../theme" because npm run dev
+// runs with cwd vhost/, a sibling of theme/. Deliberately not
+// content/ - that's already read fresh on every request, so
+// watching it would only cause pointless restarts on every
+// content edit. "check" is check-site, the package's own
+// installed CLI bin - runs from vhost/ (site-check/cli.ts's own
+// assumed cwd relationship), same pattern as start/tunnel/dev.
+export const SCAFFOLD_SCRIPTS: Record<string, string> = {
+  start: 'node server.js',
+  tunnel: 'node server.js --tunnel',
+  dev: 'node --watch-path=../theme server.js',
+  check: 'check-site',
+  // seed-media is the package's own installed CLI bin, exposed
+  // as a script for exactly the same reason check is: there is
+  // no package.json or node_modules at the SITE root, only here
+  // in vhost/, so the obvious-looking `npx seed-media` run from
+  // the site directory resolves nothing locally, goes to the
+  // public registry for a package by that name and dies with
+  // E404 - while still exiting 0. That is not hypothetical: it
+  // is what sent a generated site's images into theme/root/
+  // instead of media/. Run it from here as
+  // `npm run seed-media -- .. <file>`.
+  'seed-media': 'seed-media',
+  // Stops the site from any terminal, not only the one it was
+  // started in (stop-site, via vhost/data/server.pid).
+  stop: 'stop-site',
+  // Copies a running site's content and media into this one
+  // (pull-site): `npm run pull`, which asks for the address and token.
+  pull: 'pull-site',
+  // Sends changes made here since the last pull back to that
+  // live site (push-site), refusing to overwrite anything
+  // edited there since, and only after typing its address.
+  push: 'push-site',
+  // Upgrades the CMS itself (upgrade-site): shows what's new, installs
+  // it, and updates the files in vhost/ that belong to the CMS.
+  upgrade: 'upgrade-site',
+};
 
 export class ScaffoldError extends Error {}
 
@@ -123,51 +174,7 @@ export function scaffoldSite(targetDir: string): { raw: string } {
         version: '0.0.0',
         private: true,
         type: 'module',
-        // "start" matters beyond convenience: several PaaS platforms
-        // auto-detect and run `npm start` by default for a Node app
-        // with no other deploy config - without this, a site pushed
-        // straight to one of those (no Dockerfile in the loop) simply
-        // wouldn't boot. "tunnel" mirrors the --tunnel flag create-site
-        // already tells the operator about in its own next-steps output.
-        // "dev" is Node's own --watch-path, not custom fs-watching code
-        // - confirmed empirically that it both picks up changes to a
-        // plain file under a watched directory that's never imported
-        // (theme/*.liquid is only ever read via readFileSync) and sends
-        // a real SIGTERM on restart, which server.js's own shutdown
-        // handling already listens for. "../theme" because npm run dev
-        // runs with cwd vhost/, a sibling of theme/. Deliberately not
-        // content/ - that's already read fresh on every request, so
-        // watching it would only cause pointless restarts on every
-        // content edit. "check" is check-site, the package's own
-        // installed CLI bin - runs from vhost/ (site-check/cli.ts's own
-        // assumed cwd relationship), same pattern as start/tunnel/dev.
-        scripts: {
-          start: 'node server.js',
-          tunnel: 'node server.js --tunnel',
-          dev: 'node --watch-path=../theme server.js',
-          check: 'check-site',
-          // seed-media is the package's own installed CLI bin, exposed
-          // as a script for exactly the same reason check is: there is
-          // no package.json or node_modules at the SITE root, only here
-          // in vhost/, so the obvious-looking `npx seed-media` run from
-          // the site directory resolves nothing locally, goes to the
-          // public registry for a package by that name and dies with
-          // E404 - while still exiting 0. That is not hypothetical: it
-          // is what sent a generated site's images into theme/root/
-          // instead of media/. Run it from here as
-          // `npm run seed-media -- .. <file>`.
-          'seed-media': 'seed-media',
-          // Stops the site from any terminal, not only the one it was
-          // started in (stop-site, via vhost/data/server.pid).
-          stop: 'stop-site',
-          // Copies a running site's content and media into this one
-          // (pull-site): `npm run pull`, which asks for the address and token.
-          pull: 'pull-site',
-          // Sends changes made here since the last pull back to that
-          // live site (push-site), refusing to overwrite anything
-          // edited there since, and only after typing its address.
-          push: 'push-site',
-        },
+        scripts: SCAFFOLD_SCRIPTS,
         dependencies: {
           // Pinned exact, never a ^range - at v0.x even a minor bump
           // can be breaking (build plan's own word is "pinned").

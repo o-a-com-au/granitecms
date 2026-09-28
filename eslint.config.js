@@ -79,6 +79,8 @@ export default tseslint.config(
       'src/site-sync/sync-record.ts',
       'src/site-sync/push-site.ts',
       'src/site-sync/theme-sync.ts',
+      'src/upgrade/owned-files.ts',
+      'src/upgrade/upgrade-cli.ts',
       'src/services/git-revert.ts',
       'src/services/fs-walk.ts',
       'src/services/content-read.ts',

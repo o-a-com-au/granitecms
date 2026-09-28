@@ -1,6 +1,6 @@
 # Deploying and updating a site
 
-> **Draft for 0.6.0.** This describes how deploying and updating will work from 0.6.0. Not built yet: `npm run upgrade`, and the CMS upgrade choice in `npm run push`.
+> **Draft for 0.6.0.** This describes how deploying and updating will work from 0.6.0. Not built yet: the CMS upgrade choice in `npm run push`.
 
 ## The short version
 
@@ -93,7 +93,9 @@ Run `npm run push -- --dry-run` to see what would change, without changing anyth
 
 ## Upgrading the CMS
 
-1. **Upgrade on your computer:** `npm run upgrade`. It shows what is new, asks before changing anything, updates the CMS's own files in `vhost/`, and checks your site still works.
+1. **Upgrade on your computer:** `npm run upgrade` (or `npm run upgrade -- 0.6.1` for a particular version). It shows what is new, asks before changing anything, installs it, updates the CMS's own files in `vhost/` (`Dockerfile`, `docker-entrypoint.sh`, `server.js`, `.dockerignore`, and the scripts in `package.json`, keeping any scripts of your own), updates your content to the new format if it changed, and checks your site. Nothing is committed: review it with `git diff`.
+
+   Sites on 0.5.x don't have `npm run upgrade` yet. For that first upgrade, from `vhost/`: `npm install @o-a/cms-agent@0.6.0 --save-exact`, then `npx upgrade-site --finish`.
 2. **Test it:** `npm run dev`, and look at your site.
 3. **Put it live:** `npm run push`. Because your CMS is now newer than the live site's, push offers one more choice:
 

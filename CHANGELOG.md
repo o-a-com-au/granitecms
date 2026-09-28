@@ -8,9 +8,16 @@ All notable changes to this package are documented here. Format loosely follows 
 
 - **`npm run pull` and `npm run push` handle the theme too.** Both now ask what to include, with checkboxes for **Content** and **Theme** (`--content` and `--theme` choose without asking); push shows how many changes each has. Theme sync uses three new routes, all needing the `theme` token scope: `GET /v1/theme/files`, `GET /v1/theme/files/*` and `POST /v1/theme/push`. A theme push is protected like content (a file changed on the live site since the pull stops it), is refused if a Liquid template can't be parsed, commits once, and takes effect immediately with no restart. The theme is pushed before content, so pages using a new section type arrive after the theme that defines it.
 
+- **`npm run upgrade` upgrades the CMS on your computer** (`upgrade-site`, a new bin), for testing before `npm run push` puts it live. It shows the new version's changelog entries, asks, installs it, and then hands over to the new version, which puts back its own files in `vhost/` (`Dockerfile`, `docker-entrypoint.sh`, `server.js`, `.dockerignore`, and its scripts in `package.json`, keeping the developer's own), updates content to the new format, and runs the site check. Nothing is committed. `CHANGELOG.md` now ships in the package so the upgrade can show it. Sites on 0.5.x run their first upgrade as `npm install @o-a/cms-agent@0.6.0 --save-exact` then `npx upgrade-site --finish`.
+
+### Fixed
+
+- **Nine of the scaffold's starter pages had no `name`,** which the page format has required since content schema 5. They rendered, because the display falls back to the title, but updating their content format validates them, so every new site's first upgrade would have failed on its own starter pages.
+
 ### Changed
 
 - **A running site reloads its theme without a restart** after a theme push. Routes now read the theme from one shared `ThemeState` rather than a copy taken at start-up, and cached pages are keyed on the theme too.
+- **The content-format update can leave its changes uncommitted** (`runMigrations(..., { commit: false })`), which `npm run upgrade` uses.
 - **The pull record is kept per part** (content, theme), so either can be pulled alone. Records written by 0.5.5 are still read, as the content part.
 
 ## [0.5.5] - 2026-09-28

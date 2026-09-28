@@ -123,6 +123,7 @@ test('scaffoldSite pins @o-a/cms-agent to the exact installed version, and sets 
     assert.equal(pkg.scripts.stop, 'stop-site');
     assert.equal(pkg.scripts.pull, 'pull-site');
     assert.equal(pkg.scripts.push, 'push-site');
+    assert.equal(pkg.scripts.upgrade, 'upgrade-site');
   } finally {
     cleanup();
   }

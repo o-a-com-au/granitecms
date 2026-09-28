@@ -110,13 +110,20 @@ function rollback(files: MigratedFile[]): unknown[] {
   return failures;
 }
 
+export interface RunMigrationsOptions {
+  // False leaves the migrated files in the working tree for review
+  // (npm run upgrade), rather than committing them.
+  commit?: boolean;
+}
+
 async function runMigrationsJob(
   config: SiteConfig,
   themeSchemas: ThemeSchemas,
   migrations: MigrationMap,
   currentVersion: number,
   author: CommitAuthor,
-): Promise<void> {
+  options: RunMigrationsOptions,
+): Promise<string[]> {
   // content/posts/ is a legacy root: posts were folded into pages, and
   // no code walks a postsRoot for anything else any more (see
   // config.ts) - it's computed locally, here only, purely to find any
@@ -191,7 +198,7 @@ async function runMigrationsJob(
   }
 
   if (toMigrate.length === 0) {
-    return;
+    return [];
   }
 
   try {
@@ -209,12 +216,14 @@ async function runMigrationsJob(
       committedPaths.add(file.path);
       committedPaths.add(file.targetPath);
     }
-    commitPaths(
-      config.siteRoot,
-      [...committedPaths],
-      `chore: migrate content to schema version ${currentVersion}`,
-      author,
-    );
+    if (options.commit !== false) {
+      commitPaths(
+        config.siteRoot,
+        [...committedPaths],
+        `chore: migrate content to schema version ${currentVersion}`,
+        author,
+      );
+    }
   } catch (error) {
     const failures = rollback(toMigrate);
     if (failures.length > 0) {
@@ -228,14 +237,17 @@ async function runMigrationsJob(
     const detail = error instanceof Error ? error.message : String(error);
     throw new MigrationError(reason, `Migration run failed: ${detail}`, { cause: error });
   }
+  return toMigrate.map((file) => file.path);
 }
 
+// Resolves to the files migrated (their original paths).
 export function runMigrations(
   config: SiteConfig,
   themeSchemas: ThemeSchemas,
   migrations: MigrationMap,
   currentVersion: number,
   author: CommitAuthor,
-): Promise<void> {
-  return enqueue(() => runMigrationsJob(config, themeSchemas, migrations, currentVersion, author));
+  options: RunMigrationsOptions = {},
+): Promise<string[]> {
+  return enqueue(() => runMigrationsJob(config, themeSchemas, migrations, currentVersion, author, options));
 }
