@@ -2,6 +2,12 @@
 
 All notable changes to this package are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Nothing before `0.2.0` was tracked in this file - see git history for anything earlier.
 
+## [Unreleased]
+
+### Changed
+
+- **`npm run push` works on a copy that has never pulled** - a site built locally and deployed, for example. The live site as it is now stands in for the pull: everything that differs locally is listed as a new or updated page, theme file or redirect, with a warning to check it, and nothing is deleted from the live site (a live page missing locally may be one an editor made). Afterwards only what the copy and the live site agree on is recorded, so live pages the copy never had are left alone by later pushes too. A CMS upgrade on its own no longer needs a pull. With no record, push asks for the site's address.
+
 ## [0.6.0] - 2026-09-28
 
 ### Added

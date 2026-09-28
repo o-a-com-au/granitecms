@@ -177,13 +177,19 @@ function readGitAuthor(config: SiteConfig): { name: string; email: string } {
 
 export interface PreparedContent {
   plan: PushPlan;
+  // What the live site had when this copy last pulled - or, on a first
+  // push, what it has now (see firstPushBaseline).
   record: ContentRecord;
+  firstPush: boolean;
   local: LocalContent;
   live: LiveContent;
 }
 
 export interface PreparedTheme {
   plan: ThemePlan;
+  // Theme-relative path -> hash, as pulled (or, on a first push, as live now).
+  pulled: Record<string, string>;
+  firstPush: boolean;
   local: Map<string, Buffer>;
   live: LiveTheme;
 }
@@ -216,15 +222,24 @@ export interface PushSiteOptions {
   onWait?: (seconds: number) => void;
 }
 
+// A first push - no pull record for a part - can't tell a change made
+// here from one made on the live site, so the live site as it is now
+// stands in for the pull: everything that differs locally is listed as
+// a create or update for the developer to check. Deletes are left out
+// entirely, since a live page (or redirect, or theme file) missing here
+// may be one an editor created. Once pushed, the record describes the
+// live site, and every later push is protected as usual.
+function withoutDeletes(plan: PushPlan): PushPlan {
+  return {
+    ...plan,
+    changes: plan.changes.filter((change) => change.action !== 'delete'),
+    redirectOperations: plan.redirectOperations.filter((operation) => operation.method !== 'DELETE'),
+  };
+}
+
 export async function preparePush(config: SiteConfig, options: PushSiteOptions): Promise<PreparedPush> {
   const record = readSyncRecord(config);
-  if (!record || (!record.content && !record.theme)) {
-    throw new SiteSyncError(
-      'no-sync-record',
-      'Push needs to know what the live site looked like when you last pulled, and this copy has never pulled. Run npm run pull first.',
-    );
-  }
-  if (record.siteUrl !== options.siteUrl) {
+  if (record && record.siteUrl !== options.siteUrl) {
     throw new SiteSyncError(
       'different-site',
       `This copy was last pulled from ${record.siteUrl}, not ${options.siteUrl}. Push only goes back to the site it came from.`,
@@ -240,26 +255,45 @@ export async function preparePush(config: SiteConfig, options: PushSiteOptions):
     onWait: options.onWait,
   });
 
-  let content: Prepared<PreparedContent>;
-  if (!record.content) {
-    content = { ready: false, reason: 'content has never been pulled into this copy' };
-  } else {
-    const live = await fetchLiveContent(remote);
-    const liveMedia = new Set((await fetchLiveMedia(remote)).map((item) => item.name));
-    const local = readLocalContent(config);
-    content = { ready: true, value: { plan: planPush(record.content, local, live, liveMedia), record: record.content, local, live } };
-  }
+  const live = await fetchLiveContent(remote);
+  const liveMedia = new Set((await fetchLiveMedia(remote)).map((item) => item.name));
+  const local = readLocalContent(config);
+  const contentRecord: ContentRecord = record?.content ?? {
+    syncedAt: '',
+    files: Object.fromEntries([...live.live].map(([path, file]) => [path, hashOf(file.bytes)])),
+    redirects: live.redirects,
+  };
+  const contentPlan = planPush(contentRecord, local, live, liveMedia);
+  const content: Prepared<PreparedContent> = {
+    ready: true,
+    value: {
+      plan: record?.content ? contentPlan : withoutDeletes(contentPlan),
+      record: contentRecord,
+      firstPush: !record?.content,
+      local,
+      live,
+    },
+  };
 
   let theme: Prepared<PreparedTheme>;
   const fetchedTheme = await fetchLiveTheme(remote);
   if ('unavailable' in fetchedTheme) {
     theme = { ready: false, reason: fetchedTheme.unavailable };
-  } else if (!record.theme) {
-    theme = { ready: false, reason: 'the theme has never been pulled into this copy' };
   } else {
-    const local = readLocalTheme(config);
-    const live = fetchedTheme.theme;
-    theme = { ready: true, value: { plan: planThemePush(record.theme.files, local, live), local, live } };
+    const localTheme = readLocalTheme(config);
+    const liveTheme = fetchedTheme.theme;
+    const pulled = record?.theme?.files ?? Object.fromEntries(liveTheme);
+    const plan = planThemePush(pulled, localTheme, liveTheme);
+    theme = {
+      ready: true,
+      value: {
+        plan: record?.theme ? plan : { ...plan, changes: plan.changes.filter((change) => change.action !== 'delete') },
+        pulled,
+        firstPush: !record?.theme,
+        local: localTheme,
+        live: liveTheme,
+      },
+    };
   }
 
   return {
@@ -325,7 +359,11 @@ export async function executePush(prepared: PreparedPush, parts: PushParts): Pro
     // hash is its local one. Only pushed files move on; anything else
     // keeps its pulled state, so a live-only edit is still recognised as
     // one next time.
-    const merged = { ...(readSyncRecord(prepared.config)?.theme?.files ?? {}) };
+    // As for content: on a first push, only files this copy has and the
+    // live site matches, never live-only ones.
+    const merged = theme.firstPush
+      ? Object.fromEntries(Object.entries(theme.pulled).filter(([path, hash]) => theme.local.has(path) && hashThemeFile(theme.local.get(path) as Buffer) === hash))
+      : { ...theme.pulled };
     for (const change of theme.plan.changes) {
       if (change.action === 'delete') {
         delete merged[change.path];
@@ -350,7 +388,7 @@ export async function executePush(prepared: PreparedPush, parts: PushParts): Pro
 // meantime fails the whole batch rather than being overwritten.
 async function executeContentPush(prepared: PreparedPush, prepContent: PreparedContent): Promise<PushContentResult> {
   const { config, remote, author } = prepared;
-  const { plan, record, local, live } = prepContent;
+  const { plan, record, local, live, firstPush } = prepContent;
   for (const name of plan.mediaToUpload) {
     const bytes = readFileSync(sanitisePath(config.mediaRoot, name));
     const result = (await remote.upload('/v1/media', uploadName(name), bytes)) as { name?: unknown } | null;
@@ -397,7 +435,12 @@ async function executeContentPush(prepared: PreparedPush, prepContent: PreparedC
   // bytes the site actually stored (it re-serialises a draft write),
   // not what was sent. Anything not pushed keeps its pulled state, so a
   // live-only edit is still recognised as one next time.
-  const files = { ...record.files };
+  // On a first push, only what this copy and the live site now agree on
+  // is recorded: a live page this copy never had must stay unrecorded,
+  // or the next push would read it as deleted here and delete it there.
+  const files = firstPush
+    ? Object.fromEntries(Object.entries(record.files).filter(([path, hash]) => local.files.has(path) && hashOf(local.files.get(path) as Buffer) === hash))
+    : { ...record.files };
   for (const change of plan.changes) {
     if (change.action === 'delete') {
       delete files[change.path];
@@ -412,7 +455,9 @@ async function executeContentPush(prepared: PreparedPush, prepContent: PreparedC
     content: {
       syncedAt: new Date().toISOString(),
       files,
-      redirects: plan.redirectOperations.length > 0 ? local.redirects : record.redirects,
+      // On a first push, this copy's own list: live-only redirects then
+      // never read as removed here.
+      redirects: firstPush || plan.redirectOperations.length > 0 ? local.redirects : record.redirects,
     },
   });
 

@@ -27,16 +27,13 @@ function fail(message: string, ...more: string[]): never {
 }
 
 // Push only ever goes back to the site this copy was pulled from, so
-// with no address given, that's the one.
+// with no address given, that's the one. A copy that has never pulled
+// asks, as pull does.
 const record = readSyncRecord(config);
-const given = args.positional[0];
-const siteUrl = given === undefined ? record?.siteUrl : normaliseSiteUrl(given);
+const given = args.positional[0] ?? record?.siteUrl ?? (await ask('Live site address: '));
+const siteUrl = normaliseSiteUrl(given);
 if (!siteUrl) {
-  fail(
-    given === undefined
-      ? 'This copy has never been pulled from a live site, so there is nothing to push back to. Run npm run pull first.'
-      : `"${given}" is not a web address.`,
-  );
+  fail(given.trim() === '' ? 'No address entered.' : `"${given}" is not a web address.`);
 }
 
 function printContentPlan(plan: PushPlan): void {
@@ -148,6 +145,12 @@ try {
     return { content, theme, contentChanges: content ? contentCount(content.plan) : 0, themeChanges: theme ? theme.plan.changes.length : 0 };
   };
   const first = describe();
+  const firstPush = (first.content?.firstPush ?? false) || (first.theme?.firstPush ?? false);
+  if (firstPush) {
+    console.error(
+      `\nFirst push from this copy to ${siteUrl}. Until this copy has pulled from the live site, push can't tell your changes apart from changes made on the live site, so it lists everything that differs. Check the list carefully. Nothing is deleted from the live site on a first push.`,
+    );
+  }
   const parts = await chooseParts(args, 'push', {
     content: first.content
       ? {
@@ -255,7 +258,11 @@ try {
   if (deletes > 0) {
     console.error(`  - ${plural(deletes, 'page')} ${deletes === 1 ? 'is' : 'are'} deleted from the live site.`);
   }
-  console.error('  - Anything changed on the live site since your last pull is left alone (none is listed above).');
+  if ((pushContent && content.firstPush) || (pushTheme && theme.firstPush)) {
+    console.error('  - FIRST PUSH: every difference is listed, including any that came from editors on the live site. Anything listed replaces the live version.');
+  } else {
+    console.error('  - Anything changed on the live site since your last pull is left alone (none is listed above).');
+  }
   console.error('  - Earlier versions stay in the live site\'s history, if you need to go back.\n');
   await confirmByAddress();
 

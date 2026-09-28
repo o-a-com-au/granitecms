@@ -243,17 +243,57 @@ test('a real push refuses a page an editor changed on the live site since the pu
   }
 });
 
-test('push refuses without a pull record, or to a different site than the one pulled from', async () => {
+test('a first push (never pulled) lists every local difference as a create or update, deletes nothing, and records the live site', async () => {
+  const live = await startLiveSite();
+  const localRoot = createLocalSite();
+  try {
+    git(localRoot, ['config', 'user.name', 'First Pusher']);
+    git(localRoot, ['config', 'user.email', 'first@example.com']);
+    // This copy has the fixture's theme but none of its pages: only
+    // local-only.json, plus a local-only redirect.
+    writeJson(localRoot, 'content/pages/local-only.json', validPage('Local only'));
+    writeJson(localRoot, 'content/redirects.json', { schemaVersion: 1, entries: [{ from: '/local', to: '/local-only' }] });
+    const config = loadSiteConfig(localRoot);
+    assert.equal(readSyncRecord(config), null);
+
+    const prepared = await preparePush(config, { siteUrl: live.url, token: TOKEN });
+    assert.ok(prepared.content.ready);
+    const { plan, firstPush } = prepared.content.value;
+    assert.equal(firstPush, true);
+    // The live site's own pages aren't here, but are never deleted on a first push.
+    assert.deepEqual(plan.changes, [{ path: 'pages/local-only.json', action: 'create' }]);
+    assert.deepEqual(plan.conflicts, []);
+    // The live /old redirect isn't here either: added to, never removed.
+    assert.deepEqual(plan.redirectOperations, [{ method: 'POST', entry: { from: '/local', to: '/local-only' } }]);
+
+    await executePush(prepared, { content: true, theme: false });
+    assert.ok(existsSync(join(live.siteRoot, 'content/pages/about.json')), 'live pages untouched');
+    assert.ok(existsSync(join(live.siteRoot, 'content/pages/local-only.json')));
+
+    // Now recorded: the next push is the normal, protected kind, and finds nothing.
+    const record = readSyncRecord(config);
+    const again = await preparePush(config, { siteUrl: live.url, token: TOKEN });
+    assert.ok(again.content.ready);
+    assert.equal(again.content.value.firstPush, false);
+    // Live pages this copy never had are not recorded, so they are
+    // never read as deleted here - the next push leaves them alone.
+    assert.deepEqual(again.content.value.plan.changes, []);
+    assert.deepEqual(again.content.value.plan.redirectOperations, []);
+    assert.equal(record?.content?.files['pages/about.json'], undefined);
+    assert.ok(record?.content?.files['pages/local-only.json']);
+  } finally {
+    await live.app.close();
+    rmSync(live.siteRoot, { recursive: true, force: true });
+    rmSync(localRoot, { recursive: true, force: true });
+  }
+});
+
+test('push refuses to go to a different site than the one this copy was pulled from', async () => {
   const live = await startLiveSite();
   const localRoot = createLocalSite();
   try {
     const config = loadSiteConfig(localRoot);
-    await assert.rejects(
-      preparePush(config, { siteUrl: live.url, token: TOKEN }),
-      (error: unknown) => error instanceof SiteSyncError && error.reason === 'no-sync-record',
-    );
     await pullSite(config, { siteUrl: live.url, token: TOKEN, parts: { content: true, theme: true } });
-    assert.ok(readSyncRecord(config));
     await assert.rejects(
       preparePush(config, { siteUrl: 'https://another-site.example', token: TOKEN }),
       (error: unknown) => error instanceof SiteSyncError && error.reason === 'different-site',

@@ -192,3 +192,36 @@ test('a live site on a CMS without theme endpoints makes the theme unavailable, 
     unavailable: 'the live site\'s CMS is too old to sync its theme; upgrade it first',
   });
 });
+
+test('a first theme push (never pulled) sends local changes, never deletes a live-only file, and leaves it unrecorded', async () => {
+  const live = await startLiveSite();
+  const localRoot = createLocalSite();
+  try {
+    git(localRoot, ['config', 'user.name', 'Dev']);
+    git(localRoot, ['config', 'user.email', 'dev@example.com']);
+    writeTheme(live.siteRoot, 'snippets/live-only.liquid', 'made on the live site');
+    git(live.siteRoot, ['add', '-A']);
+    git(live.siteRoot, ['commit', '--quiet', '-m', 'live-only snippet']);
+    const layout = readFileSync(join(localRoot, 'theme', LAYOUT), 'utf-8');
+    writeTheme(localRoot, LAYOUT, layout.replace('<body>', '<body><p>First theme push</p>'));
+    const config = loadSiteConfig(localRoot);
+
+    const prepared = await preparePush(config, { siteUrl: live.url, token: TOKEN });
+    assert.ok(prepared.theme.ready);
+    assert.equal(prepared.theme.value.firstPush, true);
+    assert.deepEqual(prepared.theme.value.plan.changes, [{ path: LAYOUT, action: 'update' }]);
+
+    await executePush(prepared, { content: false, theme: true });
+    assert.match(readFileSync(join(live.siteRoot, 'theme', LAYOUT), 'utf-8'), /First theme push/);
+    assert.ok(existsSync(join(live.siteRoot, 'theme/snippets/live-only.liquid')));
+    assert.equal(readSyncRecord(config)?.theme?.files['snippets/live-only.liquid'], undefined);
+
+    const again = await preparePush(config, { siteUrl: live.url, token: TOKEN });
+    assert.ok(again.theme.ready);
+    assert.deepEqual(again.theme.value.plan.changes, [], 'the live-only snippet is still left alone');
+  } finally {
+    await live.app.close();
+    rmSync(live.siteRoot, { recursive: true, force: true });
+    rmSync(localRoot, { recursive: true, force: true });
+  }
+});

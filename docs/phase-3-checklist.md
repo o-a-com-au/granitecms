@@ -602,6 +602,20 @@ Design notes:
 - **Two steps, two confirmations.** What content and theme would change is only known once the live site runs the new CMS (an older one can't report its theme at all), so they're planned and confirmed after the upgrade, not before.
 - **Tested for real on Railway (2026-09-28),** on a throwaway project, deleted afterwards, with two locally-built versions (0.6.0 and 0.6.1): first deploy; pull of content and theme; a theme push, live on the next request with no restart; a content push; `npm run push -- --cms` detecting the Railway link, deploying 0.6.1 and seeing it come back - with the earlier theme and content changes intact after the redeploy; then a push finding nothing and a pull changing nothing. It found one bug: a pull rewrote an unchanged `redirects.json` (a formatting-only change); fixed, `test/site-sync/pull-site.test.ts :: pullSite leaves redirects.json alone ...`.
 
+## Group AD: a first push, without a pull (0.6.1)
+
+Raised by upgrading Ember: an existing site whose local copy is ahead of the live one had no safe way to start (pulling overwrites local work), and a CMS-only upgrade wrongly needed a pull. A `--record-only` flag was considered and rejected by the owner as too much to explain; the first push handles it instead, with nothing new to learn.
+
+| # | Criterion | Proof |
+|---|---|---|
+| AD1 | With no record, push plans against the live site as it is now: every local difference is a create or update, nothing is deleted (pages, redirects or theme files) | `test/site-sync/push-site.test.ts :: a first push (never pulled) ...`; `test/site-sync/theme-sync.test.ts :: a first theme push ...` |
+| AD2 | Afterwards only what the copy and the live site agree on is recorded, so the next push leaves live-only pages, redirects and theme files alone | same two tests (the second push finds nothing) |
+| AD3 | A CMS upgrade needs no record; with none, push asks for the address | `test/site-sync/deploy.test.ts :: npm run push --cms works on a copy that has never pulled ...` |
+
+Design notes:
+
+- **Found by the test, not in review:** recording the whole live site after a first push made the next push plan to delete every live page the copy never had. Only agreed files are recorded now.
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

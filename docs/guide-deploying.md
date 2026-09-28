@@ -91,6 +91,8 @@ Push only sends what **you** changed since your last pull, and it protects what 
 
 Run `npm run push -- --dry-run` to see what would change, without changing anything.
 
+**Pushing without having pulled first** (a site you built locally and deployed, say): push can't yet tell your changes apart from changes made on the live site, so it lists everything that differs and asks you to check it. It never deletes anything on a first push. After that, your copy has a record, and every later push works as above.
+
 ## Upgrading the CMS
 
 1. **Upgrade on your computer:** `npm run upgrade` (or `npm run upgrade -- 0.6.1` for a particular version). It shows what is new, asks before changing anything, installs it, updates the CMS's own files in `vhost/` (`Dockerfile`, `docker-entrypoint.sh`, `server.js`, `.dockerignore`, and the scripts in `package.json`, keeping any scripts of your own), updates your content to the new format if it changed, and checks your site. Nothing is committed: review it with `git diff`.

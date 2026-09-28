@@ -130,17 +130,19 @@ function runPush(localRoot: string, args: string[], input: string) {
   );
 }
 
-async function upgradeScenario(deployCommand: (marker: string) => string) {
+async function upgradeScenario(deployCommand: (marker: string) => string, { pulled = true } = {}) {
   const localRoot = createLocalSite();
   const marker = join(localRoot, 'deployed');
   const live = await fakeLiveSite(marker);
   git(localRoot, ['config', 'user.name', 'Dev']);
   git(localRoot, ['config', 'user.email', 'dev@example.com']);
-  mkdirSync(join(localRoot, 'vhost', 'data'), { recursive: true });
-  writeJson(localRoot, 'vhost/data/sync-record.json', {
-    siteUrl: live.url,
-    content: { syncedAt: '', files: {}, redirects: [] },
-  });
+  if (pulled) {
+    mkdirSync(join(localRoot, 'vhost', 'data'), { recursive: true });
+    writeJson(localRoot, 'vhost/data/sync-record.json', {
+      siteUrl: live.url,
+      content: { syncedAt: '', files: {}, redirects: [] },
+    });
+  }
   writeFileSync(join(localRoot, 'vhost', 'deploy.json'), JSON.stringify({ command: deployCommand(marker) }));
   return {
     localRoot,
@@ -200,6 +202,21 @@ test('npm run push refuses content for a live site on an older content format un
     assert.equal(result.code, 1);
     assert.match(result.stderr, /uses an older content format .* Push the CMS upgrade with it/);
     assert.ok(live.url);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('npm run push --cms works on a copy that has never pulled: an upgrade needs no pull record', async () => {
+  const { localRoot, marker, live, cleanup } = await upgradeScenario(touch, { pulled: false });
+  try {
+    const host = new URL(live.url).host;
+    // No record, so the address is asked for first.
+    const result = await runPush(localRoot, ['--cms'], `${live.url}\na-token\n${host}\n`);
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stderr, /Live site address: /);
+    assert.ok(existsSync(marker), 'the deploy command ran');
+    assert.match(result.stdout, /Pushed to .*: the CMS upgrade to /);
   } finally {
     await cleanup();
   }
