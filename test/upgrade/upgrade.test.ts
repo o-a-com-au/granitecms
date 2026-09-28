@@ -41,7 +41,7 @@ test('changesBetween returns the changelog sections after the old version, up to
 function scaffolded() {
   const siteRoot = join(mkdtempSync(join(tmpdir(), 'cms-upgrade-')), 'site');
   scaffoldSite(siteRoot);
-  return { siteRoot, cleanup: () => rmSync(join(siteRoot, '..'), { recursive: true, force: true }) };
+  return { siteRoot, cleanup: () => rmSync(join(siteRoot, '..'), { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 
 const SOURCE = { templateRoot: TEMPLATE_ROOT, serverJs: SERVER_JS, scripts: SCAFFOLD_SCRIPTS };

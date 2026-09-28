@@ -12,7 +12,7 @@ function scaffoldedSite(): { siteDir: string; cleanup: () => void } {
   const parent = mkdtempSync(join(tmpdir(), 'mint-token-test-'));
   const siteDir = join(parent, 'site');
   scaffoldSite(siteDir);
-  return { siteDir, cleanup: () => rmSync(parent, { recursive: true, force: true }) };
+  return { siteDir, cleanup: () => rmSync(parent, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 
 function readConfig(siteDir: string): { tokens: Array<{ hash: string; scopes: string[] }> } {
@@ -57,7 +57,7 @@ test('mintToken raises MintTokenError against a directory that is not a real sit
   try {
     assert.throws(() => mintToken(parent, ['content']), (error: unknown) => error instanceof MintTokenError);
   } finally {
-    rmSync(parent, { recursive: true, force: true });
+    rmSync(parent, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
 });
 

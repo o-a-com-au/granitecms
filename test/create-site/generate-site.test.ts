@@ -8,10 +8,15 @@ import { join } from 'node:path';
 import { ScaffoldError, scaffoldSite } from '../../src/create-site/generate-site.ts';
 import { CHECKPOINT_AUTHOR } from '../../src/services/checkpoint.ts';
 
+// Cleanups here retry: a scaffold's own git commit can start a detached
+// `git gc --auto` that is still writing into .git while the folder is
+// removed (ENOTEMPTY). test/helpers/tmp-site.ts avoids it by turning gc
+// off in its fixture repos; a real scaffold shouldn't have gc turned
+// off, so these tests wait it out instead.
 function tmpTargetDir(): { targetDir: string; cleanup: () => void } {
   const parent = mkdtempSync(join(tmpdir(), 'create-site-test-'));
   const targetDir = join(parent, 'new-site');
-  return { targetDir, cleanup: () => rmSync(parent, { recursive: true, force: true }) };
+  return { targetDir, cleanup: () => rmSync(parent, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 
 test('N: scaffoldSite produces content/(pages,menus,drafts,redirects.json), theme/, vhost/(site.config.json,package.json,server.js)', () => {
@@ -257,7 +262,7 @@ test('docker-entrypoint.sh seeds an empty volume, then on later boots refreshes 
     assert.equal(JSON.parse(readFileSync(join(site, 'content', 'pages', 'index.json'), 'utf-8')).title, 'Edited live');
     assert.equal(readFileSync(join(site, 'vhost', 'site.config.json'), 'utf-8'), '{"tokens":["live"]}');
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
     cleanup();
   }
 });

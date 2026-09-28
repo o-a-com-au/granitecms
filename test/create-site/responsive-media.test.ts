@@ -25,7 +25,7 @@ function scaffold(): Scaffolded {
   const parent = mkdtempSync(join(tmpdir(), 'responsive-media-test-'));
   const dir = join(parent, 'site');
   scaffoldSite(dir);
-  return { dir, cleanup: () => rmSync(parent, { recursive: true, force: true }) };
+  return { dir, cleanup: () => rmSync(parent, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }) };
 }
 
 interface ScaffoldSection {
