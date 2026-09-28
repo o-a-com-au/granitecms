@@ -106,6 +106,30 @@ test('saving settings commits once and every page shows them on the next request
   }
 });
 
+test('the preview shows unsaved settings given in ?settings=, writing nothing, and ignores values the schema rejects', async () => {
+  const { app, siteRoot, cleanup } = buildSettingsSite();
+  try {
+    const preview = (settings: string) =>
+      app.inject({ method: 'GET', url: `/v1/preview/about?settings=${encodeURIComponent(settings)}`, headers: auth });
+
+    const unsaved = await preview(JSON.stringify({ site_name: 'Unsaved Co' }));
+    assert.equal(unsaved.statusCode, 200, unsaved.body);
+    for (const place of ['layout', 'section', 'block', 'snippet']) {
+      assert.match(unsaved.body, new RegExp(`\\[${place}:Unsaved Co`), place);
+    }
+    assert.match(unsaved.body, /\|Inter\]/, 'a setting not given still has its default');
+
+    assert.match((await preview(JSON.stringify({ body_font: 'Comic Sans' }))).body, /\[layout:Default Co\|Inter\]/, 'rejected by the schema');
+    assert.match((await preview('{not json')).body, /\[layout:Default Co\|Inter\]/, 'not JSON');
+
+    assert.match((await app.inject({ method: 'GET', url: '/about' })).body, /\[layout:Default Co/, 'the live site is untouched');
+    assert.equal(git(siteRoot, ['status', '--porcelain']).trim(), '');
+  } finally {
+    await app.close();
+    cleanup();
+  }
+});
+
 test('a save is refused - changing nothing - without If-Match, with a stale one, or with values the theme\'s schema rejects', async () => {
   const { app, siteRoot, cleanup } = buildSettingsSite();
   try {

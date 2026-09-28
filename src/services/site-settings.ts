@@ -53,11 +53,16 @@ export function readSiteSettings(config: SiteConfig): StoredSiteSettings {
 // settings - a saved value for a setting the theme no longer defines is
 // left out.
 export function resolveSiteSettings(config: SiteConfig, themeSchemas: ThemeSchemas): SiteSettings {
+  return resolveSiteSettingsFrom(readSiteSettings(config).settings, themeSchemas);
+}
+
+// The same, from values given rather than read from disk: the preview
+// of settings an editor has changed but not saved yet.
+export function resolveSiteSettingsFrom(saved: SiteSettings, themeSchemas: ThemeSchemas): SiteSettings {
   const properties = (themeSchemas.settings as { properties?: Record<string, { default?: unknown }> } | undefined)?.properties;
   if (!properties) {
     return {};
   }
-  const saved = readSiteSettings(config).settings;
   const resolved: SiteSettings = {};
   for (const [name, property] of Object.entries(properties)) {
     if (name in saved) {

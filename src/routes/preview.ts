@@ -9,8 +9,8 @@ import { PathSafetyError } from '../services/path-safety.ts';
 import { requireScope } from '../services/token-auth.ts';
 import { urlToPagePath } from '../services/urls.ts';
 import type { TokenEntry } from '../server-config.ts';
-import { resolveSiteSettings } from '../services/site-settings.ts';
-import type { ThemeSchemas } from '../services/validation.ts';
+import { resolveSiteSettings, resolveSiteSettingsFrom, type SiteSettings } from '../services/site-settings.ts';
+import { validateSiteSettings, type ThemeSchemas } from '../services/validation.ts';
 
 export interface PreviewRouteOptions {
   config: SiteConfig;
@@ -24,6 +24,26 @@ export interface PreviewRouteOptions {
 // specific page path isn't redirected.
 function toRenderPath(pagesRelativePath: string): string {
   return join('pages', pagesRelativePath);
+}
+
+// ?settings=<JSON>: site settings an editor has changed in the admin but
+// not saved, so the preview shows them before they go live. Never
+// written anywhere. Values the theme's schema rejects (or that aren't
+// JSON) are ignored and the saved settings used, the same as no query:
+// a half-typed value must never break the preview.
+function previewSiteSettings(query: unknown, config: SiteConfig, themeSchemas: ThemeSchemas): SiteSettings {
+  const raw = (query as { settings?: unknown } | undefined)?.settings;
+  if (typeof raw === 'string') {
+    try {
+      const given: unknown = JSON.parse(raw);
+      if (validateSiteSettings(given, themeSchemas).valid) {
+        return resolveSiteSettingsFrom(given as SiteSettings, themeSchemas);
+      }
+    } catch {
+      // Not JSON: fall through to the saved settings.
+    }
+  }
+  return resolveSiteSettings(config, themeSchemas);
 }
 
 async function handlePreviewRequest(
@@ -46,7 +66,7 @@ async function handlePreviewRequest(
       engine,
       toRenderPath(relativePath),
       'preview',
-      resolveSiteSettings(config, themeSchemas),
+      previewSiteSettings(request.query, config, themeSchemas),
     );
     reply.type('text/html; charset=utf-8').send(html);
   } catch (error) {
