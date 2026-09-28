@@ -117,7 +117,7 @@ This scaffold ships one you must use: **`snippets/responsive-media.liquid`, thro
 
 ## Site settings
 
-Anything used across the whole site that an editor should be able to change - social links, a contact email, a choice of font - is a **site setting**, not a hard-coded value. Define them in `theme/config/settings_schema.json`, in the same JSON Schema form as a section's `{% schema %}` (field formats, `title`, `default`; a `required` property needs a valid `default`), and read them anywhere as `{{ settings.<name> }}`, snippets included. For a font, list the choices with `enum` and map each to a font stack in the layout; the theme loads the font files. Check a link isn't blank before rendering it. Editors set the values in the admin's Settings screen; they are saved in `content/settings.json` and go live on save. See `guide-theme-authoring.md`'s "Site settings".
+Anything used across the whole site that an editor should be able to change - social links, a contact email, a choice of font - is a **site setting**, not a hard-coded value. Define them in `theme/config/site_settings.json`, in the same JSON Schema form as a section's `{% schema %}` (field formats, `title`, `default`; a `required` property needs a valid `default`), and read them anywhere as `{{ settings.<name> }}`, snippets included. For a font, list the choices with `enum` and map each to a font stack in the layout; the theme loads the font files. Check a link isn't blank before rendering it. Editors set the values in the admin's Settings screen; they are saved in `content/settings.json` and go live on save. See `guide-theme-authoring.md`'s "Site settings".
 
 ## Field format hints
 

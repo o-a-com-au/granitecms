@@ -68,40 +68,69 @@ function loadTypeSchemas(typesDir: string, kind: 'Section' | 'Block'): TypeSchem
   return { schemas, acceptsBlocks, warnings };
 }
 
-// theme/config/settings_schema.json: the site-wide settings the theme
-// defines (Shopify's file name and folder), in the same JSON Schema form
-// a section's {% schema %} uses, vetted the same way. No file means no
-// site settings, which is fine; a file that can't be used is left out
-// with a warning, like a broken section.
-function loadSettingsSchema(themeRoot: string): { schema?: object; warning?: string } {
-  let source: string;
+// theme/config/site_settings.json: the site-wide settings the theme
+// defines, in the same JSON Schema form a section's {% schema %} uses,
+// vetted the same way. No file means no site settings, which is fine; a
+// file that can't be used is left out with a warning, like a broken
+// section.
+//
+// Not Shopify's config/settings_schema.json, which 0.7.0 and 0.7.1 used:
+// Shopify's VS Code extension checks any file of that name against
+// Shopify's own format (a list of groups), marking Granite's as wrong -
+// which is how one real site had its file rewritten into Shopify's form.
+// A settings_schema.json in Granite's form is still read, with a warning
+// to rename it; one in Shopify's form (or anything else) is Shopify's,
+// and left alone.
+const SETTINGS_FILE = 'site_settings.json';
+const OLD_SETTINGS_FILE = 'settings_schema.json';
+
+function readConfigFile(themeRoot: string, name: string): string | null {
   try {
-    source = readFileSync(join(themeRoot, 'config', 'settings_schema.json'), 'utf-8');
+    return readFileSync(join(themeRoot, 'config', name), 'utf-8');
   } catch {
-    return {};
+    return null;
   }
-  const label = 'Site settings (config/settings_schema.json) were excluded from the theme';
+}
+
+function loadSettingsSchema(themeRoot: string): { schema?: object; warning?: string } {
+  const source = readConfigFile(themeRoot, SETTINGS_FILE);
+  if (source === null) {
+    return loadOldSettingsSchema(themeRoot);
+  }
+  const label = `Site settings (config/${SETTINGS_FILE}) were excluded from the theme`;
   let schema: unknown;
   try {
     schema = JSON.parse(source);
   } catch {
     return { warning: `${label}: the file is not valid JSON.` };
   }
-  // A list of groups is Shopify's settings_schema.json - the file name is
-  // the same, so it's the likeliest mix-up, and worth naming (seen on a
-  // real site).
-  if (Array.isArray(schema)) {
-    return {
-      warning: `${label}: it is a list, like Shopify's settings_schema.json. Granite's is one JSON Schema object, the same form as a section's {% schema %}: { "type": "object", "properties": { ... } } (see guide-theme-authoring.md, "Site settings").`,
-    };
-  }
-  if (typeof schema !== 'object' || schema === null) {
-    return { warning: `${label}: the file must hold a JSON Schema object.` };
+  if (typeof schema !== 'object' || schema === null || Array.isArray(schema)) {
+    return { warning: `${label}: the file must hold a JSON Schema object, the same form as a section's {% schema %}.` };
   }
   if (!requiredFieldsHaveValidDefaults(schema)) {
     return { warning: `${label}: a property listed in "required" has no valid "default" (see guide-theme-authoring.md).` };
   }
   return { schema };
+}
+
+function loadOldSettingsSchema(themeRoot: string): { schema?: object; warning?: string } {
+  const source = readConfigFile(themeRoot, OLD_SETTINGS_FILE);
+  if (source === null) {
+    return {};
+  }
+  let schema: unknown;
+  try {
+    schema = JSON.parse(source);
+  } catch {
+    return {};
+  }
+  if (typeof schema !== 'object' || schema === null || Array.isArray(schema) || !requiredFieldsHaveValidDefaults(schema)) {
+    return {};
+  }
+  return {
+    schema,
+    warning: `Site settings are defined in config/${OLD_SETTINGS_FILE}, the name Shopify uses for its own, different format (its VS Code extension marks the file as wrong). Rename it to config/${SETTINGS_FILE}; nothing else changes.`,
+  };
 }
 
 export function loadThemeSchemas(themeRoot: string): ThemeSchemas {

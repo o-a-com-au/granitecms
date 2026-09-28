@@ -23,7 +23,7 @@ export interface ThemeSchemas {
   // own blocks property is fully generic, deliberately unrestricted).
   acceptsBlocks: { sections: Record<string, boolean>; blocks: Record<string, boolean> };
   // The site-wide settings the theme defines, from
-  // theme/config/settings_schema.json - absent when it defines none (or
+  // theme/config/site_settings.json - absent when it defines none (or
   // the file couldn't be used, with a warning saying why). Optional for
   // the same fixture reason as `warnings` below.
   settings?: object;

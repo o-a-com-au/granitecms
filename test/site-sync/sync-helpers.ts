@@ -44,7 +44,7 @@ function setUpLiveSite(): string {
   });
   writeJson(siteRoot, 'content/redirects.json', { schemaVersion: 1, entries: [{ from: '/old', to: '/about' }] });
   // Site settings the theme defines, none saved yet.
-  writeJson(siteRoot, 'theme/config/settings_schema.json', {
+  writeJson(siteRoot, 'theme/config/site_settings.json', {
     type: 'object',
     additionalProperties: false,
     properties: { announcement: { type: 'string', default: '' } },

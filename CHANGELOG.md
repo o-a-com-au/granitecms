@@ -7,7 +7,7 @@ All notable changes to this package are documented here. Format loosely follows 
 ### Fixed
 
 - **`npm run push` no longer waits in vain on a CMS upgrade the host can't build.** A deploy builds the version `vhost/package.json` names, so if that disagrees with the version installed here (seen on a real site: package.json put back to the old version after an upgrade), the live site stays on the old version and push used to wait ten minutes for it. Push now stops before deploying and says how to fix `package.json`.
-- **A Shopify-style `settings_schema.json` is named as such.** The file shares Shopify's name, so a list of setting groups is the likeliest mistake; the start-up warning and `npm run check` now say it is Shopify's form and show Granite's.
+- **Site settings move to `theme/config/site_settings.json`.** Shopify's VS Code extension checks any `config/settings_schema.json` against Shopify's own format and marks Granite's as wrong (on one real site, the file was then rewritten into Shopify's form and stopped working). The form is unchanged: JSON Schema, like a section's `{% schema %}`. A `settings_schema.json` in that form is still read, with a warning to rename it; one in Shopify's form is left alone.
 
 ## [0.7.1] - 2026-09-29
 

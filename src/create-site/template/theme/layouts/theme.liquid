@@ -53,7 +53,7 @@
             {% render 'logo' %}
             <p>Solid foundations for client sites. A lightweight, self-hosted CMS built for developers.</p>
             <div class="footer__social">
-              {%- comment -%} Site settings (theme/config/settings_schema.json): editors change these in the admin. A link left empty isn't shown. {%- endcomment -%}
+              {%- comment -%} Site settings (theme/config/site_settings.json): editors change these in the admin. A link left empty isn't shown. {%- endcomment -%}
               {% if settings.github_url != blank %}<a href="{{ settings.github_url }}" aria-label="GitHub">{% render 'icon', name: 'github' %}</a>{% endif %}
               {% if settings.x_url != blank %}<a href="{{ settings.x_url }}" aria-label="X (Twitter)">{% render 'icon', name: 'twitter' %}</a>{% endif %}
               {% if settings.discord_url != blank %}<a href="{{ settings.discord_url }}" aria-label="Discord">{% render 'icon', name: 'discord' %}</a>{% endif %}

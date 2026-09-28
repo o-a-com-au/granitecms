@@ -122,7 +122,7 @@ Required: `schemaVersion` (integer) and `items` (array). Each item requires `lab
 
 ## Site settings
 
-`content/settings.json` holds the values for the site settings the theme defines in `theme/config/settings_schema.json` (see `guide-theme-authoring.md`):
+`content/settings.json` holds the values for the site settings the theme defines in `theme/config/site_settings.json` (see `guide-theme-authoring.md`):
 
 ```json
 { "schemaVersion": 7, "settings": { "instagram_url": "https://instagram.com/example", "body_font": "Serif" } }

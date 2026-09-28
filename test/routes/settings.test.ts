@@ -36,7 +36,7 @@ function buildSettingsSite({ schema = SETTINGS_SCHEMA as unknown }: { schema?: u
   const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-settings-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
   mkdirSync(join(siteRoot, 'theme', 'config'), { recursive: true });
-  writeFileSync(join(siteRoot, 'theme', 'config', 'settings_schema.json'), typeof schema === 'string' ? schema : JSON.stringify(schema));
+  writeFileSync(join(siteRoot, 'theme', 'config', 'site_settings.json'), typeof schema === 'string' ? schema : JSON.stringify(schema));
   writeFileSync(join(siteRoot, 'theme', 'snippets', 'settings-probe.liquid'), '[snippet:{{ settings.site_name }}]');
   const layout = join(siteRoot, 'theme', 'layouts', 'theme.liquid');
   writeFileSync(layout, readFileSync(layout, 'utf-8').replace('</body>', "[layout:{{ settings.site_name }}|{{ settings.body_font }}]{% render 'settings-probe' %}</body>"));
@@ -206,21 +206,42 @@ test('an unusable settings schema is left out with a start-up warning, like a br
   const root = mkdtempSync(join(tmpdir(), 'cms-agent-settings-schema-'));
   try {
     mkdirSync(join(root, 'config'));
-    writeFileSync(join(root, 'config', 'settings_schema.json'), 'not json');
-    assert.match((loadThemeSchemas(root).warnings ?? []).join('\n'), /config\/settings_schema\.json.*not valid JSON/);
-    writeFileSync(
-      join(root, 'config', 'settings_schema.json'),
-      JSON.stringify([{ name: 'site_settings', settings: [{ type: 'text', id: 'announcement_text', label: 'Announcement' }] }]),
-    );
+    writeFileSync(join(root, 'config', 'site_settings.json'), 'not json');
+    assert.match((loadThemeSchemas(root).warnings ?? []).join('\n'), /config\/site_settings\.json.*not valid JSON/);
+    writeFileSync(join(root, 'config', 'site_settings.json'), JSON.stringify([{ name: 'a list' }]));
     assert.equal(loadThemeSchemas(root).settings, undefined);
-    assert.match((loadThemeSchemas(root).warnings ?? []).join('\n'), /a list, like Shopify's settings_schema\.json\. Granite's is one JSON Schema object/);
+    assert.match((loadThemeSchemas(root).warnings ?? []).join('\n'), /must hold a JSON Schema object/);
     writeFileSync(
-      join(root, 'config', 'settings_schema.json'),
+      join(root, 'config', 'site_settings.json'),
       JSON.stringify({ type: 'object', required: ['name'], properties: { name: { type: 'string' } } }),
     );
     const schemas = loadThemeSchemas(root);
     assert.equal(schemas.settings, undefined);
     assert.match((schemas.warnings ?? []).join('\n'), /"required" has no valid "default"/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('config/settings_schema.json, the 0.7.0 name, is still read in Granite\'s form with a warning to rename it; in Shopify\'s form it is left alone', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cms-agent-settings-schema-'));
+  const schema = { type: 'object', properties: { announcement: { type: 'string', default: '' } } };
+  try {
+    mkdirSync(join(root, 'config'));
+    writeFileSync(join(root, 'config', 'settings_schema.json'), JSON.stringify(schema));
+    const old = loadThemeSchemas(root);
+    assert.deepEqual(old.settings, schema);
+    assert.match((old.warnings ?? []).join('\n'), /Rename it to config\/site_settings\.json/);
+
+    const shopify = [{ name: 'theme_info', settings: [{ type: 'text', id: 'announcement', label: 'Announcement' }] }];
+    writeFileSync(join(root, 'config', 'settings_schema.json'), JSON.stringify(shopify));
+    assert.equal(loadThemeSchemas(root).settings, undefined);
+    assert.deepEqual(loadThemeSchemas(root).warnings, []);
+
+    writeFileSync(join(root, 'config', 'site_settings.json'), JSON.stringify(schema));
+    const both = loadThemeSchemas(root);
+    assert.deepEqual(both.settings, schema, 'the new name wins, whatever settings_schema.json holds');
+    assert.deepEqual(both.warnings, []);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

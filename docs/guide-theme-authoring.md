@@ -220,7 +220,7 @@ Available variables in a layout template:
 {% for tag in page.tags %}...{% endfor %}   the page's tags, if any
 {{ menus.<handle>.items }}       every menu in content/menus/, keyed by handle (its filename) - loop with {% for item in menus.main.items %}{{ item.label }} -> {{ item.url }}{% endfor %}
 {{ menus.<handle>.name }}        that menu's optional display name (blank when unset)
-{{ settings.<name> }}            a site setting (theme/config/settings_schema.json), in any template - see "Site settings"
+{{ settings.<name> }}            a site setting (theme/config/site_settings.json), in any template - see "Site settings"
 ```
 
 This `page` object (title plus the three optional built-in fields) is the only page data exposed anywhere in a theme - no access to `page.sections`, `page.layout`, or other fields, in a layout or a section/block. The same object is available identically inside section and block templates (see "Section markup" above) - useful for an article byline/date printed inside the page body rather than the surrounding layout chrome.
@@ -246,7 +246,7 @@ This `page` object (title plus the three optional built-in fields) is the only p
 
 Values used across the whole site - social links, a contact email, the site's font - are **site settings**. The theme defines them; editors set them on the admin's Settings screen; every template reads them as `{{ settings.<name> }}`.
 
-Define them in `theme/config/settings_schema.json`, in the same JSON Schema form a section's `{% schema %}` uses (the same field formats, `title` and `default`):
+Define them in `theme/config/site_settings.json`, in the same JSON Schema form a section's `{% schema %}` uses (the same field formats, `title` and `default`):
 
 ```json
 {
@@ -264,7 +264,8 @@ Define them in `theme/config/settings_schema.json`, in the same JSON Schema form
 - **Defaults fill the gaps:** a setting nobody has saved yet has its `default`, or is blank if it has none. A property in `required` must have a valid `default`, as for sections.
 - **Fonts:** offer a list with `enum`, and map each choice to a font stack in the layout, for example `{% if settings.body_font == 'Serif' %}<style>:root { --font-sans: Georgia, serif; }</style>{% endif %}`. The theme loads any font files itself, so the site only ever uses fonts it was designed for.
 - **Links left empty:** check before rendering one, for example `{% if settings.instagram_url != blank %}...{% endif %}`.
-- **No file, no settings:** a theme without `config/settings_schema.json` simply has none. A file that can't be used (not valid JSON, or a required property with no valid default) is left out with a start-up warning, like a broken section.
+- **No file, no settings:** a theme without `config/site_settings.json` simply has none. A file that can't be used (not valid JSON, or a required property with no valid default) is left out with a start-up warning, like a broken section.
+- **Not `settings_schema.json`:** that is Shopify's name for its own, different format, and Shopify's VS Code extension marks a Granite file of that name as wrong. Sites made with 0.7.0 or 0.7.1 used it: it still works, with a warning to rename it to `site_settings.json`.
 
 The values are content, saved in `content/settings.json`. Editors' changes go live as soon as they save, like menus (there are no drafts), and each save is recorded in the site's history. `npm run pull` and `npm run push` carry them with the rest of the content.
 

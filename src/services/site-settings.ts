@@ -9,7 +9,7 @@ import { validateSiteSettings, type ThemeSchemas } from './validation.ts';
 import { enqueue } from './write-queue.ts';
 
 // Site settings: values for the fields the theme defines in
-// theme/config/settings_schema.json, stored as content in
+// theme/config/site_settings.json, stored as content in
 // content/settings.json - { schemaVersion, settings: {...} } - so editors
 // change them in the admin and they travel with content. Like menus
 // they have no draft state: a save is committed and live at once
