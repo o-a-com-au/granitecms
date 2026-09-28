@@ -6,7 +6,9 @@
     <title>{{ page.title }}</title>
     <meta name="description" content="Granite CMS is a lightweight, self-hosted content management system built for agencies and freelance developers who manage client sites on git-based workflows.">
     <link rel="stylesheet" href="/assets/style.css">
-  </head>
+      {%- comment -%} The body font is a site setting: the theme offers the choices, and maps each to a font stack here. {%- endcomment -%}
+    {% if settings.body_font == 'Serif' %}<style>:root { --font-sans: Georgia, 'Times New Roman', serif; }</style>{% endif %}
+</head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
 
@@ -51,9 +53,10 @@
             {% render 'logo' %}
             <p>Solid foundations for client sites. A lightweight, self-hosted CMS built for developers.</p>
             <div class="footer__social">
-              <a href="https://github.com/granite-cms/granite" aria-label="GitHub">{% render 'icon', name: 'github' %}</a>
-              <a href="https://twitter.com/granitecms" aria-label="X (Twitter)">{% render 'icon', name: 'twitter' %}</a>
-              <a href="https://discord.gg/granitecms" aria-label="Discord">{% render 'icon', name: 'discord' %}</a>
+              {%- comment -%} Site settings (theme/config/settings_schema.json): editors change these in the admin. A link left empty isn't shown. {%- endcomment -%}
+              {% if settings.github_url != blank %}<a href="{{ settings.github_url }}" aria-label="GitHub">{% render 'icon', name: 'github' %}</a>{% endif %}
+              {% if settings.x_url != blank %}<a href="{{ settings.x_url }}" aria-label="X (Twitter)">{% render 'icon', name: 'twitter' %}</a>{% endif %}
+              {% if settings.discord_url != blank %}<a href="{{ settings.discord_url }}" aria-label="Discord">{% render 'icon', name: 'discord' %}</a>{% endif %}
             </div>
           </div>
 

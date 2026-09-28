@@ -5,6 +5,7 @@ import { PathSafetyError, sanitisePath } from '../services/path-safety.ts';
 import { buildSitemapUrls } from '../routes/sitemap.ts';
 import { urlToPagePath } from '../services/urls.ts';
 import { ALLOWED_UPLOAD_EXTENSIONS } from '../media/filename.ts';
+import { resolveSiteSettings } from '../services/site-settings.ts';
 
 export type CheckFindingKind = 'schema' | 'render-error' | 'missing-asset' | 'broken-link' | 'misplaced-media';
 
@@ -157,7 +158,15 @@ export async function runSiteCheck(siteRoot: string): Promise<CheckResult> {
     const relativePath = `pages/${urlToPagePath(pageUrl)}`;
     let html: string;
     try {
-      html = await renderPage(booted.config, booted.themeTemplates, booted.layouts, booted.engine, relativePath, 'public');
+      html = await renderPage(
+        booted.config,
+        booted.themeTemplates,
+        booted.layouts,
+        booted.engine,
+        relativePath,
+        'public',
+        resolveSiteSettings(booted.config, booted.themeSchemas),
+      );
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       findings.push({ kind: 'render-error', message: detail, pageUrl });

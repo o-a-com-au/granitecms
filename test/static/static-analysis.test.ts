@@ -59,6 +59,7 @@ const FS_USAGE_ALLOWLIST = new Set<string>([
   'services/fs-walk.ts', // walks agent-configured roots (content/drafts/theme), not request paths
   'services/menus.ts', // walks agent-configured menusRoot/draftsRoot, not request paths
   'services/menu-references.ts', // walks the agent-configured themeRoot; a request's handle is only ever a regex term, never a path
+  'services/site-settings.ts', // one fixed file (content/settings.json), sanitisePath'd under the agent-configured contentRoot
   'services/theme-files.ts', // every request path is shape-checked, then sanitisePath'd under the agent-configured themeRoot
   'services/pid-file.ts', // reads and writes server.pid under the agent-configured dataRoot, never a request path
   'site-sync/pull-site.ts', // a standalone CLI; every server-supplied path is shape-checked, then sanitisePath'd under the configured roots

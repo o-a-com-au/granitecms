@@ -68,13 +68,43 @@ function loadTypeSchemas(typesDir: string, kind: 'Section' | 'Block'): TypeSchem
   return { schemas, acceptsBlocks, warnings };
 }
 
+// theme/config/settings_schema.json: the site-wide settings the theme
+// defines (Shopify's file name and folder), in the same JSON Schema form
+// a section's {% schema %} uses, vetted the same way. No file means no
+// site settings, which is fine; a file that can't be used is left out
+// with a warning, like a broken section.
+function loadSettingsSchema(themeRoot: string): { schema?: object; warning?: string } {
+  let source: string;
+  try {
+    source = readFileSync(join(themeRoot, 'config', 'settings_schema.json'), 'utf-8');
+  } catch {
+    return {};
+  }
+  const label = 'Site settings (config/settings_schema.json) were excluded from the theme';
+  let schema: unknown;
+  try {
+    schema = JSON.parse(source);
+  } catch {
+    return { warning: `${label}: the file is not valid JSON.` };
+  }
+  if (typeof schema !== 'object' || schema === null || Array.isArray(schema)) {
+    return { warning: `${label}: the file must hold a JSON Schema object.` };
+  }
+  if (!requiredFieldsHaveValidDefaults(schema)) {
+    return { warning: `${label}: a property listed in "required" has no valid "default" (see guide-theme-authoring.md).` };
+  }
+  return { schema };
+}
+
 export function loadThemeSchemas(themeRoot: string): ThemeSchemas {
   const sections = loadTypeSchemas(join(themeRoot, 'sections'), 'Section');
   const blocks = loadTypeSchemas(join(themeRoot, 'blocks'), 'Block');
+  const settings = loadSettingsSchema(themeRoot);
   return {
     sections: sections.schemas,
     blocks: blocks.schemas,
     acceptsBlocks: { sections: sections.acceptsBlocks, blocks: blocks.acceptsBlocks },
-    warnings: [...sections.warnings, ...blocks.warnings],
+    ...(settings.schema ? { settings: settings.schema } : {}),
+    warnings: [...sections.warnings, ...blocks.warnings, ...(settings.warning ? [settings.warning] : [])],
   };
 }

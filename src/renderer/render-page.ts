@@ -5,6 +5,7 @@ import { listFilesRecursively } from '../services/fs-walk.ts';
 import { loadMenus } from '../services/menus.ts';
 import { sanitisePath } from '../services/path-safety.ts';
 import type { ThemeTemplates } from './theme-templates.ts';
+import { siteSettingsMtimeMs, type SiteSettings } from '../services/site-settings.ts';
 
 export type PageRenderReason =
   | 'page-not-found'
@@ -65,12 +66,22 @@ function pageEnvelope(page: PageContent): PageEnvelope {
 // HTML is pre-rendered here in JS and handed to the parent template as
 // a plain array, which sidesteps LiquidJS's own filesystem include
 // resolution entirely.
+// Site settings reach every template in a render - layout, sections,
+// blocks, and snippets pulled in with {% render %} (which otherwise sees
+// only what it is passed) - as `settings`, via Liquid's per-render
+// globals. Shopify's name for the same thing; no clash with
+// section.settings/block.settings, which are nested.
+function settingsGlobals(siteSettings: SiteSettings): { globals: { settings: SiteSettings } } {
+  return { globals: { settings: siteSettings } };
+}
+
 async function renderInstance(
   instance: SectionOrBlockInstance,
   kind: 'section' | 'block',
   themeTemplates: ThemeTemplates,
   engine: Liquid,
   page: PageEnvelope,
+  siteSettings: SiteSettings,
 ): Promise<string> {
   const templates = kind === 'section' ? themeTemplates.sections : themeTemplates.blocks;
   const template = templates[instance.type];
@@ -83,7 +94,7 @@ async function renderInstance(
 
   const blocksHtml: string[] = [];
   for (const block of instance.blocks ?? []) {
-    blocksHtml.push(await renderInstance(block, 'block', themeTemplates, engine, page));
+    blocksHtml.push(await renderInstance(block, 'block', themeTemplates, engine, page, siteSettings));
   }
 
   // Shopify-style scope shape: settings nested under the instance, not
@@ -97,7 +108,7 @@ async function renderInstance(
       : { block: { id: instance.id, type: instance.type, settings: instance.settings }, blocksHtml, page };
 
   try {
-    return (await engine.parseAndRender(template, scope)) as string;
+    return (await engine.parseAndRender(template, scope, settingsGlobals(siteSettings))) as string;
   } catch (error) {
     if (error instanceof PageRenderError) {
       throw error;
@@ -118,11 +129,12 @@ export async function renderSections(
   page: PageContent,
   themeTemplates: ThemeTemplates,
   engine: Liquid,
+  siteSettings: SiteSettings = {},
 ): Promise<string> {
   const envelope = pageEnvelope(page);
   const html: string[] = [];
   for (const section of page.sections) {
-    html.push(await renderInstance(section, 'section', themeTemplates, engine, envelope));
+    html.push(await renderInstance(section, 'section', themeTemplates, engine, envelope, siteSettings));
   }
   return html.join('');
 }
@@ -196,6 +208,7 @@ export async function renderLoadedPage(
   themeTemplates: ThemeTemplates,
   layouts: Record<string, string>,
   engine: Liquid,
+  siteSettings: SiteSettings = {},
 ): Promise<string> {
   // Checked before rendering any sections, matching the fail-fast
   // ordering missing-section-type/missing-block-type already
@@ -206,7 +219,7 @@ export async function renderLoadedPage(
     throw new PageRenderError('missing-layout', `Layout "${page.layout}" is missing from the theme`);
   }
 
-  const bodyHtml = await renderSections(page, themeTemplates, engine);
+  const bodyHtml = await renderSections(page, themeTemplates, engine, siteSettings);
 
   // Menus are content, not theme data - loaded fresh here rather than
   // once at boot, same freshness guarantee as the page itself. Scoped
@@ -222,11 +235,15 @@ export async function renderLoadedPage(
   // blocksHtml handed to a section template) - the layout template
   // itself must use `{{ content_for_layout | raw }}`, or engine.ts's
   // outputEscape: 'escape' double-escapes it into literal text.
-  return (await engine.parseAndRender(layoutTemplate, {
-    content_for_layout: bodyHtml,
-    page: pageEnvelope(page),
-    menus,
-  })) as string;
+  return (await engine.parseAndRender(
+    layoutTemplate,
+    {
+      content_for_layout: bodyHtml,
+      page: pageEnvelope(page),
+      menus,
+    },
+    settingsGlobals(siteSettings),
+  )) as string;
 }
 
 export async function renderPage(
@@ -236,9 +253,10 @@ export async function renderPage(
   engine: Liquid,
   relativePath: string,
   mode: RenderMode,
+  siteSettings: SiteSettings = {},
 ): Promise<string> {
   const page = loadPageForRender(config, relativePath, mode);
-  return renderLoadedPage(page, config, themeTemplates, layouts, engine);
+  return renderLoadedPage(page, config, themeTemplates, layouts, engine, siteSettings);
 }
 
 // For public.ts's render cache: the page's own current mtime, so a
@@ -268,9 +286,10 @@ export function getPageMtimeMs(config: SiteConfig, relativePath: string): number
 // when there are no menus at all, matching listFilesRecursively's own
 // "missing directory returns []" behaviour.
 export function getMenusMtimeMs(config: SiteConfig): number {
-  let max = 0;
+  // Site settings too: like menus, they feed every page.
+  let max = siteSettingsMtimeMs(config);
   try {
-    max = statSync(config.menusRoot).mtimeMs;
+    max = Math.max(max, statSync(config.menusRoot).mtimeMs);
   } catch {
     // No content/menus/ at all - nothing to track.
   }

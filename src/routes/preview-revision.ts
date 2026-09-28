@@ -11,6 +11,8 @@ import { PathSafetyError } from '../services/path-safety.ts';
 import { requireScope } from '../services/token-auth.ts';
 import { urlToPagePath } from '../services/urls.ts';
 import type { TokenEntry } from '../server-config.ts';
+import { resolveSiteSettings } from '../services/site-settings.ts';
+import type { ThemeSchemas } from '../services/validation.ts';
 
 export interface PreviewRevisionRouteOptions {
   config: SiteConfig;
@@ -45,6 +47,7 @@ async function handlePreviewRevisionRequest(
   themeTemplates: ThemeTemplates,
   layouts: Record<string, string>,
   engine: Liquid,
+  themeSchemas: ThemeSchemas,
 ): Promise<void> {
   const { ref } = request.params;
   const url = `/${request.params['*']}`;
@@ -59,7 +62,9 @@ async function handlePreviewRevisionRequest(
 
     const raw = readFileAtRevision(config, ref, repoRelativePath);
     const page = parsePageContent(raw.toString('utf-8'));
-    const html = await renderLoadedPage(page, config, themeTemplates, layouts, engine);
+    // Today's site settings, as with menus: only the page itself is
+    // shown as it was at that revision.
+    const html = await renderLoadedPage(page, config, themeTemplates, layouts, engine, resolveSiteSettings(config, themeSchemas));
     reply.type('text/html; charset=utf-8').send(html);
   } catch (error) {
     if (error instanceof PathSafetyError) {
@@ -127,6 +132,7 @@ export const previewRevisionRoutes: FastifyPluginAsync<PreviewRevisionRouteOptio
         opts.theme.current.themeTemplates,
         opts.theme.current.layouts,
         opts.theme.current.engine,
+        opts.theme.current.themeSchemas,
       ),
   );
 };

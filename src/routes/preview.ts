@@ -9,6 +9,8 @@ import { PathSafetyError } from '../services/path-safety.ts';
 import { requireScope } from '../services/token-auth.ts';
 import { urlToPagePath } from '../services/urls.ts';
 import type { TokenEntry } from '../server-config.ts';
+import { resolveSiteSettings } from '../services/site-settings.ts';
+import type { ThemeSchemas } from '../services/validation.ts';
 
 export interface PreviewRouteOptions {
   config: SiteConfig;
@@ -31,12 +33,21 @@ async function handlePreviewRequest(
   themeTemplates: ThemeTemplates,
   layouts: Record<string, string>,
   engine: Liquid,
+  themeSchemas: ThemeSchemas,
 ): Promise<void> {
   const url = `/${request.params['*']}`;
 
   try {
     const relativePath = urlToPagePath(url);
-    const html = await renderPage(config, themeTemplates, layouts, engine, toRenderPath(relativePath), 'preview');
+    const html = await renderPage(
+      config,
+      themeTemplates,
+      layouts,
+      engine,
+      toRenderPath(relativePath),
+      'preview',
+      resolveSiteSettings(config, themeSchemas),
+    );
     reply.type('text/html; charset=utf-8').send(html);
   } catch (error) {
     if (error instanceof PathSafetyError) {
@@ -66,6 +77,7 @@ export const previewRoutes: FastifyPluginAsync<PreviewRouteOptions> = async (
         opts.theme.current.themeTemplates,
         opts.theme.current.layouts,
         opts.theme.current.engine,
+        opts.theme.current.themeSchemas,
       ),
   );
 };

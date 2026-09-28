@@ -616,6 +616,19 @@ Design notes:
 
 - **Found by the test, not in review:** recording the whole live site after a first push made the next push plan to delete every live page the copy never had. Only agreed files are recorded now.
 
+## Group AE: Site settings - the agent (0.7.0)
+
+Raised directly by the project owner: site-wide values (social links, a global font) usable across every layout, section, block and snippet. Decisions confirmed with the owner: Shopify's `config/settings_schema.json` location; live on save like menus, no drafts (as Shopify's theme settings save); fonts from the theme's own list.
+
+| # | Criterion | Proof |
+|---|---|---|
+| AE1 | `settings` reaches every layout, section, block and snippet (render'd snippets included, via Liquid per-render globals), with the theme's defaults until saved | `test/routes/settings.test.ts :: settings reach every layout, section, block and snippet ...` |
+| AE2 | `PUT /v1/settings` validates against the theme's schema, commits once, and every page shows the change on the next request, cached ones included; `GET` returns schema, saved values, resolved values and the ETag | `:: saving settings commits once ...` |
+| AE3 | Refused, changing nothing: no If-Match (428), a stale one (409), values the schema rejects (400) | `:: a save is refused ...` |
+| AE4 | `settings.json` isn't reachable through the generic content routes | `:: settings.json is not reachable ...` |
+| AE5 | No schema file means no settings; an unusable one is left out with a start-up warning | `:: a theme with no settings schema ...`, `:: an unusable settings schema is left out ...` |
+| AE6 | New sites' footer links and body font are site settings, rendering as before by default and following a saved change | `test/create-site/site-settings.test.ts` |
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

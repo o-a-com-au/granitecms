@@ -22,6 +22,11 @@ export interface ThemeSchemas {
   // expressed (there is no schema field for it - instance.schema.json's
   // own blocks property is fully generic, deliberately unrestricted).
   acceptsBlocks: { sections: Record<string, boolean>; blocks: Record<string, boolean> };
+  // The site-wide settings the theme defines, from
+  // theme/config/settings_schema.json - absent when it defines none (or
+  // the file couldn't be used, with a warning saying why). Optional for
+  // the same fixture reason as `warnings` below.
+  settings?: object;
   // One entry per section/block type theme-schemas.ts's loadThemeSchemas
   // had to exclude (no {% schema %} block, invalid JSON in it, or a
   // required property with no valid default) - previously silent.
@@ -248,4 +253,18 @@ export function validateContent(
     return validateMenu(content);
   }
   return validatePage(content, themeSchemas);
+}
+
+// Site settings (content/settings.json) against the theme's own
+// settings schema. A theme that defines none accepts none.
+export function validateSiteSettings(settings: unknown, themeSchemas: ThemeSchemas): ValidationResult {
+  if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) {
+    return { valid: false, errors: [{ path: '', message: 'must be an object', keyword: 'type' }] };
+  }
+  if (!themeSchemas.settings) {
+    return Object.keys(settings).length === 0
+      ? { valid: true, errors: [] }
+      : { valid: false, errors: [{ path: '', message: 'the theme defines no site settings', keyword: 'noSettingsSchema' }] };
+  }
+  return runValidator(ajv.compile(themeSchemas.settings), settings);
 }

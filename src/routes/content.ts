@@ -25,7 +25,12 @@ function isNonEmptyString(value: unknown): value is string {
 // introduce, not present when drafts/redirects.json were siteRoot
 // siblings of contentRoot.
 function isReservedContentPath(relativePath: string): boolean {
-  return relativePath === 'redirects.json' || relativePath === 'drafts' || relativePath.startsWith('drafts/');
+  return (
+    relativePath === 'redirects.json' ||
+    relativePath === 'settings.json' ||
+    relativePath === 'drafts' ||
+    relativePath.startsWith('drafts/')
+  );
 }
 
 export interface ContentRouteOptions {

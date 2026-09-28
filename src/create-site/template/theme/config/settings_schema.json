@@ -1,0 +1,11 @@
+{
+  "title": "Site settings",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "github_url": { "type": "string", "title": "GitHub link", "default": "https://github.com/granite-cms/granite" },
+    "x_url": { "type": "string", "title": "X (Twitter) link", "default": "https://twitter.com/granitecms" },
+    "discord_url": { "type": "string", "title": "Discord link", "default": "https://discord.gg/granitecms" },
+    "body_font": { "type": "string", "title": "Body font", "enum": ["Sans-serif", "Serif"], "default": "Sans-serif" }
+  }
+}

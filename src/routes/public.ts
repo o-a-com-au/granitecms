@@ -9,6 +9,8 @@ import type { ThemeState } from '../theme-state.ts';
 import { PathSafetyError } from '../services/path-safety.ts';
 import { resolveUrl } from '../services/resolve-url.ts';
 import { findStaticFile, sendStaticFile } from '../services/static-file.ts';
+import { resolveSiteSettings } from '../services/site-settings.ts';
+import type { ThemeSchemas } from '../services/validation.ts';
 
 export interface PublicRouteOptions {
   config: SiteConfig;
@@ -41,9 +43,18 @@ async function sendNotFound(
   layouts: Record<string, string>,
   engine: Liquid,
   url: string,
+  themeSchemas: ThemeSchemas,
 ): Promise<void> {
   try {
-    const html = await renderPage(config, themeTemplates, layouts, engine, toRenderPath('404.json'), 'public');
+    const html = await renderPage(
+      config,
+      themeTemplates,
+      layouts,
+      engine,
+      toRenderPath('404.json'),
+      'public',
+      resolveSiteSettings(config, themeSchemas),
+    );
     reply.code(404).type('text/html; charset=utf-8').send(html);
   } catch {
     reply.code(404).send({ statusCode: 404, error: 'Not Found', message: `No page at "${url}"` });
@@ -60,6 +71,7 @@ async function handlePublicRequest(
   renderCache: RenderCache,
   // Which theme rendered a cached page: one pushed since makes it stale.
   themeGeneration: number,
+  themeSchemas: ThemeSchemas,
 ): Promise<void> {
   // The public catch-all is registered without a /v1 prefix alongside
   // v1Routes (which has its own exact/prefixed routes). Fastify's
@@ -92,7 +104,7 @@ async function handlePublicRequest(
     const resolved = resolveUrl(config, url);
 
     if (resolved.kind === 'not-found') {
-      await sendNotFound(reply, config, themeTemplates, layouts, engine, url);
+      await sendNotFound(reply, config, themeTemplates, layouts, engine, url, themeSchemas);
       return;
     }
 
@@ -123,24 +135,24 @@ async function handlePublicRequest(
         reply.type('text/html; charset=utf-8').send(cached.html);
         return;
       }
-      const html = await renderPage(config, themeTemplates, layouts, engine, renderPath, 'public');
+      const html = await renderPage(config, themeTemplates, layouts, engine, renderPath, 'public', resolveSiteSettings(config, themeSchemas));
       renderCache.set(renderPath, { html, pageMtimeMs, menusMtimeMs, themeGeneration });
       reply.type('text/html; charset=utf-8').send(html);
       return;
     }
 
-    const html = await renderPage(config, themeTemplates, layouts, engine, renderPath, 'public');
+    const html = await renderPage(config, themeTemplates, layouts, engine, renderPath, 'public', resolveSiteSettings(config, themeSchemas));
     reply.type('text/html; charset=utf-8').send(html);
   } catch (error) {
     // A traversal attempt and an ordinary miss get the identical 404 -
     // deliberately not 400, so a public, unauthenticated route never
     // gives an attacker a signal that distinguishes the two.
     if (error instanceof PathSafetyError) {
-      await sendNotFound(reply, config, themeTemplates, layouts, engine, url);
+      await sendNotFound(reply, config, themeTemplates, layouts, engine, url, themeSchemas);
       return;
     }
     if (error instanceof PageRenderError && error.reason === 'page-not-found') {
-      await sendNotFound(reply, config, themeTemplates, layouts, engine, url);
+      await sendNotFound(reply, config, themeTemplates, layouts, engine, url, themeSchemas);
       return;
     }
     // Any other PageRenderError reason (missing-section-type,
@@ -168,6 +180,7 @@ export const publicRoutes: FastifyPluginAsync<PublicRouteOptions> = async (
       theme.engine,
       opts.renderCache,
       theme.generation,
+      theme.themeSchemas,
     );
   });
 };
