@@ -586,6 +586,22 @@ Design notes:
 - **Site check problems don't fail the upgrade:** the check covers the whole site, and a fresh scaffold already has broken starter links (a known, separate issue). They are reported for the developer to look at.
 - **Found by the tests:** nine scaffold starter pages missing the required `name` (fixed); and the e2e check deadlocked because a synchronous npm call blocked the in-process stand-in registry.
 
+## Group AC: the CMS upgrade in `npm run push` (0.6.0)
+
+Stage 4 of the 0.6.0 plan. Decision confirmed with the owner: the one-off deploy command lives in `vhost/deploy.json`.
+
+| # | Criterion | Proof |
+|---|---|---|
+| AC1 | Deploy method, in order: vhost/deploy.json, a Railway-linked site, a site with fly.toml and the fly CLI, otherwise by hand; an unusable deploy.json says how to fix it | `test/site-sync/deploy.test.ts :: detectDeployMethod ...` (2 tests) |
+| AC2 | After deploying, waits through the restart for the live site to report the new version, then checks the home page; gives up with what it last saw | `:: waitForLiveVersion ...` (2 tests) |
+| AC3 | The command: CMS upgrade offered when the CMS here is newer; deploys only after the address is typed; waits; a wrong confirmation deploys nothing; a failed deploy stops everything | `:: npm run push --cms: deploys ...`, `:: ... nothing is deployed on a wrong confirmation, and a failed deploy stops everything` |
+| AC4 | Content for a live site on an older content format is refused unless the CMS upgrade goes with it; with it, content and theme are planned again against the upgraded site before their own confirmation | `:: npm run push refuses content for a live site on an older content format ...`; `executePush` refuses too (`older-live-schema`) |
+
+Design notes:
+
+- **Two steps, two confirmations.** What content and theme would change is only known once the live site runs the new CMS (an older one can't report its theme at all), so they're planned and confirmed after the upgrade, not before.
+- **Not yet exercised against a real Railway or Fly deploy:** the deploy.json path is tested with a real command against a stand-in site. A real hosted test (a throwaway Railway site) is due before 0.6.0 is released.
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

@@ -65,6 +65,7 @@ const FS_USAGE_ALLOWLIST = new Set<string>([
   'site-sync/sync-record.ts', // reads and writes sync-record.json under the agent-configured dataRoot, never a request path
   'site-sync/push-site.ts', // a standalone CLI; reads local content and media through sanitisePath under the configured roots
   'site-sync/theme-sync.ts', // a standalone CLI; every server-supplied theme path is shape-checked, then sanitisePath'd under themeRoot
+  'site-sync/deploy.ts', // a standalone CLI reading fixed paths (vhost/deploy.json, fly.toml) in the operator's own site folder
   'upgrade/owned-files.ts', // a standalone CLI writing a fixed list of paths inside the operator's own site folder
   'upgrade/upgrade-cli.ts', // a standalone CLI operating on the operator's own site folder, not a web request's :path
   'services/migration-runner.ts', // walks and rewrites files under agent-configured content/drafts roots, not request paths

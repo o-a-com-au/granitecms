@@ -1,6 +1,6 @@
 # Deploying and updating a site
 
-> **Draft for 0.6.0.** This describes how deploying and updating will work from 0.6.0. Not built yet: the CMS upgrade choice in `npm run push`.
+> Applies from 0.6.0.
 
 ## The short version
 
@@ -114,6 +114,8 @@ How push upgrades the live site depends on the host. It knows how for **Railway*
 That suits Render, Coolify, and any host that deploys when you push to GitHub. For your own server, use the command you would run to deploy, for example `ssh me@my-server "cd my-site && docker compose up -d --build"`.
 
 With no command set, push pauses and asks you to deploy with your host's usual command, then carries on once you press Enter.
+
+If the live site doesn't come back on the new version within ten minutes, or its home page doesn't load, push stops without sending anything else, and says what it saw. For scripts, `--cms`, `--content` and `--theme` choose without asking.
 
 ## Choosing a host
 

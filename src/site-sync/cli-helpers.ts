@@ -58,13 +58,19 @@ export interface PartOption {
 // Which of content and theme to include. --content and/or --theme on
 // the command line decide it outright (for scripts); otherwise a
 // checkbox list, showing what each part holds or why it can't be chosen.
+// A CMS upgrade (push only) is offered as a third choice when the CMS
+// here is newer than the live site's; --cms chooses it from a script.
 export async function chooseParts(
   args: SyncArgs,
   verb: 'pull' | 'push',
-  options: { content: PartOption; theme: PartOption },
-): Promise<{ content: boolean; theme: boolean }> {
-  const flagged = { content: args.flags.has('--content'), theme: args.flags.has('--theme') };
-  if (flagged.content || flagged.theme) {
+  options: { content: PartOption; theme: PartOption; cms?: PartOption },
+): Promise<{ content: boolean; theme: boolean; cms: boolean }> {
+  const flagged = { content: args.flags.has('--content'), theme: args.flags.has('--theme'), cms: args.flags.has('--cms') };
+  if (flagged.content || flagged.theme || flagged.cms) {
+    if (flagged.cms && !options.cms?.available) {
+      console.error(`Can't push a CMS upgrade: ${options.cms?.detail ?? 'the CMS here is not newer than the live site\'s'}.`);
+      process.exit(1);
+    }
     for (const part of ['content', 'theme'] as const) {
       if (flagged[part] && !options[part].available) {
         console.error(`Can't ${verb} the ${part}: ${options[part].detail}.`);
@@ -77,9 +83,12 @@ export async function chooseParts(
     { name: 'content', label: 'Content', detail: options.content.detail, checked: options.content.checked, disabled: !options.content.available },
     { name: 'theme', label: 'Theme', detail: options.theme.detail, checked: options.theme.checked, disabled: !options.theme.available },
   ];
+  if (options.cms?.available) {
+    choices.push({ name: 'cms', label: 'CMS upgrade', detail: options.cms.detail, checked: options.cms.checked });
+  }
   try {
     const chosen = new Set(await prompter.choose(`What do you want to ${verb}?`, choices));
-    return { content: chosen.has('content'), theme: chosen.has('theme') };
+    return { content: chosen.has('content'), theme: chosen.has('theme'), cms: chosen.has('cms') };
   } catch (error) {
     if (error instanceof PromptCancelledError) {
       process.exit(130);

@@ -199,6 +199,11 @@ export interface PreparedPush {
   remote: RemoteSite;
   siteUrl: string;
   author: { name: string; email: string };
+  // The live site's CMS, as it reported itself while planning.
+  liveVersion: string;
+  // The live site's content format is older than this copy's: content
+  // and theme can only go with (after) a CMS upgrade.
+  liveSchemaOlder: boolean;
   content: Prepared<PreparedContent>;
   theme: Prepared<PreparedTheme>;
 }
@@ -227,12 +232,6 @@ export async function preparePush(config: SiteConfig, options: PushSiteOptions):
   }
 
   const capabilities = await readCapabilities(options.siteUrl, options.fetchImpl);
-  if (capabilities.contentSchemaVersion < CURRENT_SCHEMA_VERSION) {
-    throw new SiteSyncError(
-      'older-live-schema',
-      `The live site runs content schema ${capabilities.contentSchemaVersion} (agent ${capabilities.agentVersion}), older than this copy's ${CURRENT_SCHEMA_VERSION}, and could reject what it's sent. Upgrade the live site first.`,
-    );
-  }
 
   const author = readGitAuthor(config);
   const remote = new RemoteSite(options.siteUrl, options.token, {
@@ -263,7 +262,16 @@ export async function preparePush(config: SiteConfig, options: PushSiteOptions):
     theme = { ready: true, value: { plan: planThemePush(record.theme.files, local, live), local, live } };
   }
 
-  return { config, remote, siteUrl: options.siteUrl, author, content, theme };
+  return {
+    config,
+    remote,
+    siteUrl: options.siteUrl,
+    author,
+    liveVersion: capabilities.agentVersion,
+    liveSchemaOlder: capabilities.contentSchemaVersion < CURRENT_SCHEMA_VERSION,
+    content,
+    theme,
+  };
 }
 
 // --- Executing a confirmed plan ---
@@ -300,6 +308,12 @@ export interface PushParts {
 export async function executePush(prepared: PreparedPush, parts: PushParts): Promise<PushSiteResult> {
   const content = parts.content && prepared.content.ready ? prepared.content.value : null;
   const theme = parts.theme && prepared.theme.ready ? prepared.theme.value : null;
+  if ((content || theme) && prepared.liveSchemaOlder) {
+    throw new SiteSyncError(
+      'older-live-schema',
+      `The live site's CMS (${prepared.liveVersion}) uses an older content format than this copy's, and could reject what it's sent. Push the CMS upgrade first.`,
+    );
+  }
   if ((content && (content.plan.conflicts.length > 0 || content.plan.mediaMissing.length > 0)) || (theme && theme.plan.conflicts.length > 0)) {
     throw new SiteSyncError('conflicts', 'This push has conflicts or missing media and cannot go ahead.');
   }
