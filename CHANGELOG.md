@@ -4,6 +4,8 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-09-29
+
 ### Added
 
 - **Preview unsaved site settings.** `GET /v1/preview/*` takes `?settings=<JSON>`: site settings changed in the admin but not saved, rendered in place of the saved ones and written nowhere. Values the theme's schema rejects are ignored and the saved settings shown. The admin's Settings screen uses it to preview changes as they are made.
