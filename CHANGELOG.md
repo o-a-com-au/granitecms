@@ -14,6 +14,7 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ### Fixed
 
+- **A pull rewrote `redirects.json` even when the live redirects were the same,** which showed as a change (only the file's formatting differed). It's now left alone unless the redirects differ.
 - **Nine of the scaffold's starter pages had no `name`,** which the page format has required since content schema 5. They rendered, because the display falls back to the title, but updating their content format validates them, so every new site's first upgrade would have failed on its own starter pages.
 
 ### Changed

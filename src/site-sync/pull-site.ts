@@ -5,11 +5,11 @@ import type { SiteConfig } from '../config.ts';
 import { CURRENT_SCHEMA_VERSION } from '../migrations/index.ts';
 import { listFilesRecursively } from '../services/fs-walk.ts';
 import { sanitisePath } from '../services/path-safety.ts';
-import { serialiseRedirects } from '../services/redirects.ts';
+import { loadRedirects, serialiseRedirects } from '../services/redirects.ts';
 import { rebuildIndex } from '../search/rebuild-index.ts';
 import { fetchLiveContent, fetchLiveMedia, readCapabilities } from './live-content.ts';
 import { RemoteSite, SiteSyncError } from './remote-site.ts';
-import { hashOf, updateSyncRecord } from './sync-record.ts';
+import { hashOf, sameRedirects, updateSyncRecord } from './sync-record.ts';
 import { fetchLiveTheme, pullTheme, type ThemePullResult } from './theme-sync.ts';
 
 export interface SyncParts {
@@ -149,7 +149,10 @@ async function pullContent(config: SiteConfig, remote: RemoteSite, siteUrl: stri
   for (const [path, bytes] of drafts) {
     writeUnder(config.draftsRoot, path, bytes);
   }
-  if (redirects.length > 0 || existsSync(config.redirectsPath)) {
+  // Only when they differ: rewriting identical redirects would still
+  // show as a change (the file's formatting), seen on a real pull.
+  const localRedirects = existsSync(config.redirectsPath) ? loadRedirects(config).entries : [];
+  if (!sameRedirects(localRedirects, redirects)) {
     writeFileSync(config.redirectsPath, serialiseRedirects(redirects));
   }
 

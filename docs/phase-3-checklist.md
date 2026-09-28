@@ -600,7 +600,7 @@ Stage 4 of the 0.6.0 plan. Decision confirmed with the owner: the one-off deploy
 Design notes:
 
 - **Two steps, two confirmations.** What content and theme would change is only known once the live site runs the new CMS (an older one can't report its theme at all), so they're planned and confirmed after the upgrade, not before.
-- **Not yet exercised against a real Railway or Fly deploy:** the deploy.json path is tested with a real command against a stand-in site. A real hosted test (a throwaway Railway site) is due before 0.6.0 is released.
+- **Tested for real on Railway (2026-09-28),** on a throwaway project, deleted afterwards, with two locally-built versions (0.6.0 and 0.6.1): first deploy; pull of content and theme; a theme push, live on the next request with no restart; a content push; `npm run push -- --cms` detecting the Railway link, deploying 0.6.1 and seeing it come back - with the earlier theme and content changes intact after the redeploy; then a push finding nothing and a pull changing nothing. It found one bug: a pull rewrote an unchanged `redirects.json` (a formatting-only change); fixed, `test/site-sync/pull-site.test.ts :: pullSite leaves redirects.json alone ...`.
 
 ## Future considerations (not scoped, for later discussion)
 

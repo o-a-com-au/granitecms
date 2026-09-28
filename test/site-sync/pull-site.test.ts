@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadSiteConfig } from '../../src/config.ts';
 import { pullSite } from '../../src/site-sync/pull-site.ts';
@@ -232,6 +232,26 @@ test('npm run pull with no arguments asks for the address, then the token', asyn
     assert.match(stderr, /\(hidden\): /);
     assert.ok(!stdout.includes(TOKEN) && !stderr.includes(TOKEN), 'the token is never printed');
     assert.deepEqual(readFileSync(join(localRoot, 'media', MEDIA_NAME)), MEDIA_BYTES);
+  } finally {
+    await live.app.close();
+    rmSync(live.siteRoot, { recursive: true, force: true });
+    rmSync(localRoot, { recursive: true, force: true });
+  }
+});
+
+test('pullSite leaves redirects.json alone when the live redirects are the same, however the file is formatted', async () => {
+  const live = await startLiveSite();
+  const localRoot = createLocalSite();
+  try {
+    // The same redirect the live site has, formatted differently.
+    const formatted = '{\n    "schemaVersion": 1,\n    "entries": [ { "from": "/old", "to": "/about" } ]\n}\n';
+    writeFileSync(join(localRoot, 'content/redirects.json'), formatted);
+    git(localRoot, ['add', '-A']);
+    git(localRoot, ['commit', '--quiet', '-m', 'redirects']);
+
+    await pullSite(loadSiteConfig(localRoot), { siteUrl: live.url, token: TOKEN, parts: { content: true, theme: false } });
+
+    assert.equal(readFileSync(join(localRoot, 'content/redirects.json'), 'utf-8'), formatted);
   } finally {
     await live.app.close();
     rmSync(live.siteRoot, { recursive: true, force: true });
