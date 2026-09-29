@@ -6,6 +6,7 @@ import { commitPaths } from './git.ts';
 import type { CommitAuthor } from './git.ts';
 import { sanitisePath } from './path-safety.ts';
 import type { PreparedOperation } from './prepared-operation.ts';
+import { linkSources, rewriteLinks } from './links.ts';
 import { addRedirect, loadRedirects, removeRedirectForPath, serialiseRedirects } from './redirects.ts';
 import type { RedirectEntry } from './redirects.ts';
 import { pagePathToUrl, urlToPagePath } from './urls.ts';
@@ -84,6 +85,13 @@ export function prepareMovePage(
     );
   }
 
+  // A draft-only page (never published) already at the destination
+  // would be overwritten by this page's own draft moving there.
+  const hasDrafts = existsSync(config.draftsRoot);
+  if (hasDrafts && existsSync(sanitisePath(config.draftsRoot, join('pages', toRelative)))) {
+    throw new MoveError('destination-exists', `A draft page already exists at "${toUrl}"`);
+  }
+
   // Enumerate every affected page (the page itself, plus every
   // descendant if it has any) before touching disk. This list drives
   // both the redirect entries (E3: one per affected page) and the git
@@ -106,6 +114,8 @@ export function prepareMovePage(
   }
 
   const performedRenames: Array<{ from: string; to: string }> = [];
+  // Files whose links were rewritten, with what they held before.
+  const rewrittenFiles: Array<{ file: string; before: string; commit: boolean }> = [];
   let redirectsBefore: string | null = null;
   let redirectsChanged = false;
 
@@ -117,6 +127,16 @@ export function prepareMovePage(
   // and is loud if it can't").
   function undoMoveWrites(): unknown[] {
     const restoreFailures: unknown[] = [];
+
+    // Links first: they were rewritten after the renames, in the files'
+    // new places.
+    for (const rewritten of [...rewrittenFiles].reverse()) {
+      try {
+        writeFileSync(rewritten.file, rewritten.before);
+      } catch (restoreError) {
+        restoreFailures.push(restoreError);
+      }
+    }
 
     for (const rename of [...performedRenames].reverse()) {
       try {
@@ -152,6 +172,20 @@ export function prepareMovePage(
       performedRenames.push({ from: fromDir, to: toDir });
     }
 
+    // Each affected page's draft moves with it: left behind, it became
+    // a draft-only page at the old address (found while adding link
+    // rewriting). Drafts aren't committed, so they're renamed but never
+    // staged; undo still puts them back.
+    for (const page of hasDrafts ? affected : []) {
+      const draftFrom = sanitisePath(config.draftsRoot, join('pages', page.oldRelativePath));
+      if (existsSync(draftFrom)) {
+        const draftTo = sanitisePath(config.draftsRoot, join('pages', page.newRelativePath));
+        mkdirSync(dirname(draftTo), { recursive: true });
+        renameSync(draftFrom, draftTo);
+        performedRenames.push({ from: draftFrom, to: draftTo });
+      }
+    }
+
     redirectsBefore = existsSync(config.redirectsPath)
       ? readFileSync(config.redirectsPath, 'utf-8')
       : null;
@@ -173,6 +207,26 @@ export function prepareMovePage(
     if (redirectsAfter !== (redirectsBefore ?? '')) {
       writeFileSync(config.redirectsPath, redirectsAfter);
       redirectsChanged = true;
+    }
+
+    // Every link to the moved page (or a page under it) now points at
+    // its new address - in live pages, drafts, menus and the site
+    // settings - in this same commit, so links never lean on the
+    // redirect above. The redirect stays for links from elsewhere.
+    for (const source of linkSources(config)) {
+      const before = readFileSync(source.file, 'utf-8');
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(before);
+      } catch {
+        continue;
+      }
+      const rewritten = rewriteLinks(parsed, fromUrl, toUrl);
+      if (!rewritten.changed) {
+        continue;
+      }
+      writeFileSync(source.file, `${JSON.stringify(rewritten.value, null, 2)}${before.endsWith('\n') ? '\n' : ''}`);
+      rewrittenFiles.push({ file: source.file, before, commit: source.kind !== 'draft' });
     }
   } catch (error) {
     // A write-phase failure: roll back immediately, inside prepare
@@ -197,6 +251,12 @@ export function prepareMovePage(
   }
   if (redirectsChanged) {
     paths.push(config.redirectsPath);
+  }
+  // Drafts are never committed; everything else rewritten is.
+  for (const rewritten of rewrittenFiles) {
+    if (rewritten.commit && !paths.includes(rewritten.file)) {
+      paths.push(rewritten.file);
+    }
   }
 
   return { paths, undo: undoMoveWrites };

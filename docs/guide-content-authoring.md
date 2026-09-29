@@ -174,8 +174,9 @@ Preview (`/v1/preview/*`, what the admin's editor actually looks at) is differen
 
 ## Hard constraints - do not deviate from these
 
-- **`schemaVersion` is always `6`** for pages/menus, `1` for redirects, on any freshly-authored content. Older values only exist for content pre-dating a schema migration - never author new content at an old version.
+- **`schemaVersion` is always `7`** for pages/menus, `1` for redirects, on any freshly-authored content. Older values only exist for content pre-dating a schema migration - never author new content at an old version.
 - **Every section/block `type` referenced in a page's `sections` array must exactly match a filename in the theme's `theme/sections/` or `theme/blocks/` folder** (no extension, exact case). Content referencing a type the theme doesn't define fails validation - the theme must exist and be internally consistent with the content that references it.
 - **A page with children is a sibling of its own folder, never nested inside it** (`about.json` and `about/team.json` are siblings, never `about/about.json` and `about/team.json`).
 - **`additionalProperties: false` everywhere** - every schema above rejects unknown fields outright. Don't add convenience fields "just in case"; anything not listed in this guide's tables will fail validation.
 - **`redirects.json`'s `to` field is a path, never a full URL** - no `https://`, no protocol-relative `//`.
+- **Link to the site's own pages by path** - `/about`, `/about#team`, never `https://my-site.example/about`. Moving a page rewrites every link to it that is written as a path (in link fields, menus, site settings and `href`s in rich text), so they keep working; a full address to the site's own domain is left alone and would go through a redirect.
