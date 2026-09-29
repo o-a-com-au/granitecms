@@ -175,7 +175,7 @@ Every type/format combination above needs nothing beyond what triggers it - no `
 
 "link": {
   "type": "string",
-  "format": "uri"
+  "format": "url"
 }
 
 "publishDate": {

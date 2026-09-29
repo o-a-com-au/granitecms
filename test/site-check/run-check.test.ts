@@ -171,3 +171,22 @@ test('a page that fails to render is a render-error finding, and does not stop t
     cleanup();
   }
 });
+
+test('a link field still declared "format": "uri" is a suggestion to rename it to "url", never a problem', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  try {
+    seedMinimalTheme(siteRoot, '<html><body>{{ content_for_layout | raw }}</body></html>');
+    mkdirSync(join(siteRoot, 'theme', 'sections'), { recursive: true });
+    writeFileSync(
+      join(siteRoot, 'theme', 'sections', 'cta.liquid'),
+      '<a href="{{ section.settings.link }}">Go</a>{% schema %}{"type":"object","properties":{"link":{"type":"string","format":"uri"},"other":{"type":"string","format":"url"}}}{% endschema %}',
+    );
+    writeAndCommit(siteRoot, 'content/pages/index.json', JSON.stringify(page()));
+
+    const result = await runSiteCheck(siteRoot);
+    assert.equal(result.ok, true, JSON.stringify(result.findings));
+    assert.deepEqual(result.suggestions, ['Section "cta": "link" uses "format": "uri". "url" is the name to use now (both work).']);
+  } finally {
+    cleanup();
+  }
+});

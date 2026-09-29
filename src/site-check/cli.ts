@@ -32,13 +32,25 @@ function printGrouped(findings: CheckFinding[]): void {
   }
 }
 
+function printSuggestions(suggestions: string[]): void {
+  if (suggestions.length === 0) {
+    return;
+  }
+  console.log(`\nSuggestions (${suggestions.length}):`);
+  for (const suggestion of suggestions) {
+    console.log(`  ${suggestion}`);
+  }
+}
+
 const result = await runSiteCheck(siteRoot);
 
 if (result.ok) {
   console.log('No problems found.');
+  printSuggestions(result.suggestions);
   process.exit(0);
 }
 
 console.log(`${result.findings.length} problem${result.findings.length === 1 ? '' : 's'} found:`);
 printGrouped(result.findings);
+printSuggestions(result.suggestions);
 process.exit(1);

@@ -6,6 +6,7 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ### Added
 
+- **Link fields suggest the site's pages.** `"format": "url"` is the documented name for a link field (Shopify's word); in the admin it suggests the site's pages by title or path, stores the page's path, still takes any external, `mailto:`, `tel:` or `#anchor` address, and says which page a path reaches or that none is there. The menu item editor and the rich-text link dialog use the same field. `"format": "uri"`, the name before, still works, and `npm run check` now lists it under Suggestions, which never fail the check.
 - **Field groups.** A `"group"` on a field in a section, block or site settings schema puts it under a collapsible heading in the admin, with others sharing that group. A plain annotation like `"title"`: names and templates are unchanged. New sites group their settings into Social links and Typography.
 
 ### Fixed

@@ -7,6 +7,8 @@ import { urlToPagePath } from '../services/urls.ts';
 import { ALLOWED_UPLOAD_EXTENSIONS } from '../media/filename.ts';
 import { resolveSiteSettings } from '../services/site-settings.ts';
 
+import type { ThemeSchemas } from '../services/validation.ts';
+
 export type CheckFindingKind = 'schema' | 'render-error' | 'missing-asset' | 'broken-link' | 'misplaced-media';
 
 export interface CheckFinding {
@@ -21,6 +23,38 @@ export interface CheckFinding {
 export interface CheckResult {
   ok: boolean;
   findings: CheckFinding[];
+  // Worth changing but not wrong - shown, never counted as a problem.
+  suggestions: string[];
+}
+
+// Link fields declared with format "uri", JSON Schema's word and
+// Granite's documented name before "url". Both still work, so this is a
+// suggestion, not a problem: themes drift to the one name over time.
+function uriFormatSuggestions(themeSchemas: ThemeSchemas): string[] {
+  const suggestions: string[] = [];
+  const visit = (where: string, schema: unknown, path: string) => {
+    if (!schema || typeof schema !== 'object') {
+      return;
+    }
+    const node = schema as { format?: unknown; properties?: Record<string, unknown>; items?: unknown };
+    if (node.format === 'uri') {
+      suggestions.push(`${where}: "${path}" uses "format": "uri". "url" is the name to use now (both work).`);
+    }
+    for (const [name, child] of Object.entries(node.properties ?? {})) {
+      visit(where, child, path ? `${path}.${name}` : name);
+    }
+    visit(where, node.items, path ? `${path}[]` : '[]');
+  };
+  for (const [type, schema] of Object.entries(themeSchemas.sections)) {
+    visit(`Section "${type}"`, schema, '');
+  }
+  for (const [type, schema] of Object.entries(themeSchemas.blocks)) {
+    visit(`Block "${type}"`, schema, '');
+  }
+  if (themeSchemas.settings) {
+    visit('Site settings', themeSchemas.settings, '');
+  }
+  return suggestions;
 }
 
 // A reference this project's own theme conventions actually produce:
@@ -199,5 +233,5 @@ export async function runSiteCheck(siteRoot: string): Promise<CheckResult> {
     }
   }
 
-  return { ok: findings.length === 0, findings };
+  return { ok: findings.length === 0, findings, suggestions: uriFormatSuggestions(booted.themeSchemas) };
 }
