@@ -15,16 +15,18 @@ theme/
   blocks/     *.liquid files, flat, one per block type, markup + embedded settings schema
   snippets/   *.liquid files, flat, no schema - reusable partials
   assets/     any static files (CSS, JS, images) - served as-is at /assets/<path>, subfolders preserved
-  root/       any static files - served as-is at the bare site root, subfolders preserved - see below
+  root/       optional - files that must sit at an exact root path (robots.txt, .well-known/) - served as-is at the bare site root - see below
   templates/  *.json files, flat, one per prebuilt page (a blog article, a product page, etc) - see below
   config/     site_settings.json, optional - the site-wide settings editors can change - see "Site settings"
 ```
 
 No subfolders inside `sections/`, `blocks/`, `layouts/`, or `snippets/`. Every component is exactly one file, named directly.
 
-## Root-level files (`robots.txt`, `.well-known/`, favicons, etc.)
+## Root-level files (`robots.txt`, `.well-known/`, verification files)
 
-Anything placed under `theme/root/` is mirrored verbatim at the site's bare root, not under `/assets/`: `theme/root/robots.txt` → `/robots.txt`, `theme/root/.well-known/security.txt` → `/.well-known/security.txt`, `theme/root/favicon.ico` → `/favicon.ico`. This is the one place a theme reaches outside the `/assets/` prefix - use it for the class of file that search engines, browsers, or third-party verification (Google Search Console's HTML-file method, Apple/Android app-link association files, etc.) require at an exact reserved path. A request that doesn't match anything under `theme/root/` falls straight through to normal page lookup, so this never shadows real content.
+Anything placed under `theme/root/` is mirrored verbatim at the site's bare root, not under `/assets/`: `theme/root/robots.txt` → `/robots.txt`, `theme/root/.well-known/security.txt` → `/.well-known/security.txt`. This is the one place a theme reaches outside the `/assets/` prefix - use it for the class of file that search engines, browsers, or third-party verification (Google Search Console's HTML-file method, Apple/Android app-link association files, etc.) require at an exact reserved path. A request that doesn't match anything under `theme/root/` falls straight through to normal page lookup, so this never shadows real content.
+
+**Favicons and other icons belong in `theme/assets/`, not here:** link them from the layout's `<head>` (`<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">`, `<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">`). Browsers use whatever the `<link>` names, so nothing needs to be at `/favicon.ico`. `theme/root/` is optional - create it only when a file genuinely must sit at an exact root path.
 
 Google's `<meta name="google-site-verification">` method needs no special handling at all - add the tag directly to `theme/layouts/theme.liquid` (or whichever layout renders `<head>`) like any other static markup.
 
@@ -80,7 +82,7 @@ None of the bullets above need `"additionalProperties"`, `"required"`, `"default
 
 `fontSize`'s `minimum`/`maximum` are the one exception - not optional boilerplate, `range` genuinely doesn't trigger without both. A custom display label uses the standard JSON Schema `"title"` keyword (`"title": "Section Heading"`) - omit it and the property key auto-humanizes instead (`backgroundImage` -> "Background Image").
 
-To group a long list of fields, give each one a `"group"`: `"group": "Background"`. The admin shows fields sharing a group together under a collapsible heading, ungrouped fields first, then each group in the order its first field appears (the first group starts open). Like `"title"`, it is a plain annotation: it changes only how the admin lays out the form, never the setting's name or how a template reads it. The same works in site settings.
+To group a long list of fields, give each one a `"group"`: `"group": "Background"`. The admin shows fields sharing a group together under a collapsible heading, ungrouped fields first, then each group in the order its first field appears (the first group starts open). Like `"title"`, it is a plain annotation: it changes only how the admin lays out the form, never the setting's name or how a template reads it. The same works in site settings. Group well: leave the fields an editor changes most (heading, text, main image or link) ungrouped at the top; only group once there are more than about five or six fields, with at least two in each group; name groups by what they affect with short nouns (`"Layout"`, `"Background"`, `"Button"`, `"Advanced"`), the same name for the same idea in every component; and put the most-used group first, since it starts open. Site settings group by part of the site: `"Header"`, `"Announcement bar"`, `"Footer"`, `"Social links"`, `"Contact"`, `"Typography"`.
 
 At the top level of a section or block schema, `"title"` and `"description"` name the component itself rather than one of its fields, and are what the admin's "Add a Section" dialog shows: one row per type, its title with the description beside it. Both are plain annotations (Ajv ignores them, `strict: false`), so neither affects validation, and both ride through the pipeline verbatim exactly as `allowedBlocks` does. With no `"title"` the row shows the raw type identifier (`image-band`); with no `"description"` the row shows a bare name and an editor has to guess what the type is for. Write the description as one short sentence about what the component **is**, not which fields it has - the fields are visible the moment it is added.
 

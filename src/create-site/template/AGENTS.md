@@ -22,10 +22,12 @@ theme/
   blocks/     *.liquid, flat, one per block type - markup + embedded settings schema
   snippets/   *.liquid, flat, no schema - small reusable partials, invoked with {% render %}
   assets/     design assets only (CSS, JS, icons, sprites) - served as-is at /assets/<path>. NOT content images: photographs and any image an editor would ever replace belong in media/, see "Images" below
-  root/       static files served at the bare site root (robots.txt, favicon.ico, etc.)
+  root/       optional - only files that must sit at an exact path at the site root (robots.txt, .well-known/, verification files). Favicons go in assets/, see below
   templates/  *.json, flat, optional - prebuilt starting pages an editor can pick from
   config/     site_settings.json, optional - the site-wide settings editors can change, see "Site settings"
 ```
+
+**Favicons and other icons go in `theme/assets/`,** linked from the layout's `<head>` - `<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">`, `<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">` - not in `theme/root/`. Browsers use whatever the `<link>` names, so the site root doesn't need them. `theme/root/` is optional: create it only for a file that genuinely must sit at an exact path at the site's root, such as `robots.txt`, something under `.well-known/`, or a verification file a service asks for by name.
 
 No subfolders inside `layouts/`, `sections/`, `blocks/`, or `snippets/` - one file, one component, named directly. The filename (without `.liquid`) is that component's type identifier and must match `^[a-z0-9][a-z0-9-]*$` (lowercase, digits, hyphens only). This exact string is what page content JSON uses in its own `"type"` field - they must match exactly.
 
@@ -140,7 +142,14 @@ Every setting is plain JSON Schema (`string`, `integer`, `number`, `boolean`, `a
 | (none) | `array` + `items.type: "string"` | Repeatable list of text lines, with add/remove/drag-to-reorder - `minItems`/`maxItems` bound how many lines the admin UI allows; `items.minLength`/`items.maxLength` apply per line |
 | (none) | `array` + `items.type: "object", items.format: "image"` | A gallery: a grid of image thumbnails, add via the media picker, remove/drag-to-reorder - `minItems`/`maxItems` bound how many images the admin UI allows. Each item is exactly `{ "url": "...", "focalX": 0.5, "focalY": 0.5 }`, the same shape a lone `format: "image"` field stores - **no other properties are supported on a gallery item** (see "This is a closed set" below) |
 
-**Grouping fields:** give related fields the same `"group": "Background"` and the admin shows them together under one collapsible heading - ungrouped fields first, then each group in the order its first field appears, the first group open. It works the same in sections, blocks and site settings, and changes only the admin's layout: the setting's name and how a template reads it stay the same. Worth doing once a component has more than a handful of fields.
+**Grouping fields:** give related fields the same `"group": "Background"` and the admin shows them together under one collapsible heading - ungrouped fields first, then each group in the order its first field appears, the first group open. It works the same in sections, blocks and site settings, and changes only the admin's layout: the setting's name and how a template reads it stay the same. How to group well:
+
+- **Leave the fields an editor changes most ungrouped, at the top** - a section's heading, text, main image or link - so they're visible without opening anything.
+- **Only group once there are more than about five or six fields,** and give each group at least two fields; a group of one is just an extra click.
+- **Group by what the fields affect:** `"Layout"`, `"Background"`, `"Button"`, `"Advanced"` - short nouns, sentence case.
+- **Use the same name for the same idea in every component** - always `"Background"`, never `"Background settings"` in one and `"Backdrop"` in another - so editors learn where things are once.
+- **Put the most-used group first,** since the first group is the one that starts open.
+- **Site settings group by part of the site:** `"Header"`, `"Announcement bar"`, `"Footer"`, `"Social links"`, `"Contact"`, `"Typography"`.
 
 A `format` on the wrong `type` (e.g. `image` on a `string`) is a mistake, not something the admin guesses around - it silently falls back to a plain widget for that type.
 
