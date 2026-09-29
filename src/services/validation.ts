@@ -52,7 +52,10 @@ const ajv = new Ajv({ allErrors: true, strict: false });
 // still isn't in this list, so it still warns - this only silences the
 // ones we ourselves tell theme authors to use, not unknown-format
 // warnings in general.
-for (const format of ['richtext', 'image', 'textarea', 'color', 'range', 'toggle', 'video']) {
+// "url" (the link field's documented name) and "uri" (its name before)
+// are hints too: a link is a site path like "/about" as often as a full
+// address, which a real uri check would reject.
+for (const format of ['richtext', 'image', 'textarea', 'color', 'range', 'toggle', 'video', 'url', 'uri']) {
   ajv.addFormat(format, true);
 }
 

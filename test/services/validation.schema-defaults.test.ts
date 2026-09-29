@@ -146,3 +146,18 @@ test('L1: an array field\'s default must satisfy its own items/minItems constrai
   assert.equal(requiredFieldsHaveValidDefaults(validSchema), true);
   assert.equal(requiredFieldsHaveValidDefaults(invalidSchema), false);
 });
+
+test('link fields: "url" and "uri" print no "unknown format" noise, and accept a site path as well as a full address', () => {
+  const warn = mock.method(console, 'warn', () => {});
+  try {
+    for (const format of ['url', 'uri']) {
+      for (const value of ['/about', 'https://example.com', 'mailto:hi@example.com', '#top']) {
+        const schema = { type: 'object', required: ['link'], properties: { link: { type: 'string', format, default: value } } };
+        assert.equal(requiredFieldsHaveValidDefaults(schema), true, `${format}: ${value}`);
+      }
+    }
+    assert.equal(warn.mock.calls.length, 0);
+  } finally {
+    warn.mock.restore();
+  }
+});
