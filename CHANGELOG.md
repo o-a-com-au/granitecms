@@ -4,11 +4,17 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-29
+
 ### Added
 
 - **Moving a page keeps links to it working.** Every internal link to the page, or to a page under it, is rewritten to the new address in live pages, drafts, menus and the site settings, in the same commit as the move (whole-value paths such as link fields and menu items, and `href`s in rich text; `?query`, `#fragment` and a trailing slash are kept). The 301 redirect is still added for links from elsewhere. `GET /v1/links?to=/a-page` lists what links to a page, for the admin to show before a delete.
 - **Link fields suggest the site's pages.** `"format": "url"` is the documented name for a link field (Shopify's word); in the admin it suggests the site's pages by title or path, stores the page's path, still takes any external, `mailto:`, `tel:` or `#anchor` address, and says which page a path reaches or that none is there. The menu item editor and the rich-text link dialog use the same field. `"format": "uri"`, the name before, still works, and `npm run check` now lists it under Suggestions, which never fail the check. Neither is enforced as a strict URI, so a site path such as `/about` is always accepted, and neither prints an "unknown format" warning.
 - **Field groups.** A `"group"` on a field in a section, block or site settings schema puts it under a collapsible heading in the admin, with others sharing that group. A plain annotation like `"title"`: names and templates are unchanged. New sites group their settings into Social links and Typography.
+
+### Changed
+
+- **AGENTS.md and the guides catch up.** New sites' AGENTS.md documents the `url` link field, field groups (with advice on grouping well), `theme/config/`, the rule that internal links are paths, `npm run check`'s Suggestions, and the current pull/push model (the old text said push never touches the theme). Favicons are now documented as belonging in `theme/assets/`, linked from the layout; `theme/root/` is optional and only for files that must sit at an exact root path. The content guide's `schemaVersion` is corrected to 7.
 
 ### Fixed
 
