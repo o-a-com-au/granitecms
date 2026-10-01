@@ -46,3 +46,28 @@ test('deleted pages are listed newest first with who deleted them, never moved o
     cleanup();
   }
 });
+
+test('only deletions from the last 90 days are listed', async () => {
+  const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
+  const before = { author: process.env.GIT_AUTHOR_DATE, committer: process.env.GIT_COMMITTER_DATE };
+  try {
+    writeAndCommit(siteRoot, 'content/pages/ancient.json', page('Ancient'));
+    writeAndCommit(siteRoot, 'content/pages/recent.json', page('Recent'));
+    const config = loadSiteConfig(siteRoot);
+    const longAgo = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString();
+    process.env.GIT_AUTHOR_DATE = longAgo;
+    process.env.GIT_COMMITTER_DATE = longAgo;
+    await deleteContent(config, 'pages/ancient.json', undefined, 'Delete Ancient', author);
+    delete process.env.GIT_AUTHOR_DATE;
+    delete process.env.GIT_COMMITTER_DATE;
+    await deleteContent(config, 'pages/recent.json', undefined, 'Delete Recent', author);
+
+    assert.deepEqual(listDeletedPages(config).map((entry) => entry.title), ['Recent']);
+  } finally {
+    process.env.GIT_AUTHOR_DATE = before.author;
+    process.env.GIT_COMMITTER_DATE = before.committer;
+    if (before.author === undefined) delete process.env.GIT_AUTHOR_DATE;
+    if (before.committer === undefined) delete process.env.GIT_COMMITTER_DATE;
+    cleanup();
+  }
+});

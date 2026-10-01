@@ -5,7 +5,7 @@ import { readFileAtRevision } from './git-history.ts';
 import { sanitisePath } from './path-safety.ts';
 import { pagePathToUrl } from './urls.ts';
 
-// Pages that were deleted and aren't back: what the admin's "Recently
+// Pages deleted in the last 90 days that aren't back: what the admin's "Recently
 // deleted" lists, each restorable from the commit just before it was
 // deleted (POST /v1/git/revert with ref and the page's path). Read from
 // git's own record of deletions, so nothing extra is stored - a delete
@@ -26,6 +26,9 @@ export interface DeletedPage {
 const FIELD_SEP = '\x1f';
 const RECORD_SEP = '\x1e';
 const DEFAULT_LIMIT = 50;
+// How far back "recently" reaches (agreed with the owner). Older deletions
+// can still be restored from git; they just aren't listed.
+const RECENT_DAYS = 90;
 
 function hasCommits(config: SiteConfig): boolean {
   try {
@@ -60,7 +63,7 @@ export function listDeletedPages(config: SiteConfig, limit = DEFAULT_LIMIT): Del
   }
   const raw = execFileSync(
     'git',
-    ['log', '--diff-filter=D', '--name-only', `--format=${RECORD_SEP}%P${FIELD_SEP}%an${FIELD_SEP}%aI`, '--', 'content/pages'],
+    ['log', `--since=${RECENT_DAYS} days ago`, '--diff-filter=D', '--name-only', `--format=${RECORD_SEP}%P${FIELD_SEP}%an${FIELD_SEP}%aI`, '--', 'content/pages'],
     { cwd: config.siteRoot, maxBuffer: 32 * 1024 * 1024 },
   ).toString('utf-8');
 

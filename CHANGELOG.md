@@ -4,9 +4,11 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-01
+
 ### Added
 
-- **`GET /v1/deleted-pages`** lists pages that were deleted and aren't back, newest first, with who deleted them and when, and the version to restore each from with `POST /v1/git/revert`. Read from git's own record of deletions; a moved page isn't a deletion, and a page that exists again (live or as a draft) isn't listed.
+- **`GET /v1/deleted-pages`** lists pages deleted in the last 90 days that aren't back, newest first, with who deleted them and when, and the version to restore each from with `POST /v1/git/revert`. Read from git's own record of deletions; a moved page isn't a deletion, and a page that exists again (live or as a draft) isn't listed.
 
 ## [0.8.0] - 2026-09-29
 
