@@ -61,6 +61,7 @@ const FS_USAGE_ALLOWLIST = new Set<string>([
   'services/menu-references.ts', // walks the agent-configured themeRoot; a request's handle is only ever a regex term, never a path
   'services/site-settings.ts', // one fixed file (content/settings.json), sanitisePath'd under the agent-configured contentRoot
   'services/links.ts', // walks agent-configured content/drafts/menus roots and the fixed settings file, each sanitisePath'd; a request's page path is only ever compared, never a path
+  'services/deleted-pages.ts', // checks whether a deleted page exists again, each path sanitisePath'd under the agent-configured content/drafts roots; paths come from git's own log, not requests
   'services/theme-files.ts', // every request path is shape-checked, then sanitisePath'd under the agent-configured themeRoot
   'services/pid-file.ts', // reads and writes server.pid under the agent-configured dataRoot, never a request path
   'site-sync/pull-site.ts', // a standalone CLI; every server-supplied path is shape-checked, then sanitisePath'd under the configured roots

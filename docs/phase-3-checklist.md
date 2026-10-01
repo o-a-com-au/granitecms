@@ -645,6 +645,14 @@ An MCP server for outside AI apps (Claude Desktop and similar), reached with per
 |---|---|---|
 | AF1 | Developer accounts have a plan (free/pro, default free), set by hand with `npm run set-plan -- <email> <free\|pro>` until billing exists; `/api/auth/me` and the Subscription page show it; migration 0003 adds `users.plan` | admin `test/routes/auth.test.ts` (me includes plan); `set-plan` run for real against the local admin |
 
+## Group AG: Rollback - Recently deleted (step 1 of activity and undo)
+
+Agreed with the owner: a site-wide rollback in three steps - Recently deleted, then a read-only Activity view, then safe Undo - before the in-app AI assistant. Every change is already a git commit, so this is mostly reading git's record.
+
+| # | Criterion | Proof |
+|---|---|---|
+| AG1 | GET /v1/deleted-pages lists deleted pages newest first with who and when, never moved or re-created ones, and each restores from its listed ref through POST /v1/git/revert | `test/services/deleted-pages.test.ts`, `test/routes/links.test.ts :: GET /v1/deleted-pages ...` |
+
 ## Future considerations (not scoped, for later discussion)
 
 Ideas raised in conversation that aren't part of any planned group - not decided, not estimated, just worth not losing.

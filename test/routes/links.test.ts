@@ -13,6 +13,23 @@ import { writeJson } from '../helpers/tmp-site.ts';
 const FIXTURE_SITE = join(import.meta.dirname, '..', 'fixtures', 'site');
 const TOKEN = 'links-test-token';
 
+test('GET /v1/deleted-pages answers with a list and needs a content token', async () => {
+  const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-deleted-'));
+  cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
+  execFileSync('git', ['init', '--quiet'], { cwd: siteRoot });
+  writeJson(siteRoot, 'vhost/site.config.json', { tokens: [{ hash: createHash('sha256').update(TOKEN).digest('hex'), scopes: ['content'] }] });
+  const app = buildServer(bootSite(siteRoot), loadServerConfig(siteRoot), { logger: false });
+  try {
+    const response = await app.inject({ method: 'GET', url: '/v1/deleted-pages', headers: { authorization: `Bearer ${TOKEN}` } });
+    assert.equal(response.statusCode, 200, response.body);
+    assert.deepEqual(response.json(), { pages: [] });
+    assert.equal((await app.inject({ method: 'GET', url: '/v1/deleted-pages' })).statusCode, 401);
+  } finally {
+    await app.close();
+    rmSync(siteRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+  }
+});
+
 test('GET /v1/links?to= lists what links to a page, needs a content token, and refuses anything but a page path', async () => {
   const siteRoot = mkdtempSync(join(tmpdir(), 'cms-agent-links-'));
   cpSync(FIXTURE_SITE, siteRoot, { recursive: true });
