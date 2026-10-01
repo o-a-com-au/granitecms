@@ -10,7 +10,7 @@ import { listDeletedPages } from '../../src/services/deleted-pages.ts';
 import { createTmpSiteRoot, writeAndCommit } from '../helpers/tmp-site.ts';
 
 const author = { name: 'Jane Editor', email: 'jane@example.com' };
-const page = (title: string) => JSON.stringify({ schemaVersion: 7, name: title, title, type: 'page', layout: 'theme', published: true, sections: [] });
+const page = (title: string) => JSON.stringify({ schemaVersion: 7, name: `${title} (name)`, title, type: 'page', layout: 'theme', published: true, sections: [] });
 
 test('deleted pages are listed newest first with who deleted them, never moved or re-created ones, and restore from the listed ref', async () => {
   const { siteRoot, cleanup } = createTmpSiteRoot({ git: true, contentDirs: true });
@@ -29,10 +29,10 @@ test('deleted pages are listed newest first with who deleted them, never moved o
 
     const deleted = listDeletedPages(config);
     assert.deepEqual(
-      deleted.map(({ path, url, title, deletedBy }) => ({ path, url, title, deletedBy })),
+      deleted.map(({ path, url, name, title, deletedBy }) => ({ path, url, name, title, deletedBy })),
       [
-        { path: 'pages/spring.json', url: '/spring', title: 'Spring Sale', deletedBy: 'Jane Editor' },
-        { path: 'pages/offers.json', url: '/offers', title: 'Old Offers', deletedBy: 'Jane Editor' },
+        { path: 'pages/spring.json', url: '/spring', name: 'Spring Sale (name)', title: 'Spring Sale', deletedBy: 'Jane Editor' },
+        { path: 'pages/offers.json', url: '/offers', name: 'Old Offers (name)', title: 'Old Offers', deletedBy: 'Jane Editor' },
       ],
       'a moved page and a re-created one are not listed',
     );

@@ -16,6 +16,8 @@ export interface DeletedPage {
   // Content-relative, e.g. "pages/old-offers.json".
   path: string;
   url: string;
+  // The page's name, as the admin's page tree shows it.
+  name: string;
   title: string;
   deletedAt: string;
   deletedBy: string;
@@ -47,14 +49,23 @@ function existsNow(config: SiteConfig, path: string): boolean {
   }
 }
 
-function titleAt(config: SiteConfig, ref: string, path: string): string | null {
+function nonEmpty(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' ? value : null;
+}
+
+// The page's name and title as they were at ref, each falling back to
+// the other (and to its address) when missing.
+function labelsAt(config: SiteConfig, ref: string, path: string, url: string): { name: string; title: string } {
+  let name: string | null = null;
+  let title: string | null = null;
   try {
     const page = JSON.parse(readFileAtRevision(config, ref, `content/${path}`).toString('utf-8')) as { title?: unknown; name?: unknown };
-    const title = typeof page.title === 'string' && page.title.trim() !== '' ? page.title : page.name;
-    return typeof title === 'string' && title.trim() !== '' ? title : null;
+    name = nonEmpty(page.name);
+    title = nonEmpty(page.title);
   } catch {
-    return null;
+    // Unreadable at ref: fall back to the address.
   }
+  return { name: name ?? title ?? url, title: title ?? name ?? url };
 }
 
 export function listDeletedPages(config: SiteConfig, limit = DEFAULT_LIMIT): DeletedPage[] {
@@ -91,7 +102,7 @@ export function listDeletedPages(config: SiteConfig, limit = DEFAULT_LIMIT): Del
       }
       const ref = parent;
       const url = pagePathToUrl(path.slice('pages/'.length));
-      deleted.push({ path, url, title: titleAt(config, ref, path) ?? url, deletedAt: date, deletedBy: author, ref });
+      deleted.push({ path, url, ...labelsAt(config, ref, path, url), deletedAt: date, deletedBy: author, ref });
       if (deleted.length >= limit) {
         return deleted;
       }
