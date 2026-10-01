@@ -4,6 +4,8 @@ All notable changes to this package are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-01
+
 ### Added
 
 - **`GET /v1/deleted-pages`** now also returns each page's `name` (as the admin's page tree shows it), alongside its `title`.

@@ -651,7 +651,7 @@ Agreed with the owner: a site-wide rollback in three steps - Recently deleted, t
 
 | # | Criterion | Proof |
 |---|---|---|
-| AG1 | GET /v1/deleted-pages lists pages deleted in the last 90 days, newest first with who and when, never moved or re-created ones, and each restores from its listed ref through POST /v1/git/revert | `test/services/deleted-pages.test.ts`, `test/routes/links.test.ts :: GET /v1/deleted-pages ...` |
+| AG1 | GET /v1/deleted-pages lists pages deleted in the last 90 days, newest first with name, title, who and when, never moved or re-created ones, and each restores from its listed ref through POST /v1/git/revert | `test/services/deleted-pages.test.ts`, `test/routes/links.test.ts :: GET /v1/deleted-pages ...` |
 
 ## Future considerations (not scoped, for later discussion)
 
